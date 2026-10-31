@@ -8,7 +8,7 @@ import type { Game, Ticket } from './game';
 import { load, save as persist, defaults, KEY, type Save } from './storage';
 import { MapView, type Pin, type Route } from './mapview';
 import { who, icon, ICONS, logoLDR, glyph, vanSvg, playerSvg, setPlayerLook, FURS, OUTFITS, DEFAULT_LOOK, type Who, type Look } from './art';
-import { cleanName, validName, setSex, agree, titre, NAME_MAX, ACCS, ACC_LABEL, FUR_LABEL, OUTFIT_LABEL, type Sex } from './player';
+import { cleanName, validName, setSex, agree, gx, NAME_MAX, ACCS, ACC_LABEL, FUR_LABEL, OUTFIT_LABEL, type Sex } from './player';
 import { facade, wrongText, foundText, miniScore, meterSvg } from './facade';
 import { Sound } from './audio';
 
@@ -74,14 +74,14 @@ function home() {
     <div class="h-left">
       <div class="brand">${logoLDR(46)}<div><div class="b1">Lyonnaise des Robinets</div><div class="b2">Agence d'Avignon · eau potable</div></div></div>
       <h1 class="title"><span>Capy</span> Dispatch</h1>
-      <p class="pitch">${say("Tu es {ordonnanceur|ordonnanceuse} à l'agence : fuites, compteurs, rendez-vous… Planifie la journée de ton équipe de capybaras dans les rues d'Avignon.")}</p>
+      <p class="pitch">${say("Tout juste {arrivé|arrivée} à l'agence d'Avignon, tu rejoins l'équipe de capybaras : fuites, compteurs, rendez-vous… dans toutes les rues de la ville.")}</p>
       <div class="h-btns">
         ${cont ? `<button class="btn primary big cta" id="h-cont">${glyph('play')}<span>Continuer <small>${dayName(g!.day)}</small></span></button>` : `<button class="btn primary big cta" id="h-new">${glyph('play')}<span>Jouer</span></button>`}
         <div class="row2">${cont ? `<button class="btn small" id="h-new">Nouvelle quinzaine</button>` : ''}<button class="btn small" id="h-set">${glyph('gear')}<span>Réglages</span></button><button class="btn small" id="h-cred">Crédits</button></div>
       </div>
       ${S.best.runs ? `<p class="best">Meilleure quinzaine : ${S.best.stars} ★ sur ${DAYS * 3} · rendement ${pct(S.best.yield)}</p>` : ''}
     </div>
-    ${S.player ? `<button class="h-me" id="h-me" aria-label="Modifier mon personnage"><span class="av">${me()}</span><span class="h-me-t"><b>${NM}</b><small>${cap1(titre())}</small></span>${glyph('edit')}</button>` : ''}
+    ${S.player ? `<button class="h-me" id="h-me" aria-label="Modifier mon personnage"><span class="av">${me()}</span><span class="h-me-t"><b>${NM}</b><small>Agence d'Avignon</small></span>${glyph('edit')}</button>` : ''}
   </div>`;
   fillNames($('#home'));
   $('#h-cont')?.addEventListener('click', () => enterGame());
@@ -109,7 +109,7 @@ function creator(after: () => void, first: boolean) {
   const upd = () => {
     $('#cr-capy').innerHTML = playerSvg(look); const n = cleanName(input.value);
     $('#cr-name').textContent = n || 'Ton prénom'; $('#cr-name').classList.toggle('ph', !n);
-    $('#cr-title').textContent = sex ? cap1(titre(sex)) : 'Lyonnaise des Robinets';
+    $('#cr-title').textContent = sex ? gx('Nouvel arrivant', 'Nouvelle arrivante', sex) : 'Agence d’Avignon';
     document.querySelectorAll<HTMLElement>('#create [data-sex]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.sex === sex)));
     document.querySelectorAll<HTMLElement>('#create [data-k]').forEach((grp) => grp.querySelectorAll<HTMLElement>('[data-v]').forEach((b) => b.setAttribute('aria-checked', String(look[grp.dataset.k as keyof Look] === b.dataset.v))));
     const ok = validName(input.value) && !!sex; $<HTMLButtonElement>('#cr-ok').disabled = !ok;
@@ -132,7 +132,7 @@ function confirmBox(title: string, text: string, ok: string, fn: () => void) {
 function settings() {
   const back = view();
   openOv(`<h2>Réglages</h2><div class="set">
-    ${S.player ? `<button class="me-row" id="s-me"><span class="av">${me()}</span><span><b>${NM}</b><small>${cap1(titre())}</small></span><span class="me-edit">${glyph('edit')} Modifier mon personnage</span></button>` : ''}
+    ${S.player ? `<button class="me-row" id="s-me"><span class="av">${me()}</span><span><b>${NM}</b><small>Agence d'Avignon</small></span><span class="me-edit">${glyph('edit')} Modifier mon personnage</span></button>` : ''}
     <label class="tg"><span>Bruitages</span><input type="checkbox" role="switch" id="s-sfx" ${S.settings.sfx ? 'checked' : ''}></label>
     <label class="tg"><span>Musique</span><input type="checkbox" role="switch" id="s-mus" ${S.settings.music ? 'checked' : ''}></label>
     <p class="muted">Règle de sécurité (appel gaz avant de creuser) : ${SAFETY_RULE === 'cap1' ? 'une erreur est possible, mais la journée est plafonnée à 1 étoile.' : 'la journée ne peut pas démarrer sans l’appel.'}</p>

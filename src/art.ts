@@ -194,7 +194,7 @@ function wrench(m: Mode) {
   return p(m, 'M78 84 L85 77 C83 74 84 70 87.6 68.6 L88.4 72.6 L91.6 73.4 L93.4 70.6 C95.6 73.6 94.6 78 91 79.4 L84 86.4Z', '#9AA9B8') +
     det(m, `<path d="M79.6 84.4 L86 78" stroke="#fff" stroke-width="1.2" opacity=".7" stroke-linecap="round"/>`) + e(m, 79.4, 86.6, 5.4, 4.6, C.furD);
 }
-function mic(m: Mode, col: string) { return det(m, `<path d="M28 66 C30 75 36 79 43 79" stroke="${P.ink}" stroke-width="1.9" fill="none" stroke-linecap="round"/><circle cx="44" cy="79" r="2.6" fill="${col}" stroke="#fff" stroke-width="1"/>`); }
+function mic(m: Mode, col: string) { return det(m, `<path d="M25.6 64 C27.6 74 35 79 43 79" stroke="${P.ink}" stroke-width="1.9" fill="none" stroke-linecap="round"/><circle cx="44" cy="79" r="2.6" fill="${col}" stroke="#fff" stroke-width="1"/>`); }
 // Player accessories (appearance options on the character screen)
 export type Acc = 'aucun' | 'lunettes' | 'noeud' | 'meche' | 'lavande';
 function accessory(m: Mode, a: Acc) {
@@ -214,11 +214,11 @@ let LOOK: Look = DEFAULT_LOOK;
 export function setPlayerLook(l: Look) { LOOK = l; }
 function playerLayer(m: Mode, l: Look) {
   const meche = l.acc === 'meche' ? accessory(m, 'meche') : '';
-  return capyFront(m) + polo(m, OUTFITS[l.outfit] ?? LDR.navy, false) + meche + headsetOn(m, LDR.navy) + mic(m, LDR.green) + (l.acc !== 'meche' ? accessory(m, l.acc) : '');
+  return capyFront(m) + polo(m, OUTFITS[l.outfit] ?? LDR.navy, false) + headsetOn(m, LDR.navy) + meche + mic(m, LDR.green) + (l.acc !== 'meche' ? accessory(m, l.acc) : '');
 }
 function layer(who: Who, m: Mode) {
   switch (who) {
-    case 'josette': return capyFront(m) + vest(m) + badge(m, CAPY_COL.josette, 'J') + helmet(m) + headsetOn(m);
+    case 'josette': return capyFront(m) + vest(m) + badge(m, CAPY_COL.josette, 'J') + headsetOn(m, '#E86A92', true) + helmet(m);
     case 'momo': return withFur(FURS.noisette, () => capyFront(m) + polo(m, LDR.navy) + badge(m, CAPY_COL.momo, 'M') + cap(m, LDR.blue));
     case 'lulu': return withFur(FURS.miel, () => capyFront(m) + vest(m, '#FF9A2E') + badge(m, CAPY_COL.lulu, 'L') + helmet(m, '#FFD23F') + wrench(m));
     case 'player': return withFur(FURS[LOOK.fur] ?? FUR_CARAMEL, () => playerLayer(m, LOOK));
@@ -230,7 +230,19 @@ function layer(who: Who, m: Mode) {
     default: return capyFront(m);
   }
 }
-function headsetOn(m: Mode, col = '#E86A92') { return det(m, `<path d="M25.5 60 C22 36 78 36 74.5 60" stroke="${col}" stroke-width="3.4" fill="none" stroke-linecap="round"/>`) + c(m, 25, 61, 5.6, col) + c(m, 75, 61, 5.6, col); }
+/** Headset: the band hugs the top of the head and passes behind the ears (ears and tuft are redrawn over it);
+ *  under a hard hat only the ends of the band and the ear cups show (helmet-mounted, drawn before the helmet). */
+const BAND = 'M24.4 58 C22.4 45 26.4 34.6 50 32.4 C73.6 34.6 77.6 45 75.6 58';
+function headsetOn(m: Mode, col = '#E86A92', hat = false) {
+  const w = 3.6;
+  const band = m === 'c'
+    ? `<path d="${BAND}" stroke="${col}" stroke-width="${w}" fill="none" stroke-linecap="round"/><path d="${BAND}" stroke="#fff" stroke-opacity=".35" stroke-width="1" fill="none" stroke-linecap="round" stroke-dasharray="0 9 30 200"/>`
+    : `<path d="${BAND}" stroke="${m === 'o' ? '#fff' : 'rgba(90,55,25,.28)'}" stroke-width="${w + OUT}" fill="none" stroke-linecap="round"/>`;
+  const ears = hat ? '' : det(m, `${e(m, 31, 38, 5, 4.4, C.furD)}${e(m, 69, 38, 5, 4.4, C.furD)}<ellipse cx="31.4" cy="38.8" rx="2.4" ry="2" fill="${C.ear}"/><ellipse cx="68.6" cy="38.8" rx="2.4" ry="2" fill="${C.ear}"/><path d="M45 35.5 q2 -4 4 -.5 q2 -4.5 4 0" fill="none" stroke="${C.furD}" stroke-width="1.6" stroke-linecap="round"/>`);
+  const cups = e(m, 24.6, 58.5, 4.8, 6.2, col) + e(m, 75.4, 58.5, 4.8, 6.2, col) +
+    det(m, `<ellipse cx="25.6" cy="58.5" rx="2.2" ry="3.8" fill="#000" opacity=".16"/><ellipse cx="74.4" cy="58.5" rx="2.2" ry="3.8" fill="#000" opacity=".16"/><ellipse cx="23.2" cy="56" rx="1.2" ry="2" fill="#fff" opacity=".55"/><ellipse cx="74" cy="56" rx="1.2" ry="2" fill="#fff" opacity=".55"/>`);
+  return band + ears + cups;
+}
 /** Player capy for a given look (character screen preview), without touching the saved look. */
 export function playerSvg(l: Look, cls = '') { const keep = LOOK; LOOK = l; try { return who('player', cls); } finally { LOOK = keep; } }
 /** Standalone character sticker (viewBox fits a 100x120 drawing). */
