@@ -15,12 +15,12 @@ test('first launch: character creation, then agreed copy and the name everywhere
   await page.fill('#cr-in', ''); await page.click('[data-sex=femme]'); await expect(page.locator('#cr-ok')).toBeDisabled(); // name missing
   await page.fill('#cr-in', '<img src=x onerror=alert(1)>'); expect((await page.inputValue('#cr-in')).length).toBeLessThanOrEqual(16);
   await page.fill('#cr-in', 'Zoé'); await expect(page.locator('#cr-name')).toHaveText('Zoé'); await expect(page.locator('#cr-title')).toHaveText('Nouvelle arrivante');
-  await page.click('[data-k=outfit] [data-v=bleu]'); await expect(page.locator('[data-k=outfit] [data-v=bleu]')).toHaveAttribute('aria-checked', 'true');
+  await page.click('[data-k=outfit] [data-v=combi]'); await expect(page.locator('[data-k=outfit] [data-v=combi]')).toHaveAttribute('aria-checked', 'true');
   await page.click('#cr-ok');
   await expect(page.locator('#h-me')).toContainText('Zoé'); await expect(page.locator('.pitch')).toContainText('Tout juste arrivée'); await expect(page.locator('#h-me')).not.toContainText(/ordonnanc/i); await expect(page.locator('.pitch')).not.toContainText(/ordonnanc/i); await expect(page.locator('#home')).not.toContainText(/sans pub|gratuit/i);
   await page.click('#h-new'); await expect(page.locator('.bubble')).toContainText("Bienvenue à l'agence, Zoé !"); await expect(page.locator('.duo .nt')).toHaveText('Zoé');
   await page.click('#b-go'); await expect(page.locator('.coach')).toContainText('Zoé'); await expect(page.locator('.t-day .av svg')).toHaveCount(1);
-  const save = await page.evaluate(() => JSON.parse(localStorage.getItem('capy-dispatch-v1')!).player); expect(save).toMatchObject({ name: 'Zoé', sex: 'femme', look: { outfit: 'bleu' } });
+  const save = await page.evaluate(() => JSON.parse(localStorage.getItem('capy-dispatch-v1')!).player); expect(save).toMatchObject({ name: 'Zoé', sex: 'femme', look: { outfit: 'combi' } });
   expect(await page.evaluate(() => document.body.innerText)).not.toMatch(INCLUSIVE);
   expect(e).toEqual([]);
 });

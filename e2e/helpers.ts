@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 /** Seeds a character (as if the creation screen was done) unless a save already exists. */
 export async function withPlayer(page: Page, name = 'Camille', sex: 'homme' | 'femme' = 'femme') {
-  await page.addInitScript(([n, s]) => { if (!localStorage.getItem('capy-dispatch-v1')) localStorage.setItem('capy-dispatch-v1', JSON.stringify({ player: { name: n, sex: s, look: { fur: 'noisette', acc: 'lavande', outfit: 'vert' } } })); }, [name, sex]);
+  await page.addInitScript(([n, s]) => { if (!localStorage.getItem('capy-dispatch-v1')) localStorage.setItem('capy-dispatch-v1', JSON.stringify({ player: { name: n, sex: s, look: { fur: 'noisette', acc: 'lavande', outfit: 'veste' } } })); }, [name, sex]);
 }
 export const errors = (page: Page) => { const e: string[] = []; page.on('pageerror', (x) => e.push(String(x))); page.on('console', (m) => { if (m.type() === 'error') e.push(m.text()); }); return e; };
 /** Every visible interactive element must offer a ≥ 44×44 px hit area (its own box, or a ::after hit-area extension). */

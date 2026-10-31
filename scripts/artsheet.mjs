@@ -12,7 +12,7 @@ await pg.evaluate(async () => {
   const box = (s, w = 120) => `<div style="width:${w}px">${s}</div>`;
   row(['josette', 'momo', 'lulu', 'chef', 'kevin', 'chat', 'ours', 'capydindon'].map((w) => box(A.who(w))).join(''));
   const looks = [];
-  for (const fur of Object.keys(A.FURS)) for (const acc of ['aucun', 'lunettes', 'noeud', 'meche', 'lavande']) looks.push({ fur, acc, outfit: ['marine', 'vert', 'bleu'][looks.length % 3] });
+  for (const fur of Object.keys(A.FURS)) for (const acc of ['aucun', 'lunettes', 'noeud', 'meche', 'lavande']) looks.push({ fur, acc, outfit: Object.keys(A.PLAYER_WEAR)[looks.length % 4] });
   row(looks.map((l) => box(A.playerSvg(l), 84)).join(''));
   row(box(A.vanSvg('fourgon'), 300) + box(A.vanSvg('ludospace'), 260) + box(A.logoLDR(90), 90));
   row(Object.keys(A.ICONS).map((k) => box(A.ICONS[k], 44)).join(''));

@@ -35,31 +35,40 @@ const withFur = <T,>(f: Fur, fn: () => T): T => { const keep = C; C = f; try { r
 const blushMarks = (x: number, y: number, rx = 5.5, ry = 3.4) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${C.blush}" opacity=".78"/><path d="M${x - 2.4} ${y - 1} l1.5 -1.4 M${x + .8} ${y - 1} l1.5 -1.4" stroke="#fff" stroke-width=".9" stroke-linecap="round" opacity=".85"/>`;
 
 /** A · "Onsen zen": front-facing sitting capybara, brick head, sleepy half-closed eyes (the mascot). */
-function capyFront(m: Mode) {
+/** Body silhouette: outfits are filled with this exact path, so they always match the sticker outline. */
+const BODY = 'M17 103 C15 86 27 74 50 74 C73 74 85 86 83 103 C82 113 70 117 50 117 C30 117 18 113 17 103Z';
+/** Boxy capybara head (flat top, straight sides, long blunt snout). */
+const HEAD = 'M25 46 C25 36 34 32.6 50 32.6 C66 32.6 75 36 75 46 L76.6 75 C77.4 88.6 66 95.4 50 95.4 C34 95.4 22.6 88.6 23.4 75 Z';
+/** Small round ears set high on the top corners (also redrawn over a headset band). */
+const capyEars = (m: Mode) => e(m, 29.4, 35.4, 4.6, 4, C.furD) + e(m, 70.6, 35.4, 4.6, 4, C.furD) +
+  det(m, `<ellipse cx="29.8" cy="36" rx="2.2" ry="1.8" fill="${C.ear}"/><ellipse cx="70.2" cy="36" rx="2.2" ry="1.8" fill="${C.ear}"/>`);
+function capyFront(m: Mode, wear?: () => string) {
   return [
-    p(m, 'M17 103 C15 86 27 74 50 74 C73 74 85 86 83 103 C82 113 70 117 50 117 C30 117 18 113 17 103Z', C.furD),
+    p(m, BODY, C.furD),
     det(m, `<path d="M24 104 C24 92 34 84 50 84 C66 84 76 92 76 104 C70 110 30 110 24 104Z" fill="${C.fur}" opacity=".55"/>
       <path d="M20 108 C30 116 70 116 80 108 C78 114 68 117 50 117 C32 117 22 114 20 108Z" fill="${C.deep}" opacity=".35"/>`),
+    wear && m === 'c' ? wear() : '',
     e(m, 33, 113, 8, 4.2, C.deep), e(m, 67, 113, 8, 4.2, C.deep),
     det(m, `<path d="M30 112.5v2.5M34 112.5v2.5M64 112.5v2.5M68 112.5v2.5" stroke="#4E2B16" stroke-width="1" stroke-linecap="round" opacity=".6"/>`),
-    e(m, 31, 38, 5, 4.4, C.furD), e(m, 69, 38, 5, 4.4, C.furD),
-    det(m, `<ellipse cx="31.4" cy="38.8" rx="2.4" ry="2" fill="${C.ear}"/><ellipse cx="68.6" cy="38.8" rx="2.4" ry="2" fill="${C.ear}"/>`),
-    p(m, 'M26 50 C26 39 36 35 50 35 C64 35 74 39 74 50 L78 72 C80 87 68 95 50 95 C32 95 20 87 22 72 Z', C.fur),
+    capyEars(m),
+    // boxy capybara head: flat top, near-straight sides widening a little toward the long blunt snout
+    p(m, HEAD, C.fur),
     det(m, `
-      <path d="M21.6 72 C21 86 32 94 50 94 C68 94 79 86 78.4 72 C75 84 66 89 50 89 C34 89 25 84 21.6 72Z" fill="${C.furD}" opacity=".6"/>
-      <ellipse cx="50" cy="42" rx="17" ry="5.5" fill="${C.furH}" opacity=".55"/>
-      <path d="M45 35.5 q2 -4 4 -.5 q2 -4.5 4 0" fill="none" stroke="${C.furD}" stroke-width="1.6" stroke-linecap="round"/>
-      <path d="M26 58 l-3 1.5 M26 62 l-3.5 .6 M74 58 l3 1.5 M74 62 l3.5 .6" stroke="${C.furD}" stroke-width="1.2" stroke-linecap="round" opacity=".7"/>
-      <path d="M29 69 C29 60 38 57 50 57 C62 57 71 60 71 69 C71.5 82 62 89 50 89 C38 89 28.5 82 29 69Z" fill="${C.muz}"/>
-      <path d="M31 75 C33 83 40 87 50 87 C60 87 67 83 69 75 C64 81 58 83 50 83 C42 83 36 81 31 75Z" fill="${C.furD}" opacity=".35"/>
-      <path d="M38 61.5 C42 59.5 58 59.5 62 61.5" stroke="${C.furH}" stroke-width="2" fill="none" stroke-linecap="round" opacity=".8"/>
-      <path d="M40 67.5 C42 62.5 58 62.5 60 67.5 C55 69.5 45 69.5 40 67.5Z" fill="${C.furD}" opacity=".45"/>
-      <ellipse cx="46.4" cy="66" rx="1.3" ry="2.3" fill="${C.nose}" transform="rotate(35 46.4 66)"/><ellipse cx="53.6" cy="66" rx="1.3" ry="2.3" fill="${C.nose}" transform="rotate(-35 53.6 66)"/>
-      <path d="M50 68.5 v5.7 M44.5 75 q2.8 3 5.5 -.6 q2.7 3.6 5.5 .6" stroke="${C.ink}" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-      <ellipse cx="36.8" cy="53.8" rx="4.1" ry="3.9" fill="${C.ink}"/>
-      <ellipse cx="63.2" cy="53.8" rx="4.1" ry="3.9" fill="${C.ink}"/>
-      <circle cx="38.3" cy="52.4" r="1.5" fill="#fff"/><circle cx="64.7" cy="52.4" r="1.5" fill="#fff"/><circle cx="35.2" cy="55.6" r=".7" fill="#fff" opacity=".85"/><circle cx="61.6" cy="55.6" r=".7" fill="#fff" opacity=".85"/>
-      ${blushMarks(27, 70)}${blushMarks(73, 70)}`),
+      <path d="M23.4 74 C22.8 88 34 94.6 50 94.6 C66 94.6 77.2 88 76.6 74 C73 85 64 90.4 50 90.4 C36 90.4 27 85 23.4 74Z" fill="${C.furD}" opacity=".55"/>
+      <path d="M31 36.6 C38 34.6 62 34.6 69 36.6" stroke="${C.furH}" stroke-width="3" fill="none" stroke-linecap="round" opacity=".6"/>
+      <path d="M45.4 34.6 q2 -3.6 4 -.4 q2 -4 4 0" fill="none" stroke="${C.furD}" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M25.4 57 l-2.6 1.2 M25.6 61.4 l-3 .6 M74.6 57 l2.6 1.2 M74.4 61.4 l3 .6" stroke="${C.furD}" stroke-width="1.2" stroke-linecap="round" opacity=".7"/>
+      <path d="M31.4 63.4 C31.4 56.6 40 54.6 50 54.6 C60 54.6 68.6 56.6 68.6 63.4 L69 79 C69 88.4 60.4 92.2 50 92.2 C39.6 92.2 31 88.4 31 79 Z" fill="${C.muz}"/>
+      <path d="M31.2 78 C32 86.4 40 90.2 50 90.2 C60 90.2 68 86.4 68.8 78 C64 84.6 57.6 86.4 50 86.4 C42.4 86.4 36 84.6 31.2 78Z" fill="${C.furD}" opacity=".32"/>
+      <path d="M38 57.8 C42 56.4 58 56.4 62 57.8" stroke="${C.furH}" stroke-width="2" fill="none" stroke-linecap="round" opacity=".85"/>
+      <path d="M38.4 65 C38.8 58.6 61.2 58.6 61.6 65 C56.4 67.6 43.6 67.6 38.4 65Z" fill="${C.furD}" opacity=".75"/><path d="M42 60.6 C46 59.6 54 59.6 58 60.6" stroke="#fff" stroke-opacity=".18" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+      <path d="M42.6 62.8 C44 61.2 46.6 61.4 47.4 63.2 M57.4 62.8 C56 61.2 53.4 61.4 52.6 63.2" stroke="${C.nose}" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+      <path d="M50 66.6 v5.6 M45.4 73 q2.3 2.6 4.6 -.2 q2.3 2.8 4.6 .2" stroke="${C.ink}" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <ellipse cx="34.8" cy="48.6" rx="3.7" ry="3.9" fill="${C.ink}"/>
+      <ellipse cx="65.2" cy="48.6" rx="3.7" ry="3.9" fill="${C.ink}"/>
+      <circle cx="36.1" cy="47.3" r="1.4" fill="#fff"/><circle cx="66.5" cy="47.3" r="1.4" fill="#fff"/><circle cx="33.4" cy="50.2" r=".65" fill="#fff" opacity=".85"/><circle cx="63.8" cy="50.2" r=".65" fill="#fff" opacity=".85"/>
+      <path d="M30.4 43.2 C32.4 42 36.6 42 38.6 43.4 M61.4 43.4 C63.4 42 67.6 42 69.6 43.2" stroke="${C.furD}" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".7"/>
+      ${blushMarks(27.4, 66.4, 4.8, 3.2)}${blushMarks(72.6, 66.4, 4.8, 3.2)}`),
   ].join('');
 }
 
@@ -163,14 +172,85 @@ function helmet(m: Mode, col = '#FFFFFF', logo = true) {
   return p(m, 'M29 43 C28 24 72 24 71 43 Z', col) + e(m, 50, 43, 27, 4.6, col) +
     det(m, `<path d="M33 41 C33 30 41 26 50 26 C59 26 67 30 67 41" fill="none" stroke="#000" stroke-opacity=".08" stroke-width="3"/><path d="M50 26 V41" stroke="#000" stroke-opacity=".1" stroke-width="3"/><ellipse cx="40" cy="31" rx="5" ry="2.6" fill="#fff" opacity=".7" transform="rotate(-25 40 31)"/>${logo ? `<path d="M50 30.5 C47.6 34 46.6 35.6 46.6 37 A3.4 3.4 0 0 0 53.4 37 C53.4 35.6 52.4 34 50 30.5Z" fill="${LDR.blue}"/><circle cx="50" cy="37.2" r="1.3" fill="${LDR.green}"/>` : ''}`);
 }
-function vest(m: Mode, col = '#E9F542') {
-  return p(m, 'M19 103 C19 95 25 89 31 88.5 C37 94 43 96.5 50 96.5 C57 96.5 63 94 69 88.5 C75 89 81 95 81 103 C80 112.5 69 116.6 50 116.6 C31 116.6 20 112.5 19 103Z', col) +
-    det(m, `<path d="M22.5 104 C31 108 69 108 77.5 104" stroke="#C9CED6" stroke-width="3.6" fill="none"/><path d="M22.5 104 C31 108 69 108 77.5 104" stroke="#fff" stroke-width="1.2" fill="none" opacity=".8"/><path d="M50 97 V116" stroke="#000" stroke-opacity=".12" stroke-width="1.4"/>`) +
-    e(m, 33, 113.4, 8, 4.2, C.deep) + e(m, 67, 113.4, 8, 4.2, C.deep);
+// Outfits are drawn under the head, filled with the body path itself (no floating shapes), with shading that
+// follows the round belly; the neckline is the chin line. Mirrored arm shapes give armholes or sleeves.
+const ARM_L = 'M18.4 91 C15.8 100.5 18.8 109.4 26.2 112.8 L35 111.6 C29.6 105.6 27.6 98 27.8 89.6 Z';
+const mirror = (d: string) => d.replace(/(-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)/g, (_, x, y) => `${+(100 - +x).toFixed(2)} ${y}`);
+const ARM_R = mirror(ARM_L);
+const roundShade = `<path d="M20 108 C30 116 70 116 80 108 C78 114 68 117 50 117 C32 117 22 114 20 108Z" fill="#000" opacity=".13"/><path d="M30 98 C36 95 64 95 70 98" stroke="#fff" stroke-opacity=".22" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+const stripe = (d: string, w = 3.4) => `<path d="${d}" stroke="#C9CED6" stroke-width="${w}" fill="none" stroke-linecap="round"/><path d="${d}" stroke="#fff" stroke-width="${w / 3}" fill="none" stroke-linecap="round" opacity=".85"/>`;
+/** Hi-vis vest: sleeveless (fur arms over it), V neck under the chin, two reflective bands curving round the belly. */
+function vestWear(col: string) {
+  return () => `<path d="${BODY}" fill="${col}"/>${roundShade}
+    <path d="M39 90.5 L50 101 L61 90.5 Z" fill="${C.fur}"/><path d="M39 90.5 L50 101 L61 90.5" stroke="#000" stroke-opacity=".12" stroke-width="1.2" fill="none"/>
+    ${stripe('M27.6 104.4 C37 109.6 63 109.6 72.4 104.4')}
+    <path d="M50 101 V116.8" stroke="#000" stroke-opacity=".14" stroke-width="1.3"/>
+    <path d="${ARM_L}" fill="${C.fur}"/><path d="${ARM_R}" fill="${C.fur}"/>
+    <path d="M27.8 89.6 C27.6 98 29.6 105.6 35 111.6 M72.2 89.6 C72.4 98 70.4 105.6 65 111.6" stroke="#000" stroke-opacity=".16" stroke-width="1.3" fill="none"/>
+    <path d="M18.4 91 C15.8 100.5 18.8 109.4 26.2 112.8 M81.6 91 C84.2 100.5 81.2 109.4 73.8 112.8" stroke="${C.furD}" stroke-width="2" fill="none" opacity=".7"/>`;
 }
+/** Work polo (sleeves in the same colour, seams following the arms), collar under the chin, logo patch, optional band. */
+function poloWear(col: string, band = true) {
+  const dark = col === LDR.navy;
+  return () => `<path d="${BODY}" fill="${col}"/>${roundShade}
+    <path d="M27.8 89.6 C27.6 98 29.6 105.6 35 111.6 M72.2 89.6 C72.4 98 70.4 105.6 65 111.6" stroke="${dark ? '#fff' : '#000'}" stroke-opacity="${dark ? '.14' : '.14'}" stroke-width="1.2" fill="none"/>
+    <path d="M35.6 91 L47.4 101.4 L50 96.6 L42.4 89.6Z M64.4 91 L52.6 101.4 L50 96.6 L57.6 89.6Z" fill="#fff" opacity="${dark ? '.95' : '.9'}" stroke="#000" stroke-opacity=".1" stroke-width=".6"/>
+    <circle cx="50" cy="102.6" r="1.1" fill="${dark ? '#fff' : LDR.navy}" opacity=".7"/><circle cx="50" cy="106.4" r="1.1" fill="${dark ? '#fff' : LDR.navy}" opacity=".7"/>
+    ${band ? stripe('M18.6 107.6 C30 113.4 70 113.4 81.4 107.6', 3.2) : ''}
+    <path d="M34.4 99 C36 97.4 39 97.4 40.4 99 C39 102 35.8 102 34.4 99Z" fill="${dark ? LDR.green : LDR.navy}" opacity=".9"/>`;
+}
+// ---- the player's outfits (character screen): each one hugs the body path, sleeves follow the arms
+const SEAM = 'M27.8 89.6 C27.6 98 29.6 105.6 35 111.6 M72.2 89.6 C72.4 98 70.4 105.6 65 111.6';
+const CUFF = 'M25.6 109.8 C28.6 111.6 31.6 111.6 34 110.4 M74.4 109.8 C71.4 111.6 68.4 111.6 66 110.4';
+/** Small sewn patch with our drop logo (left chest). */
+const patch = (x: number, y: number, bg = '#fff') => `<rect x="${x - 4}" y="${y - 3.4}" width="8" height="6.8" rx="1.8" fill="${bg}" stroke="#000" stroke-opacity=".12" stroke-width=".6"/><path d="M${x} ${y - 2.4} C${x - 1.4} ${y - .4} ${x - 2} ${y + .5} ${x - 2} ${y + 1.2} A2 2 0 0 0 ${x + 2} ${y + 1.2} C${x + 2} ${y + .5} ${x + 1.4} ${y - .4} ${x} ${y - 2.4}Z" fill="${LDR.blue}"/><circle cx="${x}" cy="${y + 1.3}" r=".75" fill="${LDR.green}"/>`;
+const sleeves = (col: string, seam: string, op = .16) => `<path d="${ARM_L}" fill="${col}"/><path d="${ARM_R}" fill="${col}"/><path d="${SEAM}" stroke="${seam}" stroke-opacity="${op}" stroke-width="1.2" fill="none"/>`;
+const hem = (op = .18) => `<path d="M21 109.6 C31 115.4 69 115.4 79 109.6" stroke="#000" stroke-opacity="${op}" stroke-width="1" fill="none" stroke-dasharray="1.6 1.4"/>`;
+/** Polo agence: navy, white collar points, placket with buttons, logo patch, piped sleeves. */
+const poloAgence = () => `<path d="${BODY}" fill="${LDR.navy}"/>${roundShade}${sleeves(LDR.navy, '#fff', .2)}
+  <path d="${CUFF}" stroke="${LDR.green}" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+  <path d="M47.8 98 V108.4 H52.2 V98" fill="#0B1D5C" stroke="#fff" stroke-opacity=".25" stroke-width=".7"/><circle cx="50" cy="103" r=".95" fill="#fff"/><circle cx="50" cy="106.4" r=".95" fill="#fff"/>
+  <path d="M35.6 91 L47.4 101.4 L50 96.6 L42.4 89.6Z M64.4 91 L52.6 101.4 L50 96.6 L57.6 89.6Z" fill="#fff" stroke="#000" stroke-opacity=".12" stroke-width=".6" stroke-linejoin="round"/>
+  ${patch(38.6, 101.6)}${hem(.3)}`;
+/** Veste agence: green softshell, navy stand collar under the chin, zip with pull, slanted pockets, navy cuffs. */
+const vesteAgence = () => `<path d="${BODY}" fill="${LDR.green}"/>${roundShade}${sleeves(LDR.green, '#000', .2)}
+  <path d="${CUFF}" stroke="${LDR.navy}" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <path d="M33.6 94.6 C40 99.4 60 99.4 66.4 94.6" stroke="${LDR.navy}" stroke-width="3.4" fill="none" stroke-linecap="round"/>
+  <path d="M50 97.8 V116.8" stroke="${LDR.navy}" stroke-width="1.5"/><path d="M50 97.8 V116.8" stroke="#fff" stroke-width=".5" stroke-dasharray=".8 .9" opacity=".7"/><rect x="48.9" y="99" width="2.2" height="4" rx="1" fill="#C9CED6" stroke="${LDR.navy}" stroke-width=".5"/>
+  <path d="M33.2 105.2 L39.6 108.2 M66.8 105.2 L60.4 108.2" stroke="${LDR.navy}" stroke-width="1.6" stroke-linecap="round" opacity=".75"/>
+  ${patch(39, 101, '#fff')}${hem(.22)}`;
+/** Gilet haute visibilité over a navy polo: navy sleeves, armholes, V neck with the collar, two curved reflective bands. */
+const giletHV = () => `<path d="${BODY}" fill="#E4F23C"/>${roundShade}
+  <path d="M38.6 89.4 L50 101.6 L61.4 89.4Z" fill="${LDR.navy}"/><path d="M40.6 89.4 L46 95.6 L50 92.6 L54 95.6 L59.4 89.4Z" fill="#fff"/>
+  <path d="M38.6 89.4 L50 101.6 L61.4 89.4" stroke="#B8C41E" stroke-width="1.4" fill="none"/>
+  ${stripe('M28.4 102.4 C37.6 107 62.4 107 71.6 102.4', 3)}${stripe('M28.8 109 C37.6 113.6 62.4 113.6 71.2 109', 3)}
+  <path d="M50 101.6 V116.8" stroke="#000" stroke-opacity=".14" stroke-width="1.2"/>
+  ${sleeves(LDR.navy, '#fff', .18)}<path d="${SEAM}" stroke="#B8C41E" stroke-width="1.6" fill="none"/>
+  ${patch(41.6, 97.6, LDR.navy)}`;
+/** Combinaison de travail: brand blue coverall, zip, chest pocket with flap, belt seam, reflective band on the sleeves. */
+const combi = () => `<path d="${BODY}" fill="${'#2D72C9'}"/>${roundShade}${sleeves('#2D72C9', '#000', .2)}
+  <path d="M19 103.6 C21.6 104.6 24.4 105.8 27.6 105.8 M81 103.6 C78.4 104.6 75.6 105.8 72.4 105.8" stroke="#C9CED6" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <path d="M38.6 90.2 L50 98.4 L61.4 90.2" stroke="#1F5AA6" stroke-width="2.6" fill="none" stroke-linejoin="round"/>
+  <path d="M50 98.4 V116.8" stroke="#1F5AA6" stroke-width="1.5"/><rect x="48.9" y="100" width="2.2" height="3.8" rx="1" fill="#C9CED6"/>
+  <path d="M29.6 108.6 C37 111.4 63 111.4 70.4 108.6" stroke="#1F5AA6" stroke-width="2.2" fill="none"/>
+  <rect x="54.6" y="99.2" width="9" height="7.6" rx="1.6" fill="#3B82D6" stroke="#1F5AA6" stroke-width=".8"/><path d="M54.6 101.6 H63.6" stroke="#1F5AA6" stroke-width=".8"/>
+  ${patch(39.4, 102.6)}`;
+export const PLAYER_WEAR: Record<string, { label: string; col: string; wear: () => string }> = {
+  polo: { label: 'Polo agence', col: LDR.navy, wear: poloAgence },
+  veste: { label: 'Veste agence', col: LDR.green, wear: vesteAgence },
+  gilet: { label: 'Gilet haute visibilité', col: '#E4F23C', wear: giletHV },
+  combi: { label: 'Combinaison', col: '#2D72C9', wear: combi },
+};
+/** Torso thumbnail of an outfit (option picker on the character screen). */
+export function outfitThumb(k: string) {
+  const w = PLAYER_WEAR[k] ?? PLAYER_WEAR.polo;
+  return withFur(FURS.caramel, () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="14 88.5 72 29" aria-hidden="true"><path d="${BODY}" fill="#fff" stroke="#fff" stroke-width="5"/>${w.wear()}<path d="M26 50 C26 39 36 35 50 35 C64 35 74 39 74 50 L78 72 C80 87 68 95 50 95 C32 95 20 87 22 72 Z" fill="${C.fur}"/><path d="M29 69 C29 60 38 57 50 57 C62 57 71 60 71 69 C71.5 82 62 89 50 89 C38 89 28.5 82 29 69Z" fill="${C.muz}"/>${e('c', 33, 113, 8, 4.2, C.deep)}${e('c', 67, 113, 8, 4.2, C.deep)}</svg>`);
+}
+/** Chef's shirt: same polo cut without band, pale. */
+const shirtWear = () => poloWear('#F4F1EA', false);
 const tie = (m: Mode) => p(m, 'M46 95 L54 95 L52 99 L55 110 L50 114 L45 110 L48 99 Z', '#3E5C9A');
 const bow = (m: Mode) => p(m, 'M50 92 L39 86 C36 90 36 96 39 99 Z', '#E8344E') + p(m, 'M50 92 L61 86 C64 90 64 96 61 99 Z', '#E8344E') + c(m, 50, 92.5, 3.6, '#B71F35');
-function glasses(m: Mode) { return det(m, `<circle cx="36.8" cy="54" r="7" fill="none" stroke="${P.ink}" stroke-width="2"/><circle cx="63.2" cy="54" r="7" fill="none" stroke="${P.ink}" stroke-width="2"/><path d="M43.8 53 H56.2" stroke="${P.ink}" stroke-width="2"/>`); }
+function glasses(m: Mode) { return det(m, `<circle cx="34.8" cy="48.8" r="6.6" fill="#fff" fill-opacity=".12" stroke="${P.ink}" stroke-width="2"/><circle cx="65.2" cy="48.8" r="6.6" fill="#fff" fill-opacity=".12" stroke="${P.ink}" stroke-width="2"/><path d="M41.4 48 Q50 45.6 58.6 48" stroke="${P.ink}" stroke-width="2" fill="none"/>`); }
 const badge = (m: Mode, col: string, letter: string) => c(m, 64, 104, 6.4, col) + det(m, `<text x="64" y="107.6" text-anchor="middle" font-family="Fredoka, sans-serif" font-weight="700" font-size="9.5" fill="#fff">${letter}</text>`);
 
 export type Who = CapyId | 'chef' | 'kevin' | 'chat' | 'ours' | 'capydindon' | 'capy' | 'player';
@@ -181,20 +261,11 @@ function cap(m: Mode, col: string) {
     det(m, `<path d="M33 46 C40 52 60 52 67 46 C60 48.6 40 48.6 33 46Z" fill="#000" opacity=".22"/><path d="M50 28.6 V44" stroke="#000" stroke-opacity=".12" stroke-width="2.4"/><ellipse cx="40" cy="33" rx="4.6" ry="2.2" fill="#fff" opacity=".35" transform="rotate(-25 40 33)"/><circle cx="50" cy="28.4" r="1.8" fill="#000" opacity=".2"/>
       <path d="M56.5 33.5 C55 35.8 54.2 37 54.2 38 A2.3 2.3 0 0 0 58.8 38 C58.8 37 58 35.8 56.5 33.5Z" fill="${LDR.blue}"/><circle cx="56.5" cy="38.2" r=".9" fill="${LDR.green}"/>`);
 }
-/** Polo in a brand colour, with collar and a reflective band (Momo and the player). */
-function polo(m: Mode, col: string, band = true) {
-  const dark = col === LDR.navy;
-  return p(m, 'M19 103 C19 94 26 88.5 33 88 C38 92 44 94 50 94 C56 94 62 92 67 88 C74 88.5 81 94 81 103 C80 112.5 69 116.6 50 116.6 C31 116.6 20 112.5 19 103Z', col) +
-    det(m, `<path d="M38 89.6 L50 99 L62 89.6 L57 89 L50 95.4 L43 89Z" fill="#fff" opacity="${dark ? '.95' : '.9'}"/><circle cx="50" cy="102.4" r="1.1" fill="${dark ? '#fff' : LDR.navy}" opacity=".7"/><circle cx="50" cy="106.2" r="1.1" fill="${dark ? '#fff' : LDR.navy}" opacity=".7"/>
-      ${band ? `<path d="M21.6 109 C31 112.6 69 112.6 78.4 109" stroke="#C9CED6" stroke-width="3.2" fill="none"/><path d="M21.6 109 C31 112.6 69 112.6 78.4 109" stroke="#fff" stroke-width="1" fill="none" opacity=".85"/>` : ''}
-      <path d="M33 98.6 C34.6 97 37.6 97 39 98.6 C37.6 101.6 34.4 101.6 33 98.6Z" fill="${dark ? LDR.green : LDR.navy}" opacity=".9"/>`) +
-    e(m, 33, 113.4, 8, 4.2, C.deep) + e(m, 67, 113.4, 8, 4.2, C.deep);
-}
 function wrench(m: Mode) {
   return p(m, 'M78 84 L85 77 C83 74 84 70 87.6 68.6 L88.4 72.6 L91.6 73.4 L93.4 70.6 C95.6 73.6 94.6 78 91 79.4 L84 86.4Z', '#9AA9B8') +
     det(m, `<path d="M79.6 84.4 L86 78" stroke="#fff" stroke-width="1.2" opacity=".7" stroke-linecap="round"/>`) + e(m, 79.4, 86.6, 5.4, 4.6, C.furD);
 }
-function mic(m: Mode, col: string) { return det(m, `<path d="M25.6 64 C27.6 74 35 79 43 79" stroke="${P.ink}" stroke-width="1.9" fill="none" stroke-linecap="round"/><circle cx="44" cy="79" r="2.6" fill="${col}" stroke="#fff" stroke-width="1"/>`); }
+function mic(m: Mode, col: string) { return det(m, `<path d="M24.6 62 C26 72.6 32 78.6 39.6 79.6" stroke="${P.ink}" stroke-width="1.9" fill="none" stroke-linecap="round"/><circle cx="40.6" cy="79.6" r="2.6" fill="${col}" stroke="#fff" stroke-width="1"/>`); }
 // Player accessories (appearance options on the character screen)
 export type Acc = 'aucun' | 'lunettes' | 'noeud' | 'meche' | 'lavande';
 function accessory(m: Mode, a: Acc) {
@@ -207,23 +278,24 @@ function accessory(m: Mode, a: Acc) {
   }
 }
 export interface Look { fur: string; acc: Acc; outfit: string }
-export const OUTFITS: Record<string, string> = { marine: LDR.navy, vert: LDR.green, bleu: LDR.blue };
-export const DEFAULT_LOOK: Look = { fur: 'caramel', acc: 'aucun', outfit: 'marine' };
+/** Outfit keys and their main colour (validation, swatches). Old v0.2 keys are migrated in player.ts. */
+export const OUTFITS: Record<string, string> = Object.fromEntries(Object.keys(PLAYER_WEAR).map((k) => [k, PLAYER_WEAR[k].col]));
+export const DEFAULT_LOOK: Look = { fur: 'caramel', acc: 'aucun', outfit: 'polo' };
 let LOOK: Look = DEFAULT_LOOK;
 /** The player's dispatcher capy: polo in a brand colour, headset with microphone, one accessory. */
 export function setPlayerLook(l: Look) { LOOK = l; }
 function playerLayer(m: Mode, l: Look) {
   const meche = l.acc === 'meche' ? accessory(m, 'meche') : '';
-  return capyFront(m) + polo(m, OUTFITS[l.outfit] ?? LDR.navy, false) + headsetOn(m, LDR.navy) + meche + mic(m, LDR.green) + (l.acc !== 'meche' ? accessory(m, l.acc) : '');
+  return capyFront(m, (PLAYER_WEAR[l.outfit] ?? PLAYER_WEAR.polo).wear) + headsetOn(m, LDR.navy) + meche + mic(m, LDR.green) + (l.acc !== 'meche' ? accessory(m, l.acc) : '');
 }
 function layer(who: Who, m: Mode) {
   switch (who) {
-    case 'josette': return capyFront(m) + vest(m) + badge(m, CAPY_COL.josette, 'J') + headsetOn(m, '#E86A92', true) + helmet(m);
-    case 'momo': return withFur(FURS.noisette, () => capyFront(m) + polo(m, LDR.navy) + badge(m, CAPY_COL.momo, 'M') + cap(m, LDR.blue));
-    case 'lulu': return withFur(FURS.miel, () => capyFront(m) + vest(m, '#FF9A2E') + badge(m, CAPY_COL.lulu, 'L') + helmet(m, '#FFD23F') + wrench(m));
+    case 'josette': return capyFront(m, vestWear('#E9F542')) + badge(m, CAPY_COL.josette, 'J') + headsetOn(m, '#E86A92', true) + helmet(m);
+    case 'momo': return withFur(FURS.noisette, () => capyFront(m, poloWear(LDR.navy)) + badge(m, CAPY_COL.momo, 'M') + cap(m, LDR.blue));
+    case 'lulu': return withFur(FURS.miel, () => capyFront(m, vestWear('#FF9A2E')) + badge(m, CAPY_COL.lulu, 'L') + helmet(m, '#FFD23F') + wrench(m));
     case 'player': return withFur(FURS[LOOK.fur] ?? FUR_CARAMEL, () => playerLayer(m, LOOK));
-    case 'chef': return capyFront(m) + p(m, 'M19 103 C19 94 26 88.5 33 88 C38 92 44 94 50 94 C56 94 62 92 67 88 C74 88.5 81 94 81 103 C80 112.5 69 116.6 50 116.6 C31 116.6 20 112.5 19 103Z', '#F4F1EA') + tie(m) + glasses(m) + e(m, 33, 113.4, 8, 4.2, C.deep) + e(m, 67, 113.4, 8, 4.2, C.deep);
-    case 'kevin': return capyFront(m) + headsetOn(m, '#5B8DEF') + mic(m, '#5B8DEF');
+    case 'chef': return capyFront(m, shirtWear()) + tie(m) + glasses(m);
+    case 'kevin': return capyFront(m, poloWear('#E3EEFB', false)) + headsetOn(m, '#5B8DEF') + mic(m, '#5B8DEF');
     case 'chat': return catBody(m) + bow(m);
     case 'ours': return bearBody(m) + helmet(m, GDF.red, false) + det(m, `<rect x="40" y="33" width="20" height="5" rx="2.5" fill="#fff"/>`);
     case 'capydindon': return dindonBody(m);
@@ -232,15 +304,15 @@ function layer(who: Who, m: Mode) {
 }
 /** Headset: the band hugs the top of the head and passes behind the ears (ears and tuft are redrawn over it);
  *  under a hard hat only the ends of the band and the ear cups show (helmet-mounted, drawn before the helmet). */
-const BAND = 'M24.4 58 C22.4 45 26.4 34.6 50 32.4 C73.6 34.6 77.6 45 75.6 58';
+const BAND = 'M24 56 C22.2 41 27.4 30.6 50 29.8 C72.6 30.6 77.8 41 76 56';
 function headsetOn(m: Mode, col = '#E86A92', hat = false) {
   const w = 3.6;
   const band = m === 'c'
     ? `<path d="${BAND}" stroke="${col}" stroke-width="${w}" fill="none" stroke-linecap="round"/><path d="${BAND}" stroke="#fff" stroke-opacity=".35" stroke-width="1" fill="none" stroke-linecap="round" stroke-dasharray="0 9 30 200"/>`
     : `<path d="${BAND}" stroke="${m === 'o' ? '#fff' : 'rgba(90,55,25,.28)'}" stroke-width="${w + OUT}" fill="none" stroke-linecap="round"/>`;
-  const ears = hat ? '' : det(m, `${e(m, 31, 38, 5, 4.4, C.furD)}${e(m, 69, 38, 5, 4.4, C.furD)}<ellipse cx="31.4" cy="38.8" rx="2.4" ry="2" fill="${C.ear}"/><ellipse cx="68.6" cy="38.8" rx="2.4" ry="2" fill="${C.ear}"/><path d="M45 35.5 q2 -4 4 -.5 q2 -4.5 4 0" fill="none" stroke="${C.furD}" stroke-width="1.6" stroke-linecap="round"/>`);
-  const cups = e(m, 24.6, 58.5, 4.8, 6.2, col) + e(m, 75.4, 58.5, 4.8, 6.2, col) +
-    det(m, `<ellipse cx="25.6" cy="58.5" rx="2.2" ry="3.8" fill="#000" opacity=".16"/><ellipse cx="74.4" cy="58.5" rx="2.2" ry="3.8" fill="#000" opacity=".16"/><ellipse cx="23.2" cy="56" rx="1.2" ry="2" fill="#fff" opacity=".55"/><ellipse cx="74" cy="56" rx="1.2" ry="2" fill="#fff" opacity=".55"/>`);
+  const ears = hat ? '' : det(m, `${capyEars('c')}<path d="M45.4 34.6 q2 -3.6 4 -.4 q2 -4 4 0" fill="none" stroke="${C.furD}" stroke-width="1.6" stroke-linecap="round"/>`);
+  const cups = e(m, 24.2, 56.5, 4.8, 6.2, col) + e(m, 75.8, 56.5, 4.8, 6.2, col) +
+    det(m, `<ellipse cx="25.2" cy="56.5" rx="2.2" ry="3.8" fill="#000" opacity=".16"/><ellipse cx="74.8" cy="56.5" rx="2.2" ry="3.8" fill="#000" opacity=".16"/><ellipse cx="22.8" cy="54" rx="1.2" ry="2" fill="#fff" opacity=".55"/><ellipse cx="74.4" cy="54" rx="1.2" ry="2" fill="#fff" opacity=".55"/>`);
   return band + ears + cups;
 }
 /** Player capy for a given look (character screen preview), without touching the saved look. */

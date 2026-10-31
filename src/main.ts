@@ -7,8 +7,8 @@ import * as G from './game';
 import type { Game, Ticket } from './game';
 import { load, save as persist, defaults, KEY, type Save } from './storage';
 import { MapView, type Pin, type Route } from './mapview';
-import { who, icon, ICONS, logoLDR, glyph, vanSvg, playerSvg, setPlayerLook, FURS, OUTFITS, DEFAULT_LOOK, type Who, type Look } from './art';
-import { cleanName, validName, setSex, agree, gx, NAME_MAX, ACCS, ACC_LABEL, FUR_LABEL, OUTFIT_LABEL, type Sex } from './player';
+import { who, icon, ICONS, logoLDR, glyph, vanSvg, playerSvg, outfitThumb, setPlayerLook, FURS, OUTFITS, DEFAULT_LOOK, type Who, type Look } from './art';
+import { cleanName, validName, setSex, agree, gx, NAME_MAX, ACCS, ACC_LABEL, FUR_LABEL, OUTFIT_LABEL, OUTFIT_SHORT, type Sex } from './player';
 import { facade, wrongText, foundText, miniScore, meterSvg } from './facade';
 import { Sound } from './audio';
 
@@ -94,14 +94,16 @@ function creator(after: () => void, first: boolean) {
   stop(); closeOv(); showView('create'); snd.music(0);
   const cur = S.player; let sex: Sex | null = cur?.sex ?? null; const look: Look = { ...(cur?.look ?? DEFAULT_LOOK) };
   const radios = (k: string, opts: string[], label: (v: string) => string, sw?: (v: string) => string) => `<div class="${sw ? 'sw' : 'chips'}" role="radiogroup" data-k="${k}">${opts.map((v) => `<button type="button" role="radio" data-v="${v}" aria-label="${label(v)}"${sw ? ` style="--sw:${sw(v)}"` : ''}>${sw ? '<i></i>' : label(v)}</button>`).join('')}</div>`;
+  // outfit picker: a torso thumbnail of each outfit + its short name
+  const outfits = `<div class="th" role="radiogroup" aria-labelledby="l-out" data-k="outfit">${Object.keys(OUTFITS).map((v) => `<button type="button" role="radio" data-v="${v}" aria-label="${OUTFIT_LABEL[v] ?? v}">${outfitThumb(v)}<span>${OUTFIT_SHORT[v] ?? v}</span></button>`).join('')}</div>`;
   $('#create').innerHTML = `<div class="cr">
-    <div class="cr-prev"><div class="cr-sun"></div><div class="cr-capy" id="cr-capy"></div><div class="cr-podium"></div><div class="cr-tag"><b id="cr-name"></b><span id="cr-title"></span></div></div>
+    <div class="cr-prev"><div class="cr-stage"><div class="cr-capy" id="cr-capy"></div><div class="cr-podium"></div></div><div class="cr-tag"><b id="cr-name"></b><span id="cr-title"></span></div></div>
     <form class="cr-form" id="cr-form" autocomplete="off">
       <p class="kicker">${first ? 'Avant ta première journée' : 'Réglages'}</p>
       <h1>${first ? 'Ton personnage' : 'Modifier mon personnage'}</h1>
       <label class="fld"><span class="fl">Prénom</span><input id="cr-in" name="prenom" type="text" maxlength="${NAME_MAX}" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="done" placeholder="Ton prénom" aria-describedby="cr-hint"></label>
-      <div class="fld"><span class="fl" id="l-sex">Je suis</span><div class="seg" role="radiogroup" aria-labelledby="l-sex"><button type="button" role="radio" data-sex="homme">Un homme</button><button type="button" role="radio" data-sex="femme">Une femme</button></div></div>
-      <div class="fld"><span class="fl">Pelage</span>${radios('fur', Object.keys(FURS), (v) => FUR_LABEL[v] ?? v, (v) => FURS[v].fur)}<span class="fl fl2">Tenue</span>${radios('outfit', Object.keys(OUTFITS), (v) => OUTFIT_LABEL[v] ?? v, (v) => OUTFITS[v])}</div>
+      <div class="fld"><span class="fl" id="l-sex">Je suis</span><div class="seg" role="radiogroup" aria-labelledby="l-sex"><button type="button" role="radio" data-sex="homme">Un homme</button><button type="button" role="radio" data-sex="femme">Une femme</button></div><span class="fl fl2">Pelage</span>${radios('fur', Object.keys(FURS), (v) => FUR_LABEL[v] ?? v, (v) => FURS[v].fur)}</div>
+      <div class="fld"><span class="fl" id="l-out">Tenue</span>${outfits}</div>
       <div class="fld"><span class="fl">Accessoire</span>${radios('acc', ACCS, (v) => ACC_LABEL[v as keyof typeof ACC_LABEL])}</div>
       <div class="cr-go"><p class="cr-hint" id="cr-hint" aria-live="polite"></p>${first ? '' : '<button type="button" class="btn" id="cr-cancel">Annuler</button>'}<button type="submit" class="btn primary big" id="cr-ok">${first ? 'C’est parti !' : 'Enregistrer'}</button></div>
     </form></div>`;

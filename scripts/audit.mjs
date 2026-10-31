@@ -18,7 +18,7 @@ for (const [w, h] of SIZES) {
   await pg.goto(base); await pg.evaluate(() => document.fonts.ready);
   if (await pg.locator('#cr-in').count()) {
     await shot('00-creation-vide', 900);
-    await pg.fill('#cr-in', 'Camille'); await pg.click('[data-sex=femme]'); await pg.click('[data-k=acc] [data-v=lavande]'); await pg.click('[data-k=outfit] [data-v=vert]');
+    await pg.fill('#cr-in', 'Camille'); await pg.click('[data-sex=femme]'); await pg.click('[data-k=acc] [data-v=lavande]'); await pg.click('[data-k=outfit] [data-v=veste]');
     await shot('00b-creation-remplie', 300); await pg.click('#cr-ok');
   }
   await shot('01-accueil', 900);
