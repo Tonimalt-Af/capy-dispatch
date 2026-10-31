@@ -35,7 +35,7 @@ const save = () => { S.game = g; persist(S); };
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const SK_COL: Record<Skill, string> = { icc: '#F39A2B', reseau: '#2FA4A9', fuite: '#E86A92' };
-const pct = (v: number) => (v * 100).toFixed(1).replace('.', ',') + ' %';
+const pct = (v: number) => (v * 100).toFixed(1).replace('.', ',') + '\u202F%';
 const today = () => g!.today!;
 const dayName = (d: number) => `${WEEKDAYS[d % 5]} · Jour ${d + 1}/${DAYS}`;
 const addr = (t: Ticket) => `${t.num} ${SITES[t.site].street}`;
@@ -43,12 +43,14 @@ const addr = (t: Ticket) => `${t.num} ${SITES[t.site].street}`;
 if (S.player) { setSex(S.player.sex); setPlayerLook(S.player.look); }
 const NM = '<span class="pname"></span>';
 /** Game copy addressed to the player: agreed with their sex, '{nom}' becomes a slot filled by fillNames(). */
-const say = (s: string) => esc(agree(s)).replaceAll('{nom}', NM);
+// French typography: no line break inside « … » or before ? ! : ; (narrow no-break space).
+const nb = (s: string) => s.replace(/« /g, '«\u00A0').replace(/ »/g, '\u00A0»').replace(/ ([?!:;])/g, '\u202F$1');
+const say = (s: string) => esc(nb(agree(s))).replaceAll('{nom}', NM);
 function fillNames(root: ParentNode = document) { const n = S.player?.name ?? ''; root.querySelectorAll('.pname').forEach((e) => { e.textContent = n; }); }
 const me = (cls = '') => (S.player ? who('player', cls) : who('capy', cls));
 const cap1 = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 /** Very short block labels for the timeline (the full name is on the ticket card and in the details). */
-const TAG: Record<string, string> = { fuite_bt: 'Fuite', fuite_pc: 'Fuite cpt', prc: 'PRC', introuvable: 'Introuv.', resilie: 'Résilié', coupure: 'Coupure', debit_nuit: 'Débit nuit', purge: 'Purge', poteau: 'Poteau' };
+const TAG: Record<string, string> = { fuite_bt: 'Fuite', fuite_pc: 'Fuite cpt', prc: 'PRC', introuvable: 'Perdu', resilie: 'Résilié', coupure: 'Coupure', debit_nuit: 'Débit nuit', purge: 'Purge', poteau: 'Poteau' };
 const range = (t: Ticket, c?: CapyId) => { const J = JOBS[t.job]; const base = c ? slotsFor(CAPY[c], J) : J.dur; if (base === null) return '—'; const mx = base + G.maxExtra(t); return mx > base ? `${base}–${mx}` : `${base}`; };
 
 document.body.innerHTML = `<div id="app"><div class="view" id="home"></div><div class="view" id="create"></div><div class="view" id="game"></div></div>
@@ -56,7 +58,7 @@ document.body.innerHTML = `<div id="app"><div class="view" id="home"></div><div 
 <div class="rotate" id="rotate"><div class="rot-art">${who('momo')}<div class="phone"></div></div><h2>Tourne ton téléphone</h2><p>Le planning se joue à l'horizontale.</p></div>`;
 
 let toastT = 0;
-function toast(msg: string, ms = 2200, bad = false) { const t = $('#toast'); t.textContent = msg; t.classList.toggle('bad', bad); t.classList.add('show'); clearTimeout(toastT); toastT = window.setTimeout(() => t.classList.remove('show'), ms); }
+function toast(msg: string, ms = 2200, bad = false) { const t = $('#toast'); t.textContent = nb(msg); t.classList.toggle('bad', bad); t.classList.add('show'); clearTimeout(toastT); toastT = window.setTimeout(() => t.classList.remove('show'), ms); }
 function openOv(html: string, cls = '') { const c = $('#card'); c.className = `card ${cls}`; c.innerHTML = html; fillNames(c); $('#ov').classList.add('show'); c.scrollTop = 0; }
 function closeOv() { $('#ov').classList.remove('show'); }
 const ovOpen = () => $('#ov').classList.contains('show');
@@ -474,7 +476,7 @@ function closeScreen() {
       ${d.incidents ? '<p class="red"><b>Incident sécurité</b> (pas d’appel gaz avant de creuser) : journée plafonnée à 1 étoile.</p>' : ''}</div>
     <div class="c-right"><div class="kpis">
       ${kpi('van', String(d.done.length), 'tickets traités')}${kpi('clock', `${d.rdvKept.length}/${d.rdvToday.length}`, 'RDV tenus')}
-      ${kpi('drop', `${Math.round(d.m3)} + ${Math.round(d.night)} m³`, 'perdus (jour + nuit)')}${kpi('meter', pct(h.yield), 'rendement du jour')}
+      ${kpi('drop', `${Math.round(d.m3)} + ${Math.round(d.night)} m³`, 'perdus jour + nuit')}${kpi('meter', pct(h.yield), 'rendement')}
       <div>${icon('heart', 'ic s')}<b>${Math.round(g!.sat)} <small class="${dsat >= 0 ? 'green' : 'red'}">${dsat >= 0 ? '+' : ''}${dsat}</small></b><span>satisfaction</span></div>${kpi('lane', String(d.travel), 'h de trajet')}</div>
       <details><summary>Journal de la journée</summary><div class="log">${d.log.map((l) => `<p>${esc(l)}</p>`).join('')}</div></details>
       <button class="btn primary big" id="c-next">${d.day + 1 >= DAYS ? 'Bilan de la quinzaine' : 'Journée suivante'} ${glyph('right')}</button></div></div>`, 'wide');
