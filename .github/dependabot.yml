@@ -1,0 +1,6 @@
+# Weekly PRs to bump the SHA-pinned GitHub Actions (npm deps are updated by hand: the game has no runtime dependencies besides the font).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
