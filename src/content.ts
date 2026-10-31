@@ -135,13 +135,13 @@ export interface DaySpec { card: string; jobs: (JobId | [JobId, ...Risk[]])[]; r
 export const WEEKDAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
 export const DAYS_SPEC: DaySpec[] = [
   { card: 'calme', jobs: [['prc'], ['fuite_pc'], ['debit_nuit']], rdv: 1, events: [], objs: [{ id: 'done', n: 3 }, { id: 'rdv' }, { id: 'travel', n: 2 }],
-    chef: "Bienvenue à l'agence ! Trois tickets pour commencer. Chaque capy a son métier : touche un ticket, puis la ligne du bon capy." },
+    chef: "{Bienvenu|Bienvenue} à l'agence, {nom} ! Trois tickets pour commencer. Chaque capy a son métier : touche un ticket, puis la ligne du bon capy." },
   { card: 'pluie', jobs: [['prc', 'cafe'], ['prc'], ['introuvable'], ['resilie'], ['fuite_pc'], ['debit_nuit']], rdv: 2, events: [], objs: [{ id: 'done', n: 5 }, { id: 'rdv' }, { id: 'm3', n: 12 }],
     chef: "Deux RDV aujourd'hui, et un compteur que personne ne trouve. Regarde les icônes de risque : elles disent ce qui peut déborder." },
   { card: 'calme', jobs: [['fuite_bt'], ['coupure'], ['prc', 'absent'], ['debit_nuit'], ['resilie'], ['fuite_pc']], rdv: 1, events: [[3, 'voiture']], objs: [{ id: 'urgent' }, { id: 'rdv' }, { id: 'done', n: 4 }],
     chef: "Première urgence ! On ouvre la chaussée : pense à l'appel à l'exploitant gaz avant de creuser. Et il y a une coupure à annoncer 48 h avant." },
   { card: 'mistral', jobs: [['prc'], ['introuvable', 'chien'], ['debit_nuit'], ['fuite_pc'], ['resilie'], ['prc']], rdv: 2, events: [[1, 'riverain'], [5, 'mistral']], objs: [{ id: 'urgent' }, { id: 'm3', n: 30 }, { id: 'done', n: 5 }],
-    chef: "Mistral fort. Garde de la place dans le planning : en général, le téléphone sonne." },
+    chef: "Mistral fort, {nom}. Garde de la place dans le planning : en général, le téléphone sonne." },
   { card: 'calme', jobs: [['prc', 'absent'], ['prc'], ['debit_nuit'], ['introuvable', 'cave'], ['resilie'], ['fuite_pc', 'ruelle']], rdv: 2, events: [[2, 'avis_rate'], [5, 'eau_the']], objs: [{ id: 'rdv' }, { id: 'backlog' }, { id: 'done', n: 5 }],
     chef: "Vendredi ! Si l'avis a été envoyé mercredi, la coupure programmée est possible aujourd'hui. On solde ce qui traîne avant le week-end." },
   { card: 'marche', jobs: [['prc'], ['prc', 'cafe'], ['debit_nuit'], ['introuvable'], ['resilie', 'chien'], ['fuite_pc'], ['coupure']], rdv: 2, events: [[2, 'prefet']], objs: [{ id: 'rdv' }, { id: 'done', n: 6 }, { id: 'travel', n: 3 }],
@@ -151,9 +151,9 @@ export const DAYS_SPEC: DaySpec[] = [
   { card: 'orage', jobs: [['fuite_bt'], ['fuite_bt', 'ruelle'], ['prc'], ['debit_nuit'], ['resilie'], ['fuite_pc'], ['introuvable']], rdv: 1, events: [[4, 'poteau']], objs: [{ id: 'urgent' }, { id: 'done', n: 6 }, { id: 'backlog' }],
     chef: "L'orage a secoué le réseau : deux fuites urgentes. Chaque heure, ce sont des mètres cubes perdus. Priorité aux urgences." },
   { card: 'pluie', jobs: [['prc', 'cafe'], ['prc', 'absent'], ['prc'], ['debit_nuit'], ['debit_nuit'], ['introuvable', 'chien'], ['resilie'], ['fuite_pc']], rdv: 3, events: [[1, 'directeur'], [3, 'capydindon']], objs: [{ id: 'rdv' }, { id: 'done', n: 7 }, { id: 'sat' }],
-    chef: "Le directeur régional passe. Trois RDV, des abonnés à choyer. On montre ce que l'équipe sait faire." },
+    chef: "Le directeur régional passe. Trois RDV, des abonnés à choyer. On montre ce que l'équipe sait faire. Tu es {prêt|prête} ?" },
   { card: 'mistral', jobs: [['fuite_bt'], ['prc', 'absent'], ['prc'], ['debit_nuit'], ['introuvable', 'cave'], ['resilie'], ['fuite_pc', 'cafe'], ['purge']], rdv: 2, events: [[1, 'avis_rate'], [4, 'riverain']], objs: [{ id: 'urgent' }, { id: 'rdv' }, { id: 'done', n: 7 }],
-    chef: "Dernière journée de la quinzaine. Après, bilan avec moi : rendement, RDV, sécurité. Tout compte !" },
+    chef: "Dernière journée de la quinzaine, {nom}. Après, bilan avec moi : rendement, RDV, sécurité. Tout compte !" },
 ];
 
 /** Fictional subscriber names (common Provençal surnames, no real person intended). */

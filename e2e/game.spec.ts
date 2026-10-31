@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
+import { withPlayer, errors } from './helpers';
 
-const errors = (page: Page) => { const e: string[] = []; page.on('pageerror', (x) => e.push(String(x))); page.on('console', (m) => { if (m.type() === 'error') e.push(m.text()); }); return e; };
+test.beforeEach(async ({ page }) => { await withPlayer(page); });
 async function start(page: Page) { await page.goto('./'); await page.click('#h-new'); await expect(page.locator('#b-go')).toBeVisible(); await page.click('#b-go'); }
 async function tapAssignAll(page: Page) {
   for (let i = 0; i < 8; i++) { const t = page.locator('.tk').first(); if (!(await t.count())) break; await t.click(); await page.locator('.row.can .tl').first().click(); }

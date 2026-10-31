@@ -1,7 +1,7 @@
 // Renders app icons, favicon and social share image from the game's own SVG art (no external assets).
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
-const server = await createServer({ server: { port: 5198 }, logLevel: 'silent' }); await server.listen();
+const server = await createServer({ server: { port: 5198, hmr: false, watch: { ignored: ['**/*'] } }, logLevel: 'silent' }); await server.listen();
 const b = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome' });
 const pg = await b.newPage();
 await pg.goto('http://localhost:5198/'); await pg.evaluate(() => document.fonts.ready);
@@ -21,8 +21,11 @@ await render('public/icons/icon-192.png', 192, 192, icon(192));
 await render('public/icons/icon-512.png', 512, 512, icon(512));
 await render('public/icons/apple-touch-icon.png', 180, 180, icon(180, true));
 await render('public/icons/favicon-32.png', 32, 32, `<div style="width:32px;height:32px;display:grid;place-items:center"><div style="width:34px">HEAD(momo)</div></div>`);
-await render('public/og-image.jpg', 1200, 630, `<div style="position:relative;width:1200px;height:630px;overflow:hidden;font-family:Fredoka,sans-serif;background:radial-gradient(90% 120% at 80% 60%,#FFF3D9 0,#FBE7C2 40%,#CFE9F5 75%)">
- <div style="position:absolute;left:70px;top:150px"><div style="font-weight:700;font-size:150px;line-height:1;color:#fff;-webkit-text-stroke:22px #030F40;paint-order:stroke fill;text-shadow:0 11px 0 #030F40">Capy<br><span style="color:#A2C617">Dispatch</span></div>
- <div style="margin-top:30px;font-size:38px;font-weight:600;color:#030F40">Les fuites d'Avignon n'attendent pas.</div></div>
- <div style="position:absolute;right:20px;bottom:-10px;width:430px">CAPY(momo)</div></div>`, 'jpeg');
+// Share image: the AI key art (art-src/, see LICENSES.md) + title + « Jouer » pill. No tagline, by design.
+await render('public/og-image.jpg', 1200, 630, `<div style="position:relative;width:1200px;height:630px;overflow:hidden;font-family:Fredoka,sans-serif;background:#BFE3F5">
+ <img src="/art-src/home-keyart-gen.jpg" style="position:absolute;left:-60px;top:-45px;width:1320px;height:742px;object-fit:cover">
+ <div style="position:absolute;inset:0;background:linear-gradient(90deg,#FFF8ECf0 0,#FFF8ECd8 30%,#FFF8EC55 48%,#FFF8EC00 60%)"></div>
+ <div style="position:absolute;left:70px;top:120px;display:flex;flex-direction:column;align-items:flex-start;gap:44px">
+  <div style="font-weight:700;font-size:136px;line-height:.98;color:#fff;-webkit-text-stroke:22px #030F40;paint-order:stroke fill;text-shadow:0 11px 0 #030F40">Capy<br><span style="color:#A2C617">Dispatch</span></div>
+  <div style="display:flex;align-items:center;gap:18px;background:#A2C617;color:#030F40;font-weight:700;font-size:48px;padding:14px 46px 14px 36px;border-radius:999px;box-shadow:0 8px 0 #7A960C,0 14px 30px #0003"><svg width="40" height="40" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" fill="#030F40" stroke="#030F40" stroke-width="2" stroke-linejoin="round"/></svg>Jouer</div></div></div>`, 'jpeg');
 await b.close(); await server.close(); console.log('icons ok');

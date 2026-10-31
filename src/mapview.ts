@@ -1,7 +1,7 @@
 // The Avignon map: OpenStreetMap geometry (baked at build time, see LICENSES.md) drawn in our own sticker style.
 // SVG with pan (one finger / mouse drag) and zoom (pinch, wheel, +/− buttons). Pins keep a constant screen size.
 import { MAP, SITES, DEPOT, nodeXY, path } from './map';
-import { ICONS, who } from './art';
+import { ICONS, who, glyph, vanSvg, PALAIS_STICKER, PONT_STICKER } from './art';
 import type { CapyId } from './content';
 
 export interface Pin { id: string; site: number; icon: string; color: string; urgent: boolean; badge?: { color: string; n: number }; state: 'open' | 'planned' | 'done' | 'wait'; selected: boolean }
@@ -22,9 +22,11 @@ export class MapView {
   constructor(host: HTMLElement) {
     this.el = document.createElement('div'); this.el.className = 'map';
     this.el.innerHTML = `<svg xmlns="${NS}" class="map-svg" role="img" aria-label="Carte d'Avignon intra-muros">
-      <defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#BFE7F7"/><path d="M0 0 V6" stroke="#A6DBF0" stroke-width="3"/></pattern></defs>
+      <defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#BFE7F7"/><path d="M0 0 V6" stroke="#A6DBF0" stroke-width="3"/></pattern>
+        <pattern id="waves" width="44" height="26" patternUnits="userSpaceOnUse"><path d="M4 8 q5 -5 10 0 t10 0 M26 21 q5 -5 10 0 t10 0" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".75"/></pattern></defs>
       <rect x="-400" y="-400" width="${MAP.w + 800}" height="${MAP.h + 800}" fill="#E4F0D6"/>
       <path d="${MAP.paths.water}" fill="#8ED3EE" stroke="#fff" stroke-width="10" stroke-linejoin="round" paint-order="stroke"/>
+      <path d="${MAP.paths.water}" fill="url(#waves)"/>
       <path d="${MAP.paths.parks}" fill="#B5DE95" stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke"/>
       <path d="${ringPath()}" fill="#FBF1DC"/>
       <path d="${MAP.paths.squares}" fill="#F4E3C3"/>
@@ -36,19 +38,21 @@ export class MapView {
         <path d="${MAP.paths.s3}" stroke="#fff" stroke-width="4"/><path d="${MAP.paths.s2}" stroke="#FFFDF6" stroke-width="6"/>
         <path d="${MAP.paths.s1}" stroke="#fff" stroke-width="9"/><path d="${MAP.paths.s0}" stroke="#FFF6E0" stroke-width="15"/>
       </g>
-      <path d="${MAP.paths.walls}" fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="${MAP.paths.walls}" fill="none" stroke="#D8B47A" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="${MAP.paths.walls}" fill="none" stroke="#C49A5C" stroke-width="13" stroke-dasharray="7 9"/>
+      <path d="${MAP.paths.walls}" fill="none" stroke="#fff" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="${MAP.paths.walls}" fill="none" stroke="#E3C38C" stroke-width="18" stroke-dasharray="7 6" stroke-linejoin="round"/>
+      <path d="${MAP.paths.walls}" fill="none" stroke="#D2A866" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="${MAP.paths.walls}" fill="none" stroke="#E9CD98" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="wall-line"/>
+      <g class="towers"></g>
       <path d="${MAP.paths.palais}" fill="#F6C76E" stroke="#fff" stroke-width="7" stroke-linejoin="round" paint-order="stroke"/>
       <path d="${MAP.paths.pont}" fill="#E8C793" stroke="#fff" stroke-width="7" stroke-linejoin="round" paint-order="stroke"/>
       <g class="routes"></g><g class="labels"></g><g class="pins"></g><g class="capys"></g></svg>
-      <div class="map-ui"><button class="mbtn" data-z="in" aria-label="Zoomer">+</button><button class="mbtn" data-z="out" aria-label="Dézoomer">−</button><button class="mbtn" data-z="home" aria-label="Recentrer">◎</button></div>
+      <div class="map-ui"><button class="mbtn" data-z="in" aria-label="Zoomer">${glyph('plus')}</button><button class="mbtn" data-z="out" aria-label="Dézoomer">${glyph('minus')}</button><button class="mbtn" data-z="home" aria-label="Recentrer">${glyph('target')}</button></div>
       <a class="osm" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© les contributeurs d'OpenStreetMap</a>`;
     host.appendChild(this.el);
     this.svg = this.el.querySelector('svg')!;
     this.routes = this.svg.querySelector('.routes')!; this.pins = this.svg.querySelector('.pins')!; this.capys = this.svg.querySelector('.capys')!; this.labels = this.svg.querySelector('.labels')!;
     this.el.querySelectorAll<HTMLButtonElement>('.mbtn').forEach((b) => b.addEventListener('click', () => { const z = b.dataset.z; if (z === 'home') this.setVB({ ...HOME }); else this.zoom(z === 'in' ? 0.7 : 1 / 0.7); }));
-    this.gestures(); this.applyVB();
+    this.towers(); this.gestures(); this.applyVB();
     new ResizeObserver(() => this.applyVB()).observe(this.el);
   }
   /** px of SVG user units per screen pixel */
@@ -77,10 +81,22 @@ export class MapView {
     s.addEventListener('pointercancel', up);
     s.addEventListener('wheel', (e) => { e.preventDefault(); const [ux, uy] = this.toUser(e.clientX, e.clientY); this.zoom(e.deltaY > 0 ? 1.15 : 1 / 1.15, ux, uy); }, { passive: false });
   }
+  /** Round towers every ~140 units along the remparts (sticker style). */
+  private towers() { const wl = this.svg.querySelector<SVGPathElement>('.wall-line'); const g = this.svg.querySelector('.towers'); if (!wl || !g || !wl.getTotalLength) return;
+    let L = 0; try { L = wl.getTotalLength(); } catch { return; } const out: string[] = [];
+    for (let d = 40; d < L; d += 140) { const p = wl.getPointAtLength(d); out.push(`<g transform="translate(${p.x.toFixed(0)} ${p.y.toFixed(0)})"><circle r="13" fill="#fff"/><circle r="10" fill="#D2A866"/><circle r="10" fill="none" stroke="#E9CD98" stroke-width="4" stroke-dasharray="4 3.85"/><circle r="4.5" fill="#B88B4C"/></g>`); }
+    g.innerHTML = out.join(''); }
   private drawLabels() { const k = this.k();
-    this.labels.innerHTML = MAP.labels.filter((l) => l.k !== 'gare').map((l) => `<text x="${l.x}" y="${l.y}" font-size="${11 * k}" text-anchor="middle" class="mlabel${l.k === 'palais' || l.k === 'pont' ? ' big' : ''}" stroke-width="${4 * k}">${l.t}</text>`).join('')
-      + `<g transform="translate(${DX} ${DY}) scale(${k})"><rect x="-30" y="-11" width="60" height="22" rx="11" fill="#030F40" stroke="#fff" stroke-width="3"/><text x="0" y="5" font-size="12" text-anchor="middle" fill="#fff" class="dep">Agence</text></g>`; }
-  setPins(p: Pin[]) { this.lastPins = p; this.drawPins(p); }
+    const pins = this.lastPins.map((p) => SITES[p.site]); const near = (x: number, y: number) => pins.some((s) => Math.abs(s.x - x) < 34 * k && Math.abs(s.y - 8 * k - y) < 22 * k);
+    // declutter: landmarks first, then any label overlapping one already placed is skipped
+    const placed: [number, number, number, number][] = []; const lm0 = (k: string) => k === 'palais' || k === 'pont';
+    const shown = MAP.labels.filter((l) => l.k !== 'gare').map((l) => (l.k === 'pont' ? { ...l, y: l.y + 40 * k } : l)).sort((a, b) => Number(lm0(b.k)) - Number(lm0(a.k))).filter((l) => { const w = l.t.length * 6.5 * k, h = 15 * k; const box: [number, number, number, number] = [l.x - w / 2, l.y - h, l.x + w / 2, l.y + 3 * k];
+      if (placed.some((p) => box[0] < p[2] && box[2] > p[0] && box[1] < p[3] && box[3] > p[1])) return false; placed.push(lm0(l.k) ? [box[0], box[1] - 36 * k, box[2], box[3]] : box); return true; });
+    this.labels.innerHTML = shown.map((l) => { const lm = l.k === 'palais' ? PALAIS_STICKER : l.k === 'pont' ? PONT_STICKER : '';
+      const st = lm ? `<g transform="translate(${l.x} ${l.y - 24 * k}) scale(${0.62 * k})">${lm}</g>` : '';
+      return `${st}<text x="${l.x}" y="${l.y + (lm ? 2 * k : 0)}" font-size="${(lm ? 12.5 : 12) * k}" text-anchor="middle" class="mlabel${lm ? ' big' : ''}${!lm && near(l.x, l.y) ? ' dim' : ''}" stroke-width="${4 * k}">${l.t}</text>`; }).join('')
+      + `<g transform="translate(${DX} ${DY}) scale(${k})">${vanSvg('fourgon').replace('<svg ', '<svg x="-26" y="-22" width="52" height="29" ')}<rect x="-24" y="8" width="48" height="16" rx="8" fill="#030F40" stroke="#fff" stroke-width="2.5"/><text x="0" y="20.5" font-size="12" text-anchor="middle" fill="#fff" class="dep">Agence</text></g>`; }
+  setPins(p: Pin[]) { this.lastPins = p; this.drawPins(p); this.drawLabels(); }
   private drawPins(list: Pin[]) { const k = this.k();
     this.pins.innerHTML = [...list].sort((a, b) => Number(a.selected) - Number(b.selected)).map((p) => { const s = SITES[p.site]; const sc = (p.selected ? 1.35 : 1) * k;
       return `<g data-pin="${p.id}" class="pin ${p.state}${p.selected ? ' sel' : ''}${p.urgent ? ' urg' : ''}" transform="translate(${s.x} ${s.y}) scale(${sc})">

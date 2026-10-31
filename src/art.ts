@@ -21,7 +21,17 @@ const p = (m: Mode, d: string, fill: string) => `<path d="${d}" ${f(m, fill)}/>`
 const det = (m: Mode, s: string) => (m === 'c' ? s : '');
 
 // Capybara palette (warm reddish-brown, research: coarse reddish-brown fur, darker snout and legs)
-const C = { fur: '#B67A4A', furL: '#D19A66', furH: '#E7B98A', furD: '#94603A', deep: '#6E4024', muz: '#C48B5C', nose: '#4A2A18', ink: '#33200F', blush: '#F28C82', ear: '#E9957E' };
+type Fur = { fur: string; furL: string; furH: string; furD: string; deep: string; muz: string; nose: string; ink: string; blush: string; ear: string };
+let C: Fur;
+const FUR_CARAMEL: Fur = { fur: '#B67A4A', furL: '#D19A66', furH: '#E7B98A', furD: '#94603A', deep: '#6E4024', muz: '#C48B5C', nose: '#4A2A18', ink: '#33200F', blush: '#F28C82', ear: '#E9957E' };
+C = FUR_CARAMEL;
+/** Fur tones offered for the player's capybara (and used to tell the team apart a little). */
+export const FURS: Record<string, Fur> = {
+  caramel: FUR_CARAMEL,
+  noisette: { fur: '#8E5A36', furL: '#A9714A', furH: '#C99068', furD: '#734528', deep: '#52301A', muz: '#A06C45', nose: '#3A2012', ink: '#2A1A0D', blush: '#F28C82', ear: '#E08A74' },
+  miel: { fur: '#D29A5E', furL: '#E6B67C', furH: '#F4D3A4', furD: '#B47C44', deep: '#8A5A2E', muz: '#DDA872', nose: '#4A2A18', ink: '#33200F', blush: '#F59A8E', ear: '#F0A08A' },
+};
+const withFur = <T,>(f: Fur, fn: () => T): T => { const keep = C; C = f; try { return fn(); } finally { C = keep; } };
 const blushMarks = (x: number, y: number, rx = 5.5, ry = 3.4) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${C.blush}" opacity=".78"/><path d="M${x - 2.4} ${y - 1} l1.5 -1.4 M${x + .8} ${y - 1} l1.5 -1.4" stroke="#fff" stroke-width=".9" stroke-linecap="round" opacity=".85"/>`;
 
 /** A · "Onsen zen": front-facing sitting capybara, brick head, sleepy half-closed eyes (the mascot). */
@@ -163,13 +173,57 @@ const bow = (m: Mode) => p(m, 'M50 92 L39 86 C36 90 36 96 39 99 Z', '#E8344E') +
 function glasses(m: Mode) { return det(m, `<circle cx="36.8" cy="54" r="7" fill="none" stroke="${P.ink}" stroke-width="2"/><circle cx="63.2" cy="54" r="7" fill="none" stroke="${P.ink}" stroke-width="2"/><path d="M43.8 53 H56.2" stroke="${P.ink}" stroke-width="2"/>`); }
 const badge = (m: Mode, col: string, letter: string) => c(m, 64, 104, 6.4, col) + det(m, `<text x="64" y="107.6" text-anchor="middle" font-family="Fredoka, sans-serif" font-weight="700" font-size="9.5" fill="#fff">${letter}</text>`);
 
-export type Who = CapyId | 'chef' | 'kevin' | 'chat' | 'ours' | 'capydindon' | 'capy';
+export type Who = CapyId | 'chef' | 'kevin' | 'chat' | 'ours' | 'capydindon' | 'capy' | 'player';
 const CAPY_COL: Record<CapyId, string> = { josette: '#E86A92', momo: '#F39A2B', lulu: '#2FA4A9' };
+/** Base-cap with a front visor (Momo, interventions at the customer's: no hard hat indoors). */
+function cap(m: Mode, col: string) {
+  return p(m, 'M29 45 C28 27 72 27 71 45 Z', col) + e(m, 50, 45.5, 23, 4.2, col) + p(m, 'M33 46 C40 52 60 52 67 46 C60 48.6 40 48.6 33 46Z', col) +
+    det(m, `<path d="M33 46 C40 52 60 52 67 46 C60 48.6 40 48.6 33 46Z" fill="#000" opacity=".22"/><path d="M50 28.6 V44" stroke="#000" stroke-opacity=".12" stroke-width="2.4"/><ellipse cx="40" cy="33" rx="4.6" ry="2.2" fill="#fff" opacity=".35" transform="rotate(-25 40 33)"/><circle cx="50" cy="28.4" r="1.8" fill="#000" opacity=".2"/>
+      <path d="M56.5 33.5 C55 35.8 54.2 37 54.2 38 A2.3 2.3 0 0 0 58.8 38 C58.8 37 58 35.8 56.5 33.5Z" fill="${LDR.blue}"/><circle cx="56.5" cy="38.2" r=".9" fill="${LDR.green}"/>`);
+}
+/** Polo in a brand colour, with collar and a reflective band (Momo and the player). */
+function polo(m: Mode, col: string, band = true) {
+  const dark = col === LDR.navy;
+  return p(m, 'M19 103 C19 94 26 88.5 33 88 C38 92 44 94 50 94 C56 94 62 92 67 88 C74 88.5 81 94 81 103 C80 112.5 69 116.6 50 116.6 C31 116.6 20 112.5 19 103Z', col) +
+    det(m, `<path d="M38 89.6 L50 99 L62 89.6 L57 89 L50 95.4 L43 89Z" fill="#fff" opacity="${dark ? '.95' : '.9'}"/><circle cx="50" cy="102.4" r="1.1" fill="${dark ? '#fff' : LDR.navy}" opacity=".7"/><circle cx="50" cy="106.2" r="1.1" fill="${dark ? '#fff' : LDR.navy}" opacity=".7"/>
+      ${band ? `<path d="M21.6 109 C31 112.6 69 112.6 78.4 109" stroke="#C9CED6" stroke-width="3.2" fill="none"/><path d="M21.6 109 C31 112.6 69 112.6 78.4 109" stroke="#fff" stroke-width="1" fill="none" opacity=".85"/>` : ''}
+      <path d="M33 98.6 C34.6 97 37.6 97 39 98.6 C37.6 101.6 34.4 101.6 33 98.6Z" fill="${dark ? LDR.green : LDR.navy}" opacity=".9"/>`) +
+    e(m, 33, 113.4, 8, 4.2, C.deep) + e(m, 67, 113.4, 8, 4.2, C.deep);
+}
+function wrench(m: Mode) {
+  return p(m, 'M78 84 L85 77 C83 74 84 70 87.6 68.6 L88.4 72.6 L91.6 73.4 L93.4 70.6 C95.6 73.6 94.6 78 91 79.4 L84 86.4Z', '#9AA9B8') +
+    det(m, `<path d="M79.6 84.4 L86 78" stroke="#fff" stroke-width="1.2" opacity=".7" stroke-linecap="round"/>`) + e(m, 79.4, 86.6, 5.4, 4.6, C.furD);
+}
+function mic(m: Mode, col: string) { return det(m, `<path d="M28 66 C30 75 36 79 43 79" stroke="${P.ink}" stroke-width="1.9" fill="none" stroke-linecap="round"/><circle cx="44" cy="79" r="2.6" fill="${col}" stroke="#fff" stroke-width="1"/>`); }
+// Player accessories (appearance options on the character screen)
+export type Acc = 'aucun' | 'lunettes' | 'noeud' | 'meche' | 'lavande';
+function accessory(m: Mode, a: Acc) {
+  switch (a) {
+    case 'lunettes': return glasses(m);
+    case 'noeud': return p(m, 'M33 37 L23 31 C20.6 35 21 40 24 42.6 Z', '#FF77B0') + p(m, 'M33 37 L41 29.4 C44.4 32 45 37 42.6 40.6 Z', '#FF77B0') + c(m, 33, 37, 3.4, '#E84D8A');
+    case 'meche': return p(m, 'M44 37 C42 29 47 25 51 27 C50 30 52 31 55 29 C56.6 32 55 36 51 37 Z', C.furH) + det(m, `<path d="M47 34 C47 31 49 29.4 51 29.6" stroke="${C.furD}" stroke-width="1.2" fill="none" stroke-linecap="round"/>`);
+    case 'lavande': return det(m, `<path d="M70 50 C72 42 74 36 78 31" stroke="#5E8C4A" stroke-width="2" fill="none" stroke-linecap="round"/>${[0, 1, 2, 3, 4].map((i) => `<ellipse cx="${77 - i * 1.6}" cy="${31 + i * 3.4}" rx="2.4" ry="1.8" fill="#9B7FD1" stroke="#fff" stroke-width=".8"/>`).join('')}`);
+    default: return '';
+  }
+}
+export interface Look { fur: string; acc: Acc; outfit: string }
+export const OUTFITS: Record<string, string> = { marine: LDR.navy, vert: LDR.green, bleu: LDR.blue };
+export const DEFAULT_LOOK: Look = { fur: 'caramel', acc: 'aucun', outfit: 'marine' };
+let LOOK: Look = DEFAULT_LOOK;
+/** The player's dispatcher capy: polo in a brand colour, headset with microphone, one accessory. */
+export function setPlayerLook(l: Look) { LOOK = l; }
+function playerLayer(m: Mode, l: Look) {
+  const meche = l.acc === 'meche' ? accessory(m, 'meche') : '';
+  return capyFront(m) + polo(m, OUTFITS[l.outfit] ?? LDR.navy, false) + meche + headsetOn(m, LDR.navy) + mic(m, LDR.green) + (l.acc !== 'meche' ? accessory(m, l.acc) : '');
+}
 function layer(who: Who, m: Mode) {
   switch (who) {
-    case 'josette': case 'momo': case 'lulu': return capyFront(m) + vest(m) + badge(m, CAPY_COL[who], who[0].toUpperCase()) + helmet(m) + (who === 'josette' ? headsetOn(m) : '');
-    case 'chef': return capyFront(m) + tie(m) + glasses(m);
-    case 'kevin': return capyFront(m) + headsetOn(m, '#5B8DEF') + det(m, `<path d="M28 64 C30 74 36 78 42 78" stroke="${P.ink}" stroke-width="1.8" fill="none"/><circle cx="43" cy="78" r="2.4" fill="${P.ink}"/>`);
+    case 'josette': return capyFront(m) + vest(m) + badge(m, CAPY_COL.josette, 'J') + helmet(m) + headsetOn(m);
+    case 'momo': return withFur(FURS.noisette, () => capyFront(m) + polo(m, LDR.navy) + badge(m, CAPY_COL.momo, 'M') + cap(m, LDR.blue));
+    case 'lulu': return withFur(FURS.miel, () => capyFront(m) + vest(m, '#FF9A2E') + badge(m, CAPY_COL.lulu, 'L') + helmet(m, '#FFD23F') + wrench(m));
+    case 'player': return withFur(FURS[LOOK.fur] ?? FUR_CARAMEL, () => playerLayer(m, LOOK));
+    case 'chef': return capyFront(m) + p(m, 'M19 103 C19 94 26 88.5 33 88 C38 92 44 94 50 94 C56 94 62 92 67 88 C74 88.5 81 94 81 103 C80 112.5 69 116.6 50 116.6 C31 116.6 20 112.5 19 103Z', '#F4F1EA') + tie(m) + glasses(m) + e(m, 33, 113.4, 8, 4.2, C.deep) + e(m, 67, 113.4, 8, 4.2, C.deep);
+    case 'kevin': return capyFront(m) + headsetOn(m, '#5B8DEF') + mic(m, '#5B8DEF');
     case 'chat': return catBody(m) + bow(m);
     case 'ours': return bearBody(m) + helmet(m, GDF.red, false) + det(m, `<rect x="40" y="33" width="20" height="5" rx="2.5" fill="#fff"/>`);
     case 'capydindon': return dindonBody(m);
@@ -177,6 +231,8 @@ function layer(who: Who, m: Mode) {
   }
 }
 function headsetOn(m: Mode, col = '#E86A92') { return det(m, `<path d="M25.5 60 C22 36 78 36 74.5 60" stroke="${col}" stroke-width="3.4" fill="none" stroke-linecap="round"/>`) + c(m, 25, 61, 5.6, col) + c(m, 75, 61, 5.6, col); }
+/** Player capy for a given look (character screen preview), without touching the saved look. */
+export function playerSvg(l: Look, cls = '') { const keep = LOOK; LOOK = l; try { return who('player', cls); } finally { LOOK = keep; } }
 /** Standalone character sticker (viewBox fits a 100x120 drawing). */
 export function who(w: Who, cls = '') {
   const inner = `<g transform="translate(2.2 3.2)">${layer(w, 's')}</g>${layer(w, 'o')}${layer(w, 'c')}`;
@@ -226,3 +282,57 @@ export function logoLDR(size = 44) {
   <path d="M44.5 33 C42 37 40 40 40 42.5 A4.5 4.5 0 0 0 49 42.5 C49 40 47 37 44.5 33Z" fill="${LDR.blue}"/></g>
   <g fill="none" stroke-linecap="round"><path d="M30 54 C36 57.5 53 57.5 59 54" stroke="${LDR.blue}" stroke-width="3"/><path d="M34 50 C38 52.4 51 52.4 55 50" stroke="${LDR.blue}" stroke-width="3" opacity=".75"/><path d="M38.5 46.5 C41 47.8 48 47.8 50.5 46.5" stroke="${LDR.green}" stroke-width="3"/></g></svg>`;
 }
+
+/** Utility van in Lyonnaise des Robinets livery (silhouettes inspired by the large and small vans of real water
+ *  fleets; no maker badge, our own logo). Side view facing right. `kind`: 'fourgon' (high roof) or 'ludospace'. */
+export function vanSvg(kind: 'fourgon' | 'ludospace' = 'fourgon', cls = '') {
+  const big = kind === 'fourgon';
+  const body = big
+    ? 'M14 30 C14 22 19 18 27 18 H140 C148 18 152 21 156 27 L176 54 C184 56 190 61 190 70 V84 C190 89 187 92 182 92 H18 C15 92 12 89 12 86 Z'
+    : 'M20 44 C20 36 25 32 33 32 H120 C128 32 133 35 138 41 L156 58 C166 60 172 64 172 72 V84 C172 89 169 92 164 92 H24 C21 92 18 89 18 86 Z';
+  const win = big ? 'M147 30 L168 56 H147 Z' : 'M126 42 L148 60 H126 Z';
+  const wx = big ? [50, 158] : [50, 142];
+  const logo = `<g transform="translate(${big ? 38 : 30} ${big ? 24 : 39}) scale(${big ? .62 : .5})">${logoLDR(64).replace(/<svg[^>]*>/, '').replace('</svg>', '')}</g>`;
+  return `<svg class="${cls}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 110" aria-hidden="true">
+    <ellipse cx="100" cy="100" rx="86" ry="6" fill="rgba(90,55,25,.22)"/>
+    <path d="${body}" fill="#fff" stroke="#fff" stroke-width="10" stroke-linejoin="round"/>
+    ${big ? '<rect x="58" y="9" width="22" height="9" rx="4" fill="#fff" stroke="#fff" stroke-width="8"/><rect x="60" y="10" width="18" height="8" rx="3.5" fill="#FF9A2E"/><rect x="63" y="11.5" width="6" height="3" rx="1.5" fill="#FFE0A8"/>' : '<rect x="46" y="24" width="18" height="8" rx="3.5" fill="#fff" stroke="#fff" stroke-width="8"/><rect x="48" y="25" width="14" height="7" rx="3" fill="#FF9A2E"/>'}
+    <path d="${body}" fill="#FDFDFB" stroke="#E2DED6" stroke-width="2"/>
+    <path d="M13 ${big ? 70 : 74} C60 ${big ? 60 : 66} 120 ${big ? 82 : 82} 189 ${big ? 64 : 68} V84 C189 89 186 91.5 182 91.5 H18 C15 91.5 13 89 13 86Z" fill="${LDR.green}"/>
+    <path d="M13 ${big ? 66 : 70} C60 ${big ? 56 : 62} 120 ${big ? 78 : 78} 189 ${big ? 60 : 64}" stroke="${LDR.blue}" stroke-width="4" fill="none"/>
+    <path d="${win}" fill="#BFE4F5" stroke="#9FCBE3" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M${big ? 141 : 120} ${big ? 26 : 38} V88" stroke="#E2DED6" stroke-width="2"/>
+    
+    ${logo}
+    <text font-family="Fredoka, sans-serif" font-weight="700" font-size="${big ? 10.5 : 8.4}" fill="${LDR.navy}"><tspan x="${big ? 82 : 66}" y="${big ? 42 : 53}">Lyonnaise</tspan><tspan x="${big ? 82 : 66}" y="${big ? 54 : 63}">des Robinets</tspan></text>
+    <rect x="${big ? 180 : 162}" y="${big ? 66 : 70}" width="9" height="7" rx="3" fill="#FFE59A" stroke="#E2DED6" stroke-width="1.5"/>
+    <rect x="11" y="84" width="${big ? 180 : 162}" height="8" rx="4" fill="${LDR.navy}"/>
+    ${wx.map((x) => `<circle cx="${x}" cy="90" r="15" fill="#fff"/><circle cx="${x}" cy="90" r="12" fill="#2B2D33"/><circle cx="${x}" cy="90" r="5.5" fill="#C9CED6"/><circle cx="${x}" cy="90" r="2" fill="#7D8592"/>`).join('')}
+  </svg>`;
+}
+
+/** Plain UI glyphs (not stickers): rounded strokes in currentColor, for buttons. */
+const GLYPH: Record<string, string> = {
+  menu: '<path d="M5 7h14M5 12h14M5 17h14"/>', plus: '<path d="M12 5v14M5 12h14"/>', minus: '<path d="M5 12h14"/>',
+  target: '<circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/>',
+  left: '<path d="M14.5 5.5 8 12l6.5 6.5"/>', right: '<path d="M9.5 5.5 16 12l-6.5 6.5"/>', close: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+  pause: '<path d="M9 6v12M15 6v12"/>', play: '<path d="M8 5.5v13l10-6.5z" fill="currentColor"/>', skip: '<path d="M5.5 6v12l8-6zM18 6v12" fill="currentColor"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', cross: '<path d="M7 7l10 10M17 7 7 17"/>', info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.6v.2"/>',
+  gear: '<circle cx="12" cy="12" r="3.2"/><path d="M12 3.5v2.4M12 18.1v2.4M3.5 12h2.4M18.1 12h2.4M6 6l1.7 1.7M16.3 16.3 18 18M6 18l1.7-1.7M16.3 7.7 18 6"/>',
+  home: '<path d="M4.5 11 12 4.5 19.5 11M6.5 9.5V19h11V9.5"/>', edit: '<path d="M5 19l1-4L16 5l3 3L9 18z"/>', back: '<path d="M10 6 4 12l6 6M4.5 12H20"/>',
+  bolt: '<path d="M13 3 6 13.5h5L10 21l7-10.5h-5z" fill="currentColor"/>',
+};
+export const glyph = (k: string, cls = 'gl') => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${GLYPH[k] ?? ''}</svg>`;
+
+/** Small landmark stickers for the map (Palais des Papes, pont Saint-Bénézet), centred on 0,0, ~60 units wide. */
+export const PALAIS_STICKER = `<g stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">
+  <path d="M-30 18 V-6 H-22 V-12 H-16 V-6 H-6 V-14 L0 -26 L6 -14 V-6 H16 V-12 H22 V-6 H30 V18 Z" fill="#F2D49B"/>
+  <path d="M-30 -6 h4 v-4 h4 v4 M22 -6 h4 v-4 h4 v4" fill="none" stroke="#D9B06A" stroke-width="2.2" paint-order="normal"/>
+  <path d="M-4 18 V8 A4 4 0 0 1 4 8 V18 Z" fill="#8A5A34" stroke-width="2.5"/>
+  <path d="M-21 2 v6 M-14 2 v6 M14 2 v6 M21 2 v6" stroke="#B98A52" stroke-width="2.6" stroke-linecap="round" paint-order="normal"/>
+  <circle cx="0" cy="-8" r="2.6" fill="#B98A52" stroke-width="2"/>
+  <path d="M-3 -29 L0 -34 L3 -29" fill="#F5B82E" stroke-width="2.5"/></g>`;
+export const PONT_STICKER = `<g stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">
+  <path d="M-34 8 V-2 H34 V8 H26 A10 10 0 0 0 6 8 H2 A10 10 0 0 0 -18 8 H-22 A6 6 0 0 0 -34 8Z" fill="#EAD3A6"/>
+  <path d="M-6 -2 V-12 H4 V-2" fill="#EAD3A6"/><path d="M-6 -12 L-1 -17 L4 -12" fill="#D9774E" stroke-width="3"/>
+  <path d="M-34 -2 H34" stroke="#C9A66E" stroke-width="2" paint-order="normal"/></g>`;
