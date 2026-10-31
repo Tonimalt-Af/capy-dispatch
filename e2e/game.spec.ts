@@ -65,3 +65,14 @@ test('CSP meta is present and the service worker caches are namespaced', async (
   expect(csp).toContain("default-src 'self'");
   const sw = await (await page.request.get('./sw.js')).text(); expect(sw).toContain("P='capy-dispatch-'");
 });
+
+test('short landscape (Safari toolbars): the ticket tray and launch button stay on screen, rows scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 330 }); await start(page);
+  for (const [w, h] of [[844, 330], [667, 320], [932, 370]]) {
+    await page.setViewportSize({ width: w, height: h }); await page.waitForTimeout(400);
+    const r = await page.evaluate(() => ({ H: innerHeight, tks: [...document.querySelectorAll('.tk')].map((t) => t.getBoundingClientRect().bottom), go: document.querySelector('#p-go')!.getBoundingClientRect().bottom }));
+    expect(r.tks.length).toBeGreaterThan(0); for (const b of r.tks) expect(b).toBeLessThanOrEqual(r.H + 1); expect(r.go).toBeLessThanOrEqual(r.H + 1);
+    const last = page.locator('.tk').last(); await last.scrollIntoViewIfNeeded(); const bb = (await last.boundingBox())!; expect(bb.x + bb.width).toBeLessThanOrEqual(w + 1); expect(bb.y + bb.height).toBeLessThanOrEqual(h + 1);
+  }
+  const t = page.locator('.tk').last(); await t.scrollIntoViewIfNeeded(); await t.click(); await expect(t).toHaveClass(/sel/); await page.locator('.row.can .tl').first().click(); await expect(page.locator('.blk').first()).toBeVisible();
+});

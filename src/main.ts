@@ -258,7 +258,7 @@ function panel() {
     bottom = `<div class="feed">${d.log.slice(-3).map((l) => `<p>${esc(l)}</p>`).join('') || '<p class="muted">La tournée commence…</p>'}</div>
       <div class="ctrl"><button class="cbtn" id="r-pause" aria-label="Pause et modifier">${glyph('pause')}</button><button class="cbtn ${speed === 1 ? 'on' : ''}" id="r-x1" aria-pressed="${speed === 1}">x1</button><button class="cbtn ${speed === 2 ? 'on' : ''}" id="r-x2" aria-pressed="${speed === 2}">x2</button><button class="cbtn wide" id="r-skip">${glyph('skip')}<span>Prochaine décision</span></button></div>`;
   }
-  p.innerHTML = `<div class="scale"><div class="who-h"></div><div class="hours">${hours}</div></div>${rows}<div class="bottom">${bottom}</div>`;
+  p.innerHTML = `<div class="scale"><div class="who-h"></div><div class="hours">${hours}</div></div><div class="rows">${rows}</div><div class="bottom">${bottom}</div>`;
   const co = coach(); const host = $('#game .mapbox'); host.querySelector('.coach')?.remove(); if (co) { host.insertAdjacentHTML('beforeend', co); fillNames(host); }
   p.classList.toggle('editing', edit);
   bindPanel();

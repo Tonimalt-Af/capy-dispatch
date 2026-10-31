@@ -118,7 +118,9 @@ a{color:var(--ldr-blue-d)}
 .scale{display:flex;height:16px;flex:none}.who-h{width:108px;flex:none}
 .hours{position:relative;flex:1;font-size:var(--fs-xs);color:var(--ink-2)}.hours span{position:absolute;transform:translateX(2px)}.hours .end{transform:translateX(-100%)}
 .lunch-h{position:absolute;top:0;display:flex;justify-content:center}
-.row{position:relative;display:flex;flex:1;min-height:56px;max-height:84px;border-radius:var(--r-m);background:#fff;box-shadow:var(--sh-1);transition:opacity .2s,box-shadow .2s}
+/* rows share the height left above the ticket tray; if it is too short (Safari toolbars), they scroll and the tray stays visible */
+.rows{flex:1;min-height:0;display:flex;flex-direction:column;gap:var(--sp-1);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;padding:3px 3px 3px 0;margin:-3px -3px -3px 0}
+.row{position:relative;display:flex;flex:1 0 auto;min-height:56px;max-height:84px;border-radius:var(--r-m);background:#fff;box-shadow:var(--sh-1);transition:opacity .2s,box-shadow .2s}
 .row.can{box-shadow:0 0 0 3px #77B7FCcc,var(--sh-1)}.row.cannot{opacity:.42}.row.hover{box-shadow:0 0 0 4px var(--ldr-blue-d)}
 .row.shake{animation:shake .35s}
 @keyframes shake{20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
@@ -157,7 +159,7 @@ a{color:var(--ldr-blue-d)}
 .rdvband{position:absolute;top:-4px;bottom:-4px;border-radius:8px;background:#5B8DEF1f;border:2px dashed #5B8DEF;z-index:0}.rdvband span{position:absolute;right:3px;top:-1px;font-size:var(--fs-xs);color:#3E6CD1;font-weight:700}
 .nowl{position:absolute;top:-6px;bottom:-6px;width:3px;margin-left:-1.5px;background:#E8344E;border-radius:2px;z-index:5;transition:left .5s}
 .bottom{display:flex;gap:6px;height:100px;flex:none;align-items:stretch}
-.tray{flex:1;min-width:0;display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;padding:3px 2px 6px;scrollbar-width:thin}
+.tray{flex:1;min-width:0;display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;padding:3px 2px 6px;scrollbar-width:thin}
 .tray .empty{margin:auto;color:var(--ink-2);display:flex;align-items:center;gap:var(--sp-2)}
 .tk{flex:none;width:176px;overflow:hidden;display:flex;flex-direction:column;gap:3px;padding:5px 7px 5px 10px;border-radius:var(--r-m);background:#fff;border:2.5px solid color-mix(in srgb,var(--c) 70%,#fff);box-shadow:0 3px 0 #0000001a;cursor:grab;touch-action:pan-x;font-size:var(--fs-xs);position:relative}
 .tk::before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--c)}
@@ -287,4 +289,11 @@ details{font-size:var(--fs-s)}summary{cursor:pointer;font-weight:600;padding:var
   .row{max-height:130px}.bottom{height:132px}.tk{width:200px;font-size:var(--fs-s);gap:5px;padding:8px 10px 8px 12px}.tk-h b{font-size:var(--fs-m)}.blk{font-size:var(--fs-s);top:8px;bottom:8px}
   .who{width:124px}.who-h{width:124px}.who .hd{width:56px;height:64px}.who .hd svg{width:64px}.acts{width:170px}.ctrl{width:250px}.feed{font-size:var(--fs-m)}
   .panel{padding:8px 12px}.card{max-width:780px}.t-day .av{width:44px;height:44px}
+}
+
+/* ---------------------------------------------------------------- very short landscape (iPhone Safari with its toolbars: ~320-360 px) */
+@media (max-height:360px){
+  :root{--top:44px}
+  .row{min-height:46px}.who .hd{height:44px}.who .hd svg{width:46px;top:-1px}.sk{margin-top:1px}.sk i{line-height:15px}
+  .bottom{height:84px}.tk{gap:2px;padding:3px 6px 3px 9px}.panel{padding-bottom:4px}
 }
