@@ -79,7 +79,7 @@ function home() {
         ${cont ? `<button class="btn primary big cta" id="h-cont">${glyph('play')}<span>Continuer <small>${dayName(g!.day)}</small></span></button>` : `<button class="btn primary big cta" id="h-new">${glyph('play')}<span>Jouer</span></button>`}
         <div class="row2">${cont ? `<button class="btn small" id="h-new">Nouvelle quinzaine</button>` : ''}<button class="btn small" id="h-set">${glyph('gear')}<span>Réglages</span></button><button class="btn small" id="h-cred">Crédits</button></div>
       </div>
-      <p class="best">${S.best.runs ? `Meilleure quinzaine : ${S.best.stars} ★ sur ${DAYS * 3} · rendement ${pct(S.best.yield)}` : '10 journées · gratuit, sans pub'}</p>
+      ${S.best.runs ? `<p class="best">Meilleure quinzaine : ${S.best.stars} ★ sur ${DAYS * 3} · rendement ${pct(S.best.yield)}</p>` : ''}
     </div>
     ${S.player ? `<button class="h-me" id="h-me" aria-label="Modifier mon personnage"><span class="av">${me()}</span><span class="h-me-t"><b>${NM}</b><small>${cap1(titre())}</small></span>${glyph('edit')}</button>` : ''}
   </div>`;
@@ -146,7 +146,7 @@ function settings() {
 const view = () => (document.querySelector('.view.active')?.id ?? 'home') as 'home' | 'game' | 'create';
 function credits() {
   openOv(`<h2>Crédits &amp; licences</h2><div class="cred">
-    <p><b>Capy Dispatch</b> (titre de travail) · un jeu de Maxime Durand. Gratuit, sans publicité, sans compte.</p>
+    <p><b>Capy Dispatch</b> (titre de travail) · un jeu de Maxime Durand.</p>
     <p><b>Illustrations d'accueil et de partage</b> : générées par IA pour ce jeu, d'après nos propres capybaras.</p>
     <p><b>Carte</b> : données © les contributeurs d'OpenStreetMap, disponibles sous licence <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">ODbL</a>. Le style de la carte est le nôtre.</p>
     <p><b>Dessins</b> : capybaras et autocollants dessinés à la main en SVG pour ce jeu. <b>Musique et bruitages</b> : synthétisés dans le navigateur, originaux.</p>
