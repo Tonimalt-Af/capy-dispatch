@@ -28,6 +28,7 @@ test('home: title, team, no ads, no install UI, OSM credit', async ({ page }) =>
 });
 
 test('day 1: briefing with 3 objectives, tap-to-assign, launch, x2, skip, close with stars', async ({ page }) => {
+  test.slow(); // a whole day played through the UI: ~20 s alone, more when the 4 workers share the CPU
   const e = errors(page); await page.goto('./'); await page.click('#h-new');
   await expect(page.locator('.objs li')).toHaveCount(3); await page.click('#b-go');
   await expect(page.locator('.osm')).toContainText("les contributeurs d'OpenStreetMap");
