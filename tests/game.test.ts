@@ -228,3 +228,9 @@ it('subscribers have a soft floor: below 35 the losses count half, and the overn
   expect(G.softSat(60, -10)).toBe(50); expect(G.softSat(40, -10)).toBe(32.5); expect(G.softSat(30, -10)).toBe(25); expect(G.softSat(20, 5)).toBe(25);
   const g = G.newGame(3); G.startDay(g); g.today!.phase = 'close'; g.sat = 20; G.nextDay(g); expect(g.sat).toBe(40); expect(g.news.join(' ')).toContain('vous laissent une chance');
 });
+it('every surprise is a real choice: a call that creates a ticket offers at least 2 ways to handle it (else it is only a notification)', async () => {
+  const { playKind } = await import('./bot'); let n = 0;
+  for (let s = 1; s <= 12; s++) playKind(s, 'obvious', (g, at) => { if (at !== 'card') return; const p = g.today!.pending[0]; if (p.kind !== 'event') return; const c = G.cardOf(p); const ci = G.createIndex(c);
+    if (ci < 0) { expect(c.choices.length).toBeGreaterThanOrEqual(2); return; } n++; expect(G.dispatchOptions(g, ci).length + c.choices.length - 1, c.id).toBeGreaterThanOrEqual(2); });
+  expect(n).toBeGreaterThan(50);
+});

@@ -557,7 +557,7 @@ function launchDay() {
   const w = G.warnings(g!); if (w.some((x) => x.level === 'red') || !G.canLaunch(g!)) { showWarnings(true); return; }
   doLaunch();
 }
-function doLaunch() { G.launch(g!); save(); snd.play('horn'); snd.music(1); play(); }
+function doLaunch() { autoSkip = true; G.launch(g!); save(); snd.play('horn'); snd.music(1); play(); }
 
 // ---------------------------------------------------------------- resolution loop
 function stop() { running = false; skipping = false; clearTimeout(timer); }
@@ -603,6 +603,11 @@ function showPending() {
 /** « Qui lâche quoi ? » (mockup 03): a call that creates a ticket offers concrete moves, each with its cost in m³ and in mood. */
 function whoDrops(p: G.Pending, c: ReturnType<typeof G.cardOf>, ci: number) {
   const d = today(); const opts = G.dispatchOptions(g!, ci); const ch = c.choices[ci]; const J = JOBS[ch.fx.addTicket!];
+  // only one real way to do it: no window, the ticket is created where it goes and highlighted (section 14: a surprise is a real choice or a plain notification)
+  if (opts.length + c.choices.length - 1 < 2 && !tuto()) { const o = opts[0]; const nt = o ? G.dispatch(g!, ci, o) : G.choose(g!, ci); snd.play(J.urgent ? 'alert' : 'place'); save();
+    if (nt && o) { autoGas(nt.id); render(); document.querySelector(`.blk[data-b="${nt.id}"]`)?.classList.add('pop'); mv?.focus(nt.site); toast(`${c.title} : ${CAPY[o.capy].name} s'en charge, arrivée à ${slotShort(Math.min(o.start, SLOTS - 1))}.`, 3200); }
+    else if (nt) { today().replan = true; sel = nt.id; render(); mv?.focus(nt.site); pauseMsg = `Pause ! Place ${THE[nt.job] ?? 'le nouveau ticket'}, puis ▶`; render(); return; }
+    if (today().pending.length) showPending(); else play(); return; }
   const nm = (id: string | null) => (id ? THE[g!.tickets[id].job] ?? 'son ticket' : ''); const wn = (id: string) => whoName(g!.tickets[id]);
   const end = (e: number) => (e > SLOTS ? 'demain' : slotEnd(e - 1, true));
   const row = (o: G.Dispatch) => { const n = CAPY[o.capy].name;
