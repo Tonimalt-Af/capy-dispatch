@@ -49,10 +49,20 @@ test('drag & drop a ticket onto a capy row', async ({ page }) => {
   const cls = await t.getAttribute('data-t'); expect(cls).toBeTruthy();
   const row = page.locator('.row .tl').nth(1); const rb = (await row.boundingBox())!;
   await page.mouse.move(tb.x + 20, tb.y + 20); await page.mouse.down(); await page.mouse.move(tb.x + 30, tb.y - 10, { steps: 3 });
-  await page.mouse.move(rb.x + 40, rb.y + rb.height / 2, { steps: 8 }); await page.mouse.up();
+  await page.mouse.move(rb.x + 40, rb.y + rb.height / 2, { steps: 8 });
+  await expect(page.locator('.gh.best')).toHaveCount(1); await expect(page.locator('.nojob').first()).toContainText('Pas son métier');
+  await page.mouse.up(); await expect(page.locator('.gh')).toHaveCount(0);
   // day 1, first ticket = PRC (ICC): Fred (row 2) is the ICC capy
   const placed = await page.locator(`.blk.q[data-b="${cls}"]`).count(); const back = await page.locator(`.tk[data-t="${cls}"]`).count();
   expect(placed).toBe(1); expect(back).toBe(0);
+});
+
+test('tap a ticket: a ghost per capy, the fastest in green, « Qui y va ? », tap the ghost to place it', async ({ page }) => {
+  await start(page); const n = await page.locator('.tk').count(); await page.locator('.tk').first().click();
+  await expect(page.locator('.gh.best')).toHaveCount(1); await expect(page.locator('.whogo')).toContainText('Qui y va ?');
+  await expect(page.locator('.tray.solo .tk')).toHaveCount(1); await page.locator('.gh.best').click();
+  await expect(page.locator('.gh')).toHaveCount(0); await expect(page.locator('.tk')).toHaveCount(n - 1); await expect(page.locator('.blk.q')).toHaveCount(1);
+  await page.locator('.tk').first().click(); await page.click('#wg-x'); await expect(page.locator('.tk')).toHaveCount(n - 1);
 });
 
 test('the save survives a reload and keys are namespaced', async ({ page }) => {

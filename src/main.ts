@@ -294,10 +294,41 @@ const GAP = 0.5; // lunch gap, in slot widths (1 h 30 drawn a bit narrower than 
 const U = SLOTS + GAP; // timeline units: 8 slots + the lunch gap
 const xs = (s: number) => ((Math.min(s, SLOTS) + (s >= LUNCH_AFTER ? GAP : 0)) / U) * 100; // left edge of a start slot
 const xe = (e: number) => ((Math.min(e, SLOTS) + (e > LUNCH_AFTER ? GAP : 0)) / U) * 100; // right edge of an end slot
+const NOJOB: Record<Skill, string> = { fuite: 'cherche les fuites cachées', icc: 'fait les interventions chez les abonnés', reseau: 'répare le réseau' };
+/** Per-capy ghosts for a ticket: where it would go, how long, the route, and which one finishes first. */
+function ghosts(id: string) {
+  const spots = {} as Record<CapyId, G.Spot | null>; let best: CapyId | null = null; let bk = Infinity;
+  for (const c of TEAM) { const sp = G.bestSpot(g!, c.id, id); spots[c.id] = sp; if (!sp) continue;
+    const k = (sp.hurts || sp.slot.late || sp.slot.overflow ? 1000 : 0) + sp.slot.end * 10 + sp.slot.travel + (c.main === JOBS[g!.tickets[id].job].skill ? 0 : 0.5); if (k < bk) { bk = k; best = c.id; } }
+  return { spots, best };
+}
+function ghostHtml(sp: G.Spot, best: boolean, t: Ticket) {
+  const s = sp.slot; const J = JOBS[t.job]; const base = today().plan[sp.c].filter((x) => x !== t.id);
+  const prev = sp.index ? G.preview(g!, sp.c, base)[sp.index - 1].end : G.freeAt(g!, sp.c).at; const dur = s.end - s.start;
+  const bad = s.late ? 'trop tard pour le RDV' : s.overflow ? `déborde après ${DAY_END}` : sp.hurts ? 'met un autre RDV en retard' : '';
+  const sub2 = bad || `finit à ${slotEnd(Math.min(s.end, SLOTS) - 1, true)}`;
+  let h = '';
+  if (s.travel) h += `<div class="gtrv" style="left:${xs(prev)}%;width:${xe(prev + s.travel) - xs(prev)}%"><span>route ${s.travel} h</span></div>`;
+  h += `<div class="gh${best ? ' best' : ''}${bad ? ' bad' : ''}" data-gh="${sp.c}" data-i="${sp.index}" role="button" aria-label="Donner à ${CAPY[sp.c].name} : ${dur} heure${dur > 1 ? 's' : ''}, ${sub2}" style="left:${xs(s.start)}%;width:${xe(Math.min(s.end, SLOTS)) - xs(s.start)}%;--c:${SK_COL[J.skill]}"><b>${dur} h${s.travel ? '' : '<span class="g0"> · 0 route</span>'}${J.dig && !t.gas ? icon('phone', 'ic xs') : ''}</b><small>${sub2}</small>${best ? `<i class="gbest">${glyph('check')}</i>` : ''}</div>`;
+  return h;
+}
+/** « Qui y va ? »: the comparison next to the chosen ticket. */
+function whoGo(id: string) {
+  const t = g!.tickets[id]; const J = JOBS[t.job]; const { spots, best } = ghosts(id);
+  const order = [...TEAM].sort((a, b) => (a.id === best ? -1 : b.id === best ? 1 : 0) || (spots[a.id] ? 0 : 1) - (spots[b.id] ? 0 : 1)); const parts = order.map((c) => { const sp = spots[c.id]; if (!sp) return `<span class="no">${c.name} ${G.canDo(c.id, id, g!) ? '—' : 'pas son métier'}</span>`; const dur = sp.slot.end - sp.slot.start; return `<span${c.id === best ? ' class="best"' : ''}>${c.name} <b>${dur} h</b>${sp.slot.travel ? ` <i>+${sp.slot.travel} h de route</i>` : ''}</span>`; });
+  const why: string[] = [];
+  if (best) { const b = spots[best]!; const name = CAPY[best].name;
+    why.push(`${name} ${b.slot.late ? 'serait le moins en retard' : `finit le plus tôt (${slotEnd(Math.min(b.slot.end, SLOTS) - 1, true)})`}${CAPY[best].main === J.skill ? ', c’est son métier' : ''}.`);
+    const near = b.slot.travel ? TEAM.find((c) => c.id !== best && spots[c.id] && !spots[c.id]!.slot.travel) : undefined; if (near) why.push(`${near.name} est déjà à côté.`);
+    const late = TEAM.filter((c) => spots[c.id]?.slot.late).map((c) => c.name); if (t.rdv) why.push(late.length ? `RDV ${rdvText(t.rdv)} : ${late.join(' et ')} arriverai${late.length > 1 ? 'ent' : 't'} trop tard.` : `RDV ${rdvText(t.rdv)} : à l’heure.`); }
+  else why.push(!G.avail(g!, id) ? (G.festivalBlocked(g!, id) ? 'Arrêté Festival : pas de chantier de chaussée non urgent aujourd’hui.' : t.avail === null ? 'Il faut d’abord prévenir les voisins (avis 48 h).' : `Pas avant ${WEEKDAYS[t.avail! % 5].toLowerCase()} : les voisins sont prévenus pour ce jour-là.`) : 'Personne ne peut le faire aujourd’hui.');
+  if (J.dig && !t.gas) why.push('Le gaz sera appelé en le plaçant.');
+  return `<div class="whogo" role="region" aria-label="Qui y va ?"><button class="wg-x" id="wg-x" aria-label="Choisir un autre ticket">${glyph('close')}</button><p class="wg-1"><b>Qui y va ?</b> ${G.avail(g!, id) ? parts.join(' · ') : 'Pas encore.'}</p><p class="wg-2">${esc(nb(why.join(' ')))}</p><p class="wg-3">Touche la case en pointillés, ou fais glisser le ticket.</p></div>`;
+}
 function panel() {
   const d = today(); const p = $('#game .panel'); const edit = editable(); const planning = d.phase === 'plan' || d.phase === 'briefing' || d.replan || (d.phase === 'run' && !running && !skipping);
   const hours = Array.from({ length: SLOTS }, (_, s) => `<span style="left:${xs(s)}%">${slotShort(s)}</span>`).join('') + `<span class="end" style="left:100%" title="Fin de journée ${DAY_END}">${slotShort(SLOTS)}</span><i class="lunch-h" style="left:${xe(LUNCH_AFTER)}%;width:${(GAP / U) * 100}%" title="${LUNCH_LABEL}" aria-label="${LUNCH_LABEL}">${icon('cup', 'ic xs')}</i>`;
-  const selT = sel ? g!.tickets[sel] : null;
+  const selT = sel && G.avail(g!, sel) ? g!.tickets[sel] : null; const gs = selT && edit ? ghosts(sel!) : null;
   const rows = TEAM.map((c) => {
     const pv = G.preview(g!, c.id); const fa = G.freeAt(g!, c.id); const cr = d.capys[c.id]; let html = '';
     for (const [id, s0, e0] of d.hist[c.id]) { const J = JOBS[g!.tickets[id].job]; html += `<div class="blk done" style="left:${xs(s0)}%;width:${xe(e0) - xs(s0)}%;--c:${SK_COL[J.skill]}"><div class="b1">${icon(J.icon, 'ic s')}<b>${TAG[J.id]}</b></div><div class="b2"><span class="ok">${glyph('check')}</span></div></div>`; }
@@ -310,8 +341,8 @@ function panel() {
       const cls = ['blk', 'q', s.late ? 'late' : '', s.overflow ? 'over' : '', J.urgent ? 'urg' : '', sel === s.id ? 'sel' : ''].join(' ');
       html += `<div class="${cls}" data-b="${s.id}" style="left:${xs(s.start)}%;width:${xe(Math.min(s.end, SLOTS)) - xs(s.start)}%;--c:${SK_COL[J.skill]}" aria-label="${J.short}, ${s.end - s.start} h"><div class="b1">${icon(J.icon, 'ic s')}<b>${TAG[J.id]}</b></div><div class="b2"><span class="bd">${s.end - s.start} h</span>${t.rdv ? icon('clock', 'ic xs') : ''}${t.risks.filter((r) => r !== 'absent').map((r) => icon(RISKS[r].icon, 'ic xs')).join('')}${J.dig ? icon(t.gas ? 'phone' : 'phoneX', 'ic xs') : ''}</div>${s.overflow ? `<i class="ovf" title="Déborde après ${DAY_END}">${glyph('right')}</i>` : ''}</div>`; });
     const can = selT ? slotsFor(c, JOBS[selT.job]) !== null : true;
-    if (selT && can && edit && !pv.some((s) => s.id === sel)) { const at = Math.max(pv.length ? pv[pv.length - 1].end : fa.at, d.phase === 'run' ? d.slot : 0); const du = slotsFor(c, JOBS[selT.job])!;
-      if (at < SLOTS) html += `<div class="gslot" style="left:${xs(at)}%;width:${xe(Math.min(at + du, SLOTS)) - xs(at)}%"><span class="gl-l">Toucher ici · ${slotShort(at)}</span><span class="gl-s">Ici</span></div>`; }
+    if (selT && can && edit && gs && !pv.some((s) => s.id === sel)) { const sp = gs.spots[c.id]; if (sp && sp.slot.start < SLOTS) html += ghostHtml(sp, gs.best === c.id, selT); }
+    if (selT && !can) html += `<div class="nojob">Pas son métier : ${c.name} ${NOJOB[c.main]}</div>`;
     const rdvBand = selT?.rdv && can ? `<div class="rdvband" style="left:${xs(selT.rdv[0])}%;width:${xe(selT.rdv[1] + 1) - xs(selT.rdv[0])}%" aria-hidden="true"><span>RDV ${rdvText(selT.rdv)}</span></div>` : '';
     const now = d.phase === 'run' ? `<div class="nowl" style="left:${xs(d.slot)}%"></div>` : '';
     return `<div class="row${selT ? (can ? ' can' : ' cannot') : ''}" data-capy="${c.id}">
@@ -322,7 +353,8 @@ function panel() {
   let bottom = '';
   if (planning) {
     const tr = G.tray(g!);
-    bottom = `<div class="tray" id="tray">${tr.length ? tr.map(card).join('') : `<p class="empty">${d.phase === 'plan' ? 'Tous les tickets sont placés.' : 'Rien en attente.'}</p>`}</div>
+    const solo = sel && tr.includes(sel) && edit;
+    bottom = `<div class="tray${solo ? ' solo' : ''}" id="tray">${solo ? card(sel!) + whoGo(sel!) : tr.length ? tr.map(card).join('') : `<p class="empty">${d.phase === 'plan' ? 'Tous les tickets sont placés.' : 'Rien en attente.'}</p>`}</div>
       <div class="acts">${w.length && Object.values(d.plan).flat().length ? `<button class="warnbtn ${red ? 'red' : ''}" id="p-warn">${icon('warn', 'ic s')}<span>${w.length} alerte${w.length > 1 ? 's' : ''}</span></button>` : okMsg(tr.filter((id) => G.avail(g!, id)).length)}
       <button class="btn primary go" id="p-go">${glyph('play')}<span>${d.phase === 'plan' ? 'Lancer la journée' : 'Reprendre'}</span></button></div>`;
   } else {
@@ -336,13 +368,16 @@ function panel() {
   p.classList.toggle('editing', edit);
   bindPanel();
 }
+/** « Fred 1 h · Lulu 2 h »: who can do it and how long, the specialist first. */
+const fitLine = (t: Ticket) => TEAM.filter((c) => slotsFor(c, JOBS[t.job]) !== null).sort((a, b) => slotsFor(a, JOBS[t.job])! - slotsFor(b, JOBS[t.job])!).map((c) => `${c.name} ${slotsFor(c, JOBS[t.job])} h`).join(' · ');
+const fitChips = (t: Ticket) => { const J = JOBS[t.job]; const cs = TEAM.filter((c) => slotsFor(c, J) !== null).sort((a, b) => slotsFor(a, J)! - slotsFor(b, J)!); return cs.slice(0, 1).map((c, i) => `<span class="cf${i === 0 ? ' best' : ''}" title="${c.name} : ${slotsFor(c, J)} h${i === 0 ? ', le plus rapide' : ''}">${c.name} ${slotsFor(c, J)}\u202Fh</span>`).join(''); };
 function card(id: string) {
   const t = g!.tickets[id]; const J = JOBS[t.job]; const ok = G.avail(g!, id);
   const age = g!.day - t.day; const rdv = t.rdv ? rdvText(t.rdv) : '';
   return `<div class="tk${J.urgent ? ' urg' : ''}${sel === id ? ' sel' : ''}${ok ? '' : ' wait'}" data-t="${id}" style="--c:${SK_COL[J.skill]}" role="button" tabindex="0" aria-label="${J.short}${J.urgent ? ', urgent' : ''}">
     <div class="tk-h">${icon(J.icon)}<b>${J.short}</b><span class="dur" title="Durée (1 créneau = 1 h)">${range(t)} h</span></div>
     <div class="tk-s">${J.urgent ? '<span class="chip red">Urgent</span>' : ''}${t.vip ? `<span class="chip vip">${VIPS[t.vip].tag}</span>` : ''}${!ok && G.festivalBlocked(g!, id) ? '<span class="chip">Arrêté Festival</span>' : !ok && t.avail !== null ? `<span class="chip">Possible ${WEEKDAYS[t.avail % 5].toLowerCase()}</span>` : `<span class="ad">${esc(addr(t))}</span>`}</div>
-    <div class="tk-r"><span class="sk-dot">${SKILL_SHORT[J.skill]}</span>${t.rdv ? `<span class="chip" title="Arrivée entre ${slotLabel(t.rdv[0])} et ${slotLabel(t.rdv[1])}">${icon('clock', 'ic xs')}${rdv}</span>` : ''}${t.risks.filter((r) => r !== 'absent').map((r) => `<span class="rk" title="${RISKS[r].name}">${icon(RISKS[r].icon, 'ic xs')}</span>`).join('')}${t.risks.includes('absent') ? `<span class="rk" title="Abonné peut-être absent">${icon('clock', 'ic xs')}</span>` : ''}${age > 0 ? `<span class="chip">J+${age}</span>` : ''}
+    <div class="tk-r">${fitChips(t)}${t.rdv ? `<span class="chip" title="Arrivée entre ${slotLabel(t.rdv[0])} et ${slotLabel(t.rdv[1])}">${icon('clock', 'ic xs')}${rdv}</span>` : ''}${t.risks.filter((r) => r !== 'absent').map((r) => `<span class="rk" title="${RISKS[r].name}">${icon(RISKS[r].icon, 'ic xs')}</span>`).join('')}${t.risks.includes('absent') ? `<span class="rk" title="Abonné peut-être absent">${icon('clock', 'ic xs')}</span>` : ''}${age > 0 ? `<span class="chip">J+${age}</span>` : ''}
       ${J.dig ? `<button class="chip act ${t.gas ? 'green' : 'red'}" data-gas="${id}" aria-label="${t.gas ? 'Exploitant gaz appelé' : 'Appeler l’exploitant gaz'}">${icon(t.gas ? 'phone' : 'phoneX', 'ic xs')}${t.gas ? 'Gaz OK' : 'Gaz ?'}</button>` : ''}${t.avail === null ? `<button class="chip act blue" data-avis="${id}">${icon('mail', 'ic xs')}Avis 48 h</button>` : ''}</div></div>`;
 }
 function coach() {
@@ -376,32 +411,44 @@ function bindPanel() {
     el.addEventListener('click', (e) => { if (suppressClick) return; e.stopPropagation(); if (sel && sel !== el.dataset.b) tapRow(el.closest<HTMLElement>('.tl')!, e.clientX); else blockMenu(el.dataset.b!, el); });
     el.addEventListener('pointerdown', (e) => startDrag(e, el.dataset.b!, 'blk', el));
   });
+  $('#wg-x', p)?.addEventListener('click', (e) => { e.stopPropagation(); sel = null; snd.play('click'); render(); });
+  p.querySelectorAll<HTMLElement>('.gh').forEach((el) => el.addEventListener('click', (e) => { e.stopPropagation(); if (suppressClick || !sel) return; place(el.dataset.gh as CapyId, sel, -1, +el.dataset.i!); }));
   p.querySelectorAll<HTMLElement>('.row').forEach((row) => row.addEventListener('click', (e) => { if (suppressClick || !sel) return; tapRow($('.tl', row), e.clientX); }));
 }
 function tapTicket(id: string, fromMap = false) {
   if (sel === id) { if (fromMap && mapOpen && DRAWER.matches) { setMap(false); return; } detail(id); return; }
   if (fromMap && mapOpen && DRAWER.matches) setMap(false);
   sel = id; snd.play('select'); mv?.focus(g!.tickets[id].site); render();
-  const t = g!.tickets[id]; if (!G.avail(g!, id)) toast(G.festivalBlocked(g!, id) ? 'Arrêté Festival : pas de chantier de chaussée non urgent aujourd’hui.' : t.avail === null ? 'Envoie d’abord l’avis de coupure 48 h.' : 'Pas encore possible aujourd’hui.');
+  const t = g!.tickets[id]; if (!G.avail(g!, id) && !(editable() && G.tray(g!).includes(id))) toast(G.festivalBlocked(g!, id) ? 'Arrêté Festival : pas de chantier de chaussée non urgent aujourd’hui.' : t.avail === null ? 'Envoie d’abord l’avis de coupure 48 h.' : 'Pas encore possible aujourd’hui.');
 }
 function pinTap(id: string) { if (!g?.today) return; const d = today(); if (Object.values(d.plan).flat().includes(id) || !G.tray(g).includes(id)) { detail(id); return; } if (editable() || d.replan) tapTicket(id, true); else detail(id); }
 function slotAt(tl: HTMLElement, clientX: number) { const r = tl.getBoundingClientRect(); const u = ((clientX - r.left) / r.width) * U; return u >= LUNCH_AFTER + GAP ? Math.floor(u - GAP) : Math.floor(Math.min(u, LUNCH_AFTER - 0.01)); }
-function place(c: CapyId, id: string, slot: number) {
+/** Queue index for a tap/drop at `slot`: from the ghost's route onwards, it goes where the ghost shows. */
+function indexAt(c: CapyId, id: string, slot: number) { const sp = G.bestSpot(g!, c, id); if (sp && slot >= sp.slot.start - sp.slot.travel) return sp.index; const base = today().plan[c].filter((x) => x !== id); const p = G.preview(g!, c, base); const i = p.findIndex((s) => s.start + (s.end - s.start) / 2 > slot); return i < 0 ? p.length : i; }
+function place(c: CapyId, id: string, slot: number, index?: number) {
   const t = g!.tickets[id]; const J = JOBS[t.job];
   if (!G.avail(g!, id)) { snd.play('invalid'); shake(c); toast(G.festivalBlocked(g!, id) ? 'Arrêté Festival : pas de chantier de chaussée non urgent aujourd’hui.' : t.avail === null ? 'Envoie d’abord l’avis de coupure 48 h.' : 'Ce ticket n’est pas encore possible.', 2400, true); return false; }
   if (!G.canDo(c, id, g!)) { snd.play('invalid'); shake(c); toast(`${CAPY[c].name} ne sait pas faire « ${J.short} » (métier ${SKILL_SHORT[J.skill]}).`, 2600, true); return false; }
-  G.unassign(g!, id); G.assign(g!, c, id, G.indexForSlot(g!, c, slot)); snd.play('place'); sel = null; save(); render();
-  document.querySelector(`.blk[data-b="${id}"]`)?.classList.add('pop'); return true;
+  const at = index ?? indexAt(c, id, slot); G.unassign(g!, id); G.assign(g!, c, id, at); const gas = autoGas(id); snd.play('place'); sel = null; save(); render();
+  document.querySelector(`.blk[data-b="${id}"]`)?.classList.add('pop'); if (gas) toast(`Placé chez ${CAPY[c].name}, et le gaz est appelé avant de creuser ${G.rue(t.site)}.`, 2600); return true;
 }
+/** Placing a digging job calls the gas operator at the same time (DT-DICT): one gesture, no forgotten chore. */
+function autoGas(id: string) { const t = g!.tickets[id]; if (!JOBS[t.job].dig || t.gas) return false; G.toggleGas(g!, id); return true; }
 function shake(c: CapyId) { const r = document.querySelector(`.row[data-capy="${c}"]`); r?.classList.remove('shake'); void (r as HTMLElement | null)?.offsetWidth; r?.classList.add('shake'); }
 function tapRow(tl: HTMLElement, clientX: number) { if (!sel) return; place(tl.dataset.capy as CapyId, sel, slotAt(tl, clientX)); }
+/** Show the per-capy ghosts while dragging, without re-rendering (the dragged element must stay in place). */
+function dragGhosts(id: string) { if (!G.avail(g!, id)) return; const t = g!.tickets[id]; const { spots, best } = ghosts(id); const d = today();
+  document.querySelectorAll<HTMLElement>('#game .row').forEach((row) => { const c = row.dataset.capy as CapyId; const sp = spots[c]; row.classList.add(G.canDo(c, id, g!) ? 'can' : 'cannot');
+    const tl = $('.tl', row); tl.querySelectorAll('.gh,.gtrv,.nojob').forEach((x) => x.remove());
+    if (!G.canDo(c, id, g!)) tl.insertAdjacentHTML('beforeend', `<div class="nojob">Pas son métier : ${CAPY[c].name} ${NOJOB[CAPY[c].main]}</div>`);
+    else if (sp && !d.plan[c].includes(id) && sp.slot.start < SLOTS) tl.insertAdjacentHTML('beforeend', ghostHtml(sp, best === c, t)); }); }
 function startDrag(e: PointerEvent, id: string, from: 'tray' | 'blk', el: HTMLElement) {
   if (e.button !== 0 && e.pointerType === 'mouse') return;
   drag = { id, from, x: e.clientX, y: e.clientY, ghost: null, el };
   const move = (ev: PointerEvent) => {
     if (!drag) return; const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
     if (!drag.ghost) { if (Math.hypot(dx, dy) < 9 || (from === 'tray' && Math.abs(dx) > Math.abs(dy) * 1.2 && ev.pointerType !== 'mouse')) { if (Math.abs(dx) > 14 && from === 'tray') cleanup(); return; }
-      const gh = el.cloneNode(true) as HTMLElement; gh.classList.add('ghost'); const r = el.getBoundingClientRect(); gh.style.width = r.width + 'px'; gh.style.height = r.height + 'px'; document.body.appendChild(gh); drag.ghost = gh; sel = id; el.classList.add('dragging'); snd.play('select');
+      const gh = el.cloneNode(true) as HTMLElement; gh.classList.add('ghost'); const r = el.getBoundingClientRect(); gh.style.width = r.width + 'px'; gh.style.height = r.height + 'px'; document.body.appendChild(gh); drag.ghost = gh; sel = id; el.classList.add('dragging'); snd.play('select'); dragGhosts(id);
       try { el.setPointerCapture(ev.pointerId); } catch { /* */ } }
     drag.ghost.style.transform = `translate(${ev.clientX - 30}px, ${ev.clientY - 26}px) rotate(-3deg)`;
     document.querySelectorAll('.row.hover').forEach((r) => r.classList.remove('hover'));
@@ -415,7 +462,7 @@ function startDrag(e: PointerEvent, id: string, from: 'tray' | 'blk', el: HTMLEl
     else if (dd.from === 'blk' && els.some((x) => x.id === 'tray' || x.classList.contains('bottom'))) { G.unassign(g!, dd.id); sel = null; snd.play('click'); save(); render(); }
     else { sel = null; render(); }
   };
-  const cleanup = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', upH); removeEventListener('pointercancel', cleanup as never); if (drag?.ghost) drag.ghost.remove(); drag?.el.classList.remove('dragging'); document.querySelectorAll('.row.hover').forEach((r) => r.classList.remove('hover')); drag = null; };
+  const cleanup = () => { if (drag?.ghost) document.querySelectorAll('#game .row').forEach((r) => { r.classList.remove('can', 'cannot'); r.querySelectorAll('.gh,.gtrv,.nojob').forEach((x) => x.remove()); }); removeEventListener('pointermove', move); removeEventListener('pointerup', upH); removeEventListener('pointercancel', cleanup as never); if (drag?.ghost) drag.ghost.remove(); drag?.el.classList.remove('dragging'); document.querySelectorAll('.row.hover').forEach((r) => r.classList.remove('hover')); drag = null; };
   addEventListener('pointermove', move); addEventListener('pointerup', upH); addEventListener('pointercancel', cleanup as never);
 }
 function blockMenu(id: string, el: HTMLElement) {
@@ -453,7 +500,7 @@ function detail(id: string) {
   $('#d-gas')?.addEventListener('click', () => { if (!ed && d.phase !== 'plan') { toast('Pendant la tournée, le capy appelle en arrivant.'); return; } G.toggleGas(g!, id); save(); render(); detail(id); });
   $('#d-avis')?.addEventListener('click', () => { G.sendAvis(g!, id); save(); render(); detail(id); snd.play('place'); });
   $('#d-del')?.addEventListener('click', () => { G.unassign(g!, id); save(); closeOv(); render(); });
-  document.querySelectorAll<HTMLElement>('[data-put]').forEach((b) => b.addEventListener('click', () => { closeOv(); G.unassign(g!, id); G.assign(g!, b.dataset.put as CapyId, id); sel = null; snd.play('place'); save(); render(); }));
+  document.querySelectorAll<HTMLElement>('[data-put]').forEach((b) => b.addEventListener('click', () => { closeOv(); G.unassign(g!, id); const sp = G.bestSpot(g!, b.dataset.put as CapyId, id); G.assign(g!, b.dataset.put as CapyId, id, sp?.index); autoGas(id); sel = null; snd.play('place'); save(); render(); }));
 }
 /** Make a planned block blink (alerts « Montrer »). */
 function flash(id: string) { const el = document.querySelector<HTMLElement>(`.blk[data-b="${id}"], .tk[data-t="${id}"]`); if (!el) return; el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }

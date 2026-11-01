@@ -188,6 +188,12 @@ describe('boucle v2: yield explainer and day lines', () => {
       for (let day = 0; day < 5; day++) { playDay(g); const d = g.today!; const sum = (d.satWhy ?? []).reduce((s, x) => s + x.v, 0);
         expect(sum).toBeCloseTo(g.sat - d.satStart, 6); for (const x of d.satWhy ?? []) expect(x.text.length).toBeGreaterThan(5); G.nextDay(g); } }
   });
+  it('the ghost spot is never later than the end of the queue, and never makes another job late', () => {
+    for (const seed of [1, 2, 3, 4, 5]) { const g = G.newGame(seed); G.startDay(g); const d = g.today!;
+      for (const id of G.tray(g)) { if (!G.avail(g, id)) continue; for (const c of TEAM) { const sp = G.bestSpot(g, c.id, id); if (!sp) { expect(G.canDo(c.id, id, g)).toBe(false); continue; }
+        const app = G.preview(g, c.id, [...d.plan[c.id], id]).at(-1)!; expect(sp.slot.end).toBeLessThanOrEqual(app.end + (app.late || app.overflow ? 99 : 0)); expect(sp.hurts).toBe(0); }
+        const sp0 = TEAM.map((c) => G.bestSpot(g, c.id, id)).find(Boolean); if (sp0) G.assign(g, sp0.c, id, sp0.index); } }
+  });
   it('log lines speak like a person (« 8 h · Fred sonne chez … »)', () => {
     const g = G.newGame(2026); G.startDay(g); const t = Object.values(g.tickets)[0];
     expect(G.jobLine('{c} sonne chez {who}, {rue}', 'Fred', t)).toMatch(/^Fred sonne chez .+, [a-zé]/);

@@ -400,3 +400,25 @@ details{font-size:var(--fs-s)}summary{cursor:pointer;font-weight:600;padding:var
 .warnline{display:flex;gap:6px;align-items:center;background:var(--warn-l);border-radius:var(--r-s);padding:4px var(--sp-2);font-size:var(--fs-s)}
 @media (max-height:420px){.explain h2{font-size:var(--fs-xl)}.why li{padding:3px 0}.biggauge{margin:20px 0 18px}.explain p{margin:4px 0}}
 @media (max-height:360px){.top .kpi::after{inset:-5px 0}}
+
+/* ---------------------------------------------------------------- boucle v2 · étape 3 : fantômes par capy, « Qui y va ? » */
+.gh{position:absolute;top:2px;bottom:2px;z-index:2;border:2.5px dashed var(--c);border-radius:var(--r-s);background:color-mix(in srgb,var(--c) 13%,#fff);padding:2px 6px;display:flex;flex-direction:column;justify-content:center;overflow:hidden;cursor:pointer;container-type:inline-size;animation:ghin .25s ease}
+.gh b{display:flex;align-items:center;gap:3px;font-size:var(--fs-s);color:var(--ldr-navy);white-space:nowrap;line-height:1.1}.gh small{font-size:var(--fs-xs);color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.15}
+.gh.best{outline:3px solid var(--ok);outline-offset:2px}.gh.bad{border-color:var(--bad);background:var(--bad-l)}.gh.bad small{color:var(--bad);font-weight:600}
+.gh .gbest{position:absolute;top:-1px;right:-1px;width:16px;height:16px;border-radius:0 0 0 8px;background:var(--ok);color:#fff;display:grid;place-items:center}.gh .gbest svg{width:11px;height:11px}
+@container (max-width:70px){.gh small{display:none}.gh .gbest{display:none}}
+.gtrv{position:absolute;top:30%;height:40%;z-index:1;border-radius:6px;background:repeating-linear-gradient(45deg,#E2CFAE 0 4px,#F6EFE2 4px 8px);display:grid;place-items:center;overflow:hidden;pointer-events:none}
+.gtrv span{font-size:var(--fs-xs);font-weight:700;color:var(--ink-2);white-space:nowrap;background:#fffc;border-radius:5px;padding:0 3px}
+@keyframes ghin{from{opacity:0;transform:scale(.94)}}
+.nojob{position:absolute;inset:0;display:grid;place-items:center;font-weight:700;color:var(--ink-2);font-size:var(--fs-s);text-align:center;pointer-events:none;padding:0 6px;line-height:1.15}
+.row.cannot{opacity:.6}.row.cannot .blk{opacity:.5}
+.tray.solo{gap:var(--sp-2)}.tray.solo .tk{flex:none}
+.whogo{position:relative;flex:1;min-width:0;background:#fff;border-radius:var(--r-m);box-shadow:var(--sh-1);padding:6px 40px 6px var(--sp-3);display:flex;flex-direction:column;justify-content:center;gap:2px;animation:ghin .25s ease}
+.whogo p{margin:0;font-size:var(--fs-s);line-height:1.3}.whogo .wg-1 span.best{color:var(--ok-d,#2E7D32);font-weight:700}.whogo .wg-1 span.no{color:#A8957F}.whogo .wg-1 i{font-style:normal;color:var(--ink-2);font-size:var(--fs-xs)}
+.whogo .wg-3{font-size:var(--fs-xs);color:var(--ink-2)}
+.wg-x{position:absolute;top:0;right:0;width:44px;height:44px;border:0;background:none;display:grid;place-items:center;color:var(--ink-2);cursor:pointer}
+.cf{font-size:var(--fs-xs);font-weight:700;border-radius:6px;padding:1px 5px;background:#F2EADB;color:var(--ink-2);white-space:nowrap}.cf.best{background:var(--ok-l);color:#2E7D32}
+@media (max-height:420px){.whogo .wg-3{display:none}.whogo{padding-top:3px;padding-bottom:3px}}
+.tl:has(.gh) .rdvband span{display:none}@container (max-width:118px){.gh .g0{display:none}}
+.nojob{inset:auto;left:50%;top:50%;transform:translate(-50%,-50%);background:#FFF8EC;border-radius:var(--r-pill);padding:3px 12px;box-shadow:0 1px 0 var(--line);white-space:nowrap;max-width:96%;overflow:hidden;text-overflow:ellipsis;display:block;z-index:3}
+.tl:has(.gh) .rdvband{border-color:transparent;background:#77B7FC1f}

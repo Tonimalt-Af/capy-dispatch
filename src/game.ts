@@ -136,6 +136,18 @@ export function assign(g: Game, c: CapyId, id: string, index?: number) {
 }
 export function unassign(g: Game, id: string) { const d = g.today!; for (const k of TEAM) d.plan[k.id] = d.plan[k.id].filter((x) => x !== id); }
 export function move(g: Game, id: string, delta: number) { const d = g.today!; for (const k of TEAM) { const q = d.plan[k.id]; const i = q.indexOf(id); if (i >= 0) { const j = Math.max(0, Math.min(q.length - 1, i + delta)); q.splice(i, 1); q.splice(j, 0, id); return; } } }
+/** Where a ticket would best go in a capy's day (the « ghost »): the queue position that gets it done soonest without making another job late or spill over. */
+export interface Spot { c: CapyId; index: number; slot: Slot; /** jobs made late or pushed past the end of the day by this insertion */ hurts: number }
+export function bestSpot(g: Game, c: CapyId, id: string): Spot | null {
+  if (!canDo(c, id, g) || !avail(g, id)) return null; const base = g.today!.plan[c].filter((x) => x !== id); const p0 = preview(g, c, base);
+  const urgDelay = (p: Slot[]) => p.reduce((s, x) => { const o = p0.find((y) => y.id === x.id); return s + (o && JOBS[g.tickets[x.id].job].urgent ? Math.max(0, x.start - o.start) : 0); }, 0);
+  const bad = (p: Slot[]) => p.filter((s) => s.id !== id && (s.late || s.overflow)).length; const b0 = bad(p0);
+  let best: Spot | null = null; let bestScore = Infinity;
+  for (let i = 0; i <= base.length; i++) { const order = [...base.slice(0, i), id, ...base.slice(i)]; const p = preview(g, c, order); const me = p[i];
+    const hurts = Math.max(0, bad(p) - b0); const score = hurts * 100 + urgDelay(p) * 20 + (me.late ? 50 : 0) + (me.overflow ? 40 : 0) + me.end + p[p.length - 1].end * 0.01 + i * 0.001;
+    if (score < bestScore) { bestScore = score; best = { c, index: i, slot: me, hurts }; } }
+  return best;
+}
 /** Index in a capy's queue for a tap/drop on slot `slot` (insert before the first job that starts at or after it). */
 export function indexForSlot(g: Game, c: CapyId, slot: number) { const p = preview(g, c); const i = p.findIndex((s) => s.start + (s.end - s.start) / 2 > slot); return i < 0 ? p.length : i; }
 export interface Warn { level: 'red' | 'orange'; text: string; /** the block to show */ id?: string; kind: 'gas' | 'late' | 'over' | 'maybe' | 'urgent' }
