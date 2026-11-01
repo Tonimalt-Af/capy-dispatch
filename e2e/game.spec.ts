@@ -90,3 +90,14 @@ test('short landscape (Safari toolbars): the ticket tray and launch button stay 
   }
   const t = page.locator('.tk').last(); await t.scrollIntoViewIfNeeded(); await t.click(); await expect(t).toHaveClass(/sel/); await page.locator('.row.can .tl').first().click(); await expect(page.locator('.blk').first()).toBeVisible();
 });
+
+test('coup de pouce: from day 2, only after 90 s of planning, places one ticket once', async ({ page }) => {
+  test.slow(); await page.clock.install();
+  await start(page); await tapAssignAll(page); await page.click('#p-go'); await page.locator('#r-skip').click({ timeout: 3000 }).catch(() => {}); await playToClose(page);
+  await page.click('#c-next'); await page.click('#b-go'); await expect(page.locator('.tk').first()).toBeVisible();
+  await expect(page.locator('#p-nudge')).toHaveCount(0);
+  await page.clock.fastForward(91_000); await expect(page.locator('#p-nudge')).toBeVisible();
+  const n = await page.locator('.tk').count(); await page.click('#p-nudge');
+  await expect(page.locator('.tk')).toHaveCount(n - 1); await expect(page.locator('#p-nudge')).toHaveCount(0);
+  await page.clock.fastForward(91_000); await expect(page.locator('#p-nudge')).toHaveCount(0);
+});

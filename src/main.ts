@@ -377,7 +377,7 @@ function panel() {
   if (planning) {
     const tr = G.tray(g!);
     const solo = sel && tr.includes(sel) && edit;
-    bottom = `<div class="tray${solo ? ' solo' : ''}" id="tray">${solo ? card(sel!) + whoGo(sel!) : tr.length ? tr.map(card).join('') : `<p class="empty">${d.phase === 'plan' ? 'Tous les tickets sont placés.' : 'Rien en attente.'}</p>`}</div>
+    bottom = `<div class="tray${solo ? ' solo' : ''}" id="tray">${solo ? card(sel!) + whoGo(sel!) : tr.length ? nudgeHtml(tr) + tr.map(card).join('') : `<p class="empty">${d.phase === 'plan' ? 'Tous les tickets sont placés.' : 'Rien en attente.'}</p>`}</div>
       <div class="acts">${w.length && Object.values(d.plan).flat().length ? `<button class="warnbtn ${red ? 'red' : ''}" id="p-warn">${icon('warn', 'ic s')}<span>${w.length} alerte${w.length > 1 ? 's' : ''}</span></button>` : okMsg(tr.filter((id) => G.avail(g!, id)).length)}
       <button class="btn primary go" id="p-go">${glyph('play')}<span>${d.phase === 'plan' ? 'Lancer la journée' : 'Reprendre'}</span></button></div>`;
   } else {
@@ -443,6 +443,7 @@ let drag: { id: string; from: 'tray' | 'blk'; x: number; y: number; ghost: HTMLE
 function bindPanel() {
   const p = $('#game .panel'); const d = today();
   $('#p-go', p)?.addEventListener('click', launchDay);
+  $('#p-nudge', p)?.addEventListener('click', nudge);
   $('#p-warn', p)?.addEventListener('click', () => showWarnings(false));
   $('#r-pause', p)?.addEventListener('click', () => { stop(); render(); toast('Pause : tu peux modifier le planning des tickets pas encore commencés.'); });
   $('#r-x1', p)?.addEventListener('click', () => { speed = 1; S.settings.speed = 1; autoSkip = skipping = false; save(); render(); schedule(); });
@@ -564,6 +565,19 @@ function showWarnings(launching: boolean) {
   $('#w-call')?.addEventListener('click', () => { for (const c of TEAM) for (const id of today().plan[c.id]) if (JOBS[g!.tickets[id].job].dig) g!.tickets[id].gas = true; save(); closeOv(); render(); });
   $('#w-go')?.addEventListener('click', () => { closeOv(); doLaunch(); });
 }
+// ---------------------------------------------------------------- coup de pouce (section 14, P2): once a day, only when the planning drags on
+// Sessions are capped (~5 min), so this stays a safety net: it shows up after NUDGE_MS of planning on the same day (from day 2), places ONE ticket.
+const NUDGE_MS = 90_000; let planClock: { key: string; t0: number; used: boolean; timer: number } | null = null;
+function nudgeReady(tr: string[]) { const d = today(); if (d.day === 0 || d.phase !== 'plan' || tuto() || !tr.some((id) => G.avail(g!, id))) return false;
+  const key = `${g!.seed}:${d.day}`; if (planClock?.key !== key) { if (planClock) clearTimeout(planClock.timer); planClock = { key, t0: performance.now(), used: false, timer: window.setTimeout(() => { if (g?.today && today().phase === 'plan') render(); }, NUDGE_MS + 50) }; }
+  return !planClock.used && performance.now() - planClock.t0 >= NUDGE_MS; }
+const nudgeHtml = (tr: string[]) => (nudgeReady(tr) ? `<button class="nudge" id="p-nudge" title="Une fois par jour, quand la préparation traîne">${icon('star', 'ic')}<b>Coup de pouce</b><span>Je place le plus pressé pour toi</span></button>` : '');
+function nudge() { const tr = G.tray(g!).filter((id) => G.avail(g!, id)); if (!tr.length || !planClock) return;
+  const rank = (id: string) => { const t = g!.tickets[id]; const J = JOBS[t.job]; return (J.urgent ? 0 : t.rdv ? 10 : J.leak ? 20 : 30) - (J.leak ?? 0); };
+  for (const id of [...tr].sort((a, b) => rank(a) - rank(b))) { const { spots, best } = ghosts(id); if (!best) continue; const sp = spots[best]!;
+    G.assign(g!, best, id, sp.index); autoGas(id); planClock.used = true; save(); snd.play('place'); render(); document.querySelector(`.blk[data-b="${id}"]`)?.classList.add('pop');
+    toast(`Coup de pouce : ${THE[g!.tickets[id].job] ?? 'le ticket'} va à ${CAPY[best].name}.`, 3000); return; }
+  toast('Pas de place évidente : à toi de jouer.', 2500); }
 function launchDay() {
   const d = today(); sel = null;
   if (d.phase === 'run') { d.replan = false; pauseMsg = ''; save(); play(); return; }
