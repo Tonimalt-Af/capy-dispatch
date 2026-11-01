@@ -1,6 +1,7 @@
 // A strong player for the « 3 stars every day » guard (not shipped in the game): randomised plans + card choices,
 // many tries per day, keeps the 3★ days and backtracks to an earlier day when a later one cannot reach 3★.
 import { avail, nextDay, startDay, newGame, type Game } from '../src/game';
+import type { Season } from '../src/content';
 import { tryDay } from '../src/hindsight';
 export { tryDay, noisyPlan } from '../src/hindsight';
 
@@ -9,9 +10,9 @@ const future = (g: Game) => g.sat * 0.5 - g.pile.filter((id) => avail(g, id) || 
 const dayScore = (g: Game) => g.today!.stars! * 1000 + g.today!.met!.filter(Boolean).length * 100 + future(g);
 export interface Found { stars: number[]; ok: boolean; tries: number; g: Game }
 /** Day-by-day search with backtracking: every day must reach `want` stars. budget = tries per day; keep = alternatives kept per day. */
-export function search(seed: number, opts: { budget?: number; keep?: number; want?: number; maxBack?: number; mini?: 0 | 1 } = {}): Found {
+export function search(seed: number, opts: { budget?: number; keep?: number; want?: number; maxBack?: number; mini?: 0 | 1; season?: Season } = {}): Found {
   const budget = opts.budget ?? 120, keep = opts.keep ?? 3, want = opts.want ?? 3, mini = opts.mini ?? 1; let backs = opts.maxBack ?? 40; let tries = 0;
-  const g0 = newGame(seed); startDay(g0); let best: Found = { stars: [], ok: false, tries: 0, g: g0 };
+  const g0 = newGame(seed, opts.season); startDay(g0); let best: Found = { stars: [], ok: false, tries: 0, g: g0 };
   const rec = (g: Game, stars: number[]): Found | null => {
     if (g.over) return { stars, ok: true, tries, g };
     const cands: Game[] = []; const seen = new Set<string>();

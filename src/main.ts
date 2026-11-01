@@ -1,6 +1,6 @@
 import '@fontsource/fredoka/latin-400.css'; import '@fontsource/fredoka/latin-600.css'; import '@fontsource/fredoka/latin-700.css';
 import './style.css';
-import { JOBS, TEAM, CAPY, RISKS, DAY_CARDS, DAYS_SPEC, WEEKDAYS, SKILL_SHORT, slotsFor, objText, VIPS, GLOSSARY, CAPY_LINE, QUOTES, type CapyId, type Skill, type JobId } from './content';
+import { JOBS, TEAM, CAPY, RISKS, DAY_CARDS, DAYS_SPEC, WEEKDAYS, SEASONS as SEASON_INFO, SEASON_LIST, seasonOfDate, type Season, SKILL_SHORT, slotsFor, objText, VIPS, GLOSSARY, CAPY_LINE, QUOTES, type CapyId, type Skill, type JobId } from './content';
 import { SITES, QUARTERS, DEPOT, quarterOf, qTravel } from './map';
 import { SLOTS, LUNCH_AFTER, DAYS, SAFETY_RULE, YIELD_TARGET, START_YIELD, URGENT_TARGET, slotLabel, slotShort, slotEnd, LUNCH_LABEL, DAY_END } from './rules';
 import * as G from './game';
@@ -69,10 +69,10 @@ function fillNames(root: ParentNode = document) { const n = S.player?.name ?? ''
 const me = (cls = '') => (S.player ? who('player', cls) : who('capy', cls));
 const cap1 = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 /** Very short block labels for the timeline (the full name is on the ticket card and in the details). */
-const TAG: Record<JobId, string> = { fuite_bt: 'Fuite', fuite_pc: 'Fuite cpt', prc: 'PRC', introuvable: 'Perdu', resilie: 'Résilié', coupure: 'Coupure', debit_nuit: 'Débit nuit', purge: 'Purge', fontaine: 'Borne', poteau: 'Poteau', casse: 'Casse' };
+const TAG: Record<JobId, string> = { fuite_bt: 'Fuite', fuite_pc: 'Fuite cpt', prc: 'PRC', introuvable: 'Perdu', resilie: 'Résilié', coupure: 'Coupure', debit_nuit: 'Débit nuit', purge: 'Purge', fontaine: 'Borne', poteau: 'Poteau', casse: 'Casse', gel_cpt: 'Gelé' };
 /** RDV = the window in which the capy must arrive: « 8h–9h » (same text on the ticket, the band and the sheet). */
 const rdvText = (r: [number, number]) => (r[0] === r[1] ? `à ${slotShort(r[0])}` : `${slotShort(r[0])}–${slotShort(r[1])}`);
-const THE: Record<string, string> = { casse: 'la casse', fuite_bt: 'la fuite', fuite_pc: 'la fuite au compteur', prc: 'le compteur', introuvable: 'le compteur introuvable', resilie: 'le résilié', coupure: 'la coupure', debit_nuit: 'le débit de nuit', purge: 'la purge', fontaine: 'la borne-fontaine', poteau: 'le poteau incendie' };
+const THE: Record<string, string> = { casse: 'la casse', fuite_bt: 'la fuite', fuite_pc: 'la fuite au compteur', prc: 'le compteur', introuvable: 'le compteur introuvable', resilie: 'le résilié', coupure: 'la coupure', debit_nuit: 'le débit de nuit', purge: 'la purge', fontaine: 'la borne-fontaine', poteau: 'le poteau incendie', gel_cpt: 'le compteur gelé' };
 const chipFx = (ic: string, v: string, cls = '') => `<em class="fx ${cls}">${icon(ic, 'ic xs')}${v}</em>`;
 /** Card effects as icons: « +1 créneau · satisfaction +4 » → [horloge +1 h] [cœur +4]. */
 /** Expert mode: every field of a choice's effect, in plain numbers. */
@@ -175,7 +175,16 @@ function creator(after: () => void, first: boolean) {
   $('#cr-cancel')?.addEventListener('click', after);
   upd(); if (first) setTimeout(() => { if (!matchMedia('(pointer:coarse)').matches) input.focus(); }, 60);
 }
-function newRun() { if (!S.player) { creator(newRun, true); return; } forgetMorning(); g = G.newGame(1 + Math.floor(Math.random() * 1e6)); if (!S.best.runs && !S.seenTuto) g.seed = 2026; g.gen = true; G.startDay(g); save(); enterGame(); }
+const seasonTag = (s: Season | undefined) => { const x = SEASON_INFO[s ?? 'ete']; return `<span class="season">${icon(x.icon, 'ic xs')}${x.name}</span>`; };
+/** A new fortnight: the very first one starts at once (today's season); after that, the player picks the season (today's is marked). */
+function newRun() { if (!S.player) { creator(newRun, true); return; }
+  const now = seasonOfDate(D.dateKey()); if (!S.best.runs && !S.seenTuto) { startRun(now); return; }
+  openOv(`<h2>Quelle saison ?</h2><p class="muted">Dix jours à l'agence. Chaque saison a sa météo et ses histoires.</p><div class="seasons" role="list">${SEASON_LIST.map((x) => { const I = SEASON_INFO[x];
+    return `<button class="btn sea${x === now ? ' now' : ''}" data-s="${x}" role="listitem">${icon(I.icon, 'ic')}<span><b>${I.name}${x === now ? ' <small>maintenant</small>' : ''}</b><small>${I.line}</small></span></button>`; }).join('')}</div>
+    <div class="btns"><button class="btn" id="sea-no">Annuler</button></div>`, 'small');
+  document.querySelectorAll<HTMLElement>('.seasons [data-s]').forEach((b) => b.addEventListener('click', () => { closeOv(); startRun(b.dataset.s as Season); }));
+  $('#sea-no').onclick = closeOv; }
+function startRun(season: Season) { forgetMorning(); g = G.newGame(1 + Math.floor(Math.random() * 1e6), season); if (!S.best.runs && !S.seenTuto) g.seed = 2026; g.gen = true; G.startDay(g); save(); enterGame(); }
 function confirmBox(title: string, text: string, ok: string, fn: () => void) {
   openOv(`<h2>${title}</h2><p>${text}</p><div class="btns"><button class="btn" id="c-no">Annuler</button><button class="btn danger" id="c-yes">${ok}</button></div>`, 'small');
   $('#c-no').onclick = closeOv; $('#c-yes').onclick = () => { closeOv(); fn(); };
@@ -235,7 +244,7 @@ function dailyScreen(k = dSel) {
   const nbk = bookView(book, camp ?? g);
   $('#home').innerHTML = `<div class="daily">
     <nav class="d-tabs" aria-label="Menu"><button class="btn small" id="d-home">${glyph('home')}<span>Accueil</span></button><button class="btn small on" aria-current="page">${icon('sun', 'ic s')}<span>Tournée du jour</span></button><button class="btn small" id="d-run"><span>Quinzaine</span></button><button class="btn small" id="d-nb">${icon('heart', 'ic s')}<span>Carnet ${nbk.filter((x) => x.got).length}/${nbk.length}</span></button><p class="d-free">Pas de série à tenir : reviens quand tu veux.</p></nav>
-    <div class="d-grid"><section class="d-card"><p class="kicker">Tournée du ${D.dateLabel(k)}</p><h2>${icon(card.icon, 'ic')}<span>${card.title}</span></h2>
+    <div class="d-grid"><section class="d-card"><p class="kicker">${seasonTag(seasonOfDate(k))} · Tournée du ${D.dateLabel(k)}</p><h2>${icon(card.icon, 'ic')}<span>${card.title}</span></h2>
       <p class="d-facts"><span>${n} tickets</span><span>${calls} appel${calls > 1 ? 's' : ''}</span>${proven ? '<span class="ok" title="Le joueur de recherche a fait 3 ★ sur cette journée avant de te la servir">3 ★ prouvées</span>' : ''}</p>
       <div class="d-chef">${who('chef', 'chef')}<p>${say(spec.chef)}</p></div>
       <ul class="d-objs">${spec.objs.map((o, i) => `<li class="${res?.met[i] ? 'ok' : ''}">${icon(res?.met[i] ? 'star' : 'starOff', 'ic s')}<span>${objText(o)}</span></li>`).join('')}</ul>
@@ -292,7 +301,7 @@ function fitBlocks() { document.querySelectorAll<HTMLElement>('#game .blk').forE
   if (b.scrollWidth > b.clientWidth + 1 || b.scrollHeight > b.clientHeight + 1) { el.classList.add('cut'); el.title = el.getAttribute('aria-label') ?? ''; } }); }
 addEventListener('resize', () => { if (g?.today) fitBlocks(); });
 function topbar() {
-  const d = today(); const card = DAY_CARDS[G.specOf(g!, d.day).card]; const y = G.yieldLive(g!); mv?.setDress(G.specOf(g!, d.day).card);
+  const d = today(); const card = DAY_CARDS[G.specOf(g!, d.day).card]; const y = G.yieldLive(g!); mv?.setDress(G.specOf(g!, d.day).card); mv?.setSeason(g!.season);
   const cur = { y: Math.round(y * 1000), m3: Math.round(d.m3), sat: Math.round(g!.sat), day: d.day }; const bump = { y: '', m3: '', sat: '' };
   if (lastKpi && lastKpi.day === cur.day) { if (cur.y !== lastKpi.y) bump.y = cur.y > lastKpi.y ? ' up' : ' down'; if (cur.m3 > lastKpi.m3) bump.m3 = ' down'; if (cur.sat !== lastKpi.sat) bump.sat = cur.sat > lastKpi.sat ? ' up' : ' down'; } lastKpi = cur; const lo = 0.65, hi = 0.9; const f = (v: number) => Math.max(0, Math.min(1, (v - lo) / (hi - lo))) * 100;
   const n = G.specOf(g!, d.day).objs.length; const met = d.met ? d.met.filter(Boolean).length : 0;
@@ -372,7 +381,7 @@ function briefing() {
   const d = today(); const spec = G.specOf(g!, d.day); const card = DAY_CARDS[spec.card]; snd.music(0);
   const tick = G.tray(g!); const urg = tick.filter((id) => JOBS[g!.tickets[id].job].urgent).length; const rdv = tick.filter((id) => g!.tickets[id].rdv && G.avail(g!, id)).length;
   openOv(`<div class="brief"><div class="b-left"><div class="bubble">${say(spec.chef)}</div><div class="duo">${who('chef', 'chef')}<div class="pl">${me('plc')}<span class="nt">${NM}</span></div></div></div>
-    <div class="b-right"><p class="kicker">Le café de 7 h 30</p><h2>${dayName(d.day)}</h2>
+    <div class="b-right"><p class="kicker">${seasonTag(g!.season)} · Le café de 7 h 30</p><h2>${dayName(d.day)}</h2>
       <div class="daycard">${icon(card.icon, 'ic big')}<div><b>${card.title}</b><span>${card.brief}</span><span class="dfx">${card.fx.map(([k, t]) => `<i>${icon(k)}${t}</i>`).join('')}</span></div></div>
       ${g!.news.map((n) => `<p class="news">${icon('warn')} ${esc(n)}</p>`).join('')}
       <p class="sub">Aujourd'hui : <b>${tick.length} ticket${tick.length > 1 ? "s" : ""}</b>${urg ? ` · <b class="red">${urg} urgence${urg > 1 ? 's' : ''}</b>` : ''}${rdv ? ` · ${rdv} RDV` : ''}</p>
@@ -679,7 +688,7 @@ function afterStep(before: { slot: number; done: number }) {
 }
 // ---------------------------------------------------------------- game feel: « Réparé ! » stamp, the capy's bubble, a star flying to the yield gauge
 const calmNow = () => !!S.settings.calm || matchMedia('(prefers-reduced-motion: reduce)').matches;
-const STAMP: Record<JobId, string> = { fuite_bt: 'Réparé !', fuite_pc: 'Réparé !', poteau: 'Fermé !', casse: 'Réparé !', fontaine: 'Réparé !', coupure: 'Réparé !', purge: 'Eau claire !', prc: 'Posé !', introuvable: 'Trouvé !', resilie: 'Réglé !', debit_nuit: 'Trouvé !' };
+const STAMP: Record<JobId, string> = { fuite_bt: 'Réparé !', fuite_pc: 'Réparé !', poteau: 'Fermé !', casse: 'Réparé !', fontaine: 'Réparé !', coupure: 'Réparé !', purge: 'Eau claire !', prc: 'Posé !', introuvable: 'Trouvé !', resilie: 'Réglé !', debit_nuit: 'Trouvé !', gel_cpt: 'L’eau revient !' };
 const QUIPS = ['Et voilà !', 'Au suivant !', 'Nickel.', 'Du travail propre.', 'Pas de souci.'], WET = ['Plus une goutte !', 'Ça ne coule plus.', 'Et voilà !'];
 function fxAt(el: Element | null, cls: string, text: string, ms: number) { if (!el) return null; const r = el.getBoundingClientRect(); if (!r.width) return null;
   const f = document.createElement('div'); f.className = `fx ${cls}`; f.textContent = text; f.style.left = `${r.left + r.width / 2}px`; f.style.top = `${r.top + r.height / 2}px`; document.body.appendChild(f); setTimeout(() => f.remove(), ms); return f; }

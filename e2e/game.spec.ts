@@ -147,7 +147,7 @@ test('permanent notebook: own key, survives a new fortnight, three pages', async
   const e = errors(page); await start(page);
   await page.evaluate(() => { localStorage.setItem('capy-dispatch-v1-carnet', JSON.stringify({ v: 1, got: { 'vip-maire': '2026-10-30', 'sai-orage': '2026-10-30' } })); }); await page.reload();
   await page.evaluate(() => (window as unknown as { __capy: { ui: { home: () => void } } }).__capy.ui.home());
-  await expect(page.locator('#h-nb')).toContainText('Carnet 2/20');
+  await expect(page.locator('#h-nb')).toContainText('Carnet 2/22');
   page.on('dialog', (d) => d.accept()); await page.click('#h-new'); const ok = page.locator('.ov button.primary'); if (await ok.isVisible().catch(() => false)) await ok.click();
   await page.evaluate(() => (window as unknown as { __capy: { ui: { home: () => void } } }).__capy.ui.home());
   await page.click('#h-nb'); await expect(page.locator('.nb-page .cn.got')).toHaveCount(1); await page.click('[data-pg="2"]');

@@ -43,7 +43,12 @@ test('the character is editable later from the settings, and the save migrates o
   // a v0.1 save: no player, a game in progress
   await page.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); localStorage.setItem('capy-dispatch-v1', JSON.stringify({ best: { stars: 4, yield: 0.7, runs: 1 }, seenTuto: true })); } });
   await page.goto('./'); await expect(page.locator('#create.active')).toBeVisible(); await create(page, 'Inès', 'femme');
-  await page.click('#h-new'); await page.click('#b-go'); await page.click('#t-menu'); await page.click('#m-set');
+  // not the first fortnight: the season is picked (today's is marked « maintenant »)
+  await page.click('#h-new'); await expect(page.locator('.seasons [data-s]')).toHaveCount(4); await expect(page.locator('.seasons .now')).toHaveCount(1);
+  expect(await smallTargets(page), 'season picker').toEqual([]); expect(await overlaps(page, ['#card']), 'season picker').toEqual([]);
+  await page.click('.seasons [data-s=hiver]'); await expect(page.locator('.brief .kicker')).toContainText('Hiver');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('capy-dispatch-v1')!).game.season)).toBe('hiver');
+  await page.click('#b-go'); await expect(page.locator('.map.s-hiver')).toHaveCount(1); await page.click('#t-menu'); await page.click('#m-set');
   await expect(page.locator('#s-me')).toContainText('Inès'); await page.click('#s-me');
   await expect(page.locator('#cr-in')).toHaveValue('Inès'); await expect(page.locator('#cr-cancel')).toBeVisible();
   await page.fill('#cr-in', 'Inès-Lou'); await page.click('[data-sex=homme]'); await page.click('#cr-ok');

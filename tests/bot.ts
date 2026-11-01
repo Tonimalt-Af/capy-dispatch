@@ -1,6 +1,7 @@
 // A simple greedy dispatcher used by the balance tests (not shipped in the game).
 import { TEAM, JOBS } from '../src/content';
 import { tray, assign, unassign, preview, sendAvis, toggleGas, canDo, avail, launch, step, choose, miniResult, nextDay, startDay, newGame, type Game } from '../src/game';
+import type { Season } from '../src/content';
 import { SLOTS } from '../src/rules';
 
 export function plan(g: Game, gas = true) {
@@ -62,8 +63,8 @@ const lookahead: Policy = (g) => { const c = cardOf(g.today!.pending[0]); if (c.
   c.choices.forEach((_, i) => { const h = structuredClone(g); if (choose(h, i)) plan(h); const s = finishGreedy(h); if (s > bs) { bs = s; best = i; } }); return best; };
 /** spy: called when a day is planned ('plan'), on every card answered ('card') and when it is closed ('close'). */
 /** `start`: play only that day (already briefed), e.g. a « Tournée du jour ». */
-export function playKind(seed: number, kind: Kind, spy?: (g: Game, at: 'plan' | 'card' | 'close') => void, gen = false, start?: Game) {
-  const g = start ?? newGame(seed); if (gen) g.gen = true; if (!start) startDay(g); const r = rng(seed * 31 + 7);
+export function playKind(seed: number, kind: Kind, spy?: (g: Game, at: 'plan' | 'card' | 'close') => void, gen = false, start?: Game, season?: Season) {
+  const g = start ?? newGame(seed, season); if (gen) g.gen = true; if (!start) startDay(g); const r = rng(seed * 31 + 7);
   const doPlan = () => { if (kind === 'opt') { if (g.today!.phase === 'run') for (const c of TEAM) for (const s of preview(g, c.id)) if (s.late || s.overflow) unassign(g, s.id); plan(g); } else if (kind === 'obvious') planObvious(g); else planRandom(g, r); };
   do { spy?.(g, 'plan'); doPlan(); launch(g); let guard = 0;
     while (g.today!.phase === 'run' && guard++ < 500) { step(g); const d = g.today!;

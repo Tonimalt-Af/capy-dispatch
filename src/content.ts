@@ -9,7 +9,7 @@ export type Skill = 'icc' | 'reseau' | 'fuite';
 export const SKILL_NAME: Record<Skill, string> = { icc: 'PRC · compteurs et branchements', reseau: 'Réseau · conduites et vannes', fuite: 'Recherche de fuite' };
 export const SKILL_SHORT: Record<Skill, string> = { icc: 'PRC', reseau: 'Réseau', fuite: 'Fuite' };
 
-export type JobId = 'fuite_bt' | 'fuite_pc' | 'prc' | 'introuvable' | 'resilie' | 'coupure' | 'debit_nuit' | 'purge' | 'poteau' | 'fontaine' | 'casse';
+export type JobId = 'fuite_bt' | 'fuite_pc' | 'prc' | 'introuvable' | 'resilie' | 'coupure' | 'debit_nuit' | 'purge' | 'poteau' | 'fontaine' | 'casse' | 'gel_cpt';
 export interface JobType {
   id: JobId; name: string; short: string; skill: Skill; /** base duration in slots */ dur: number;
   urgent?: boolean; /** digging under the road: ATU + gas call before starting */ dig?: boolean;
@@ -29,6 +29,7 @@ export const JOBS: Record<JobId, JobType> = {
   debit_nuit: { id: 'debit_nuit', name: 'Débit de nuit anormal', short: 'Débit de nuit', skill: 'fuite', dur: 1, fix: 55, icon: 'ear', side: 'avant', habilitation: null, go: "{c} écoute le sol {rue}, casque sur les oreilles", fin: "{c} a trouvé la fuite cachée {rue} !", desc: "La sectorisation voit un débit de nuit trop haut : une fuite invisible. Écoute au sol, prélocalisateurs, puis réparation sans ouvrir grand." },
   purge: { id: 'purge', name: 'Purge (eau colorée)', short: 'Purge', skill: 'reseau', dur: 1, icon: 'tap', side: 'avant', habilitation: null, go: "{c} ouvre la purge {rue}", fin: "{c} : l'eau est redevenue claire {rue}", desc: "Après une manœuvre de vanne sur la conduite, l'eau sort couleur thé. Ouvrir la purge du réseau jusqu'à ce qu'elle redevienne claire, contrôler le chlore." },
   fontaine: { id: 'fontaine', name: 'Borne-fontaine en panne', short: 'Borne-fontaine', skill: 'reseau', dur: 1, icon: 'tap', side: 'avant', habilitation: null, go: "{c} démonte la borne-fontaine {rue}", fin: "{c} a remis en route la borne-fontaine {rue}", desc: "La borne-fontaine publique ne donne plus qu'un filet : robinet fatigué ou filtre entartré. Démonter, nettoyer, remonter, contrôler le débit (et goûter, c'est le métier)." },
+  gel_cpt: { id: 'gel_cpt', name: 'Compteur gelé (abonné sans eau)', short: 'Compteur gelé', skill: 'icc', dur: 1, urgent: true, icon: 'snowmeter', side: 'avant', habilitation: null, go: "{c} file chez {who}, plus une goutte au robinet {rue}", fin: "{c} a changé le compteur gelé chez {who} : l'eau revient !", desc: "Nuit à −6 °C : l'eau a gelé dans le compteur, le verre a éclaté, l'abonné n'a plus d'eau. Fermer le robinet avant compteur, poser un compteur neuf, puis caler du polystyrène extrudé dans la niche (pas de paille ni de laine de verre : ça garde l'humidité). Si c'est le tuyau qui a gelé, sèche-cheveux, jamais de flamme." },
   poteau: { id: 'poteau', name: 'Poteau incendie heurté', short: 'Poteau incendie', skill: 'reseau', dur: 1, urgent: true, leak: 8, icon: 'hydrant', side: 'avant', habilitation: null, go: "{c} fonce fermer le poteau incendie {rue}", fin: "{c} a fermé le poteau incendie {rue} : fin du geyser", desc: "Une camionnette de livraison a couché un poteau incendie. Fermer la vanne et sécuriser, l'eau jaillit !" },
 };
 
@@ -94,6 +95,21 @@ export const EVENTS: Record<string, Card> = {
   eau_the: { id: 'eau_the', title: '« Mon eau est couleur thé »', who: 'kevin', needs: 'none', text: "Après la coupure d'hier, une abonnée appelle : l'eau sort marron. Rien de dangereux, mais elle est inquiète.", choices: [
     { label: 'Planifier une purge aujourd’hui', hint: 'Nouveau ticket (1 créneau)', fx: { addTicket: 'purge', sat: 1, log: 'Purge planifiée suite à une réclamation' } },
     { label: 'Rappeler demain', hint: 'Satisfaction −3', fx: { sat: -3, log: "Réclamation eau colorée : rappel prévu demain" } }] },
+  // winter (sources on the design Page: Midi Libre 10/02/2012, Gard rhodanien and Grand Avignon, 350 interventions for frozen
+  // meters in a few days; Saur and RESE 17 after the 2026 frost: leaks show up at the thaw, many of them after the meter)
+  gel_voisin: { id: 'gel_voisin', title: '« Chez moi non plus ! »', who: 'kevin', needs: 'none', text: "La voisine de l'abonné au compteur gelé appelle : même rue, même niche plein nord, même gel. Plus une goutte au robinet.", choices: [
+    { label: 'Créer le ticket', hint: 'Nouvel abonné sans eau à placer', fx: { addTicket: 'gel_cpt', log: 'Un voisin aussi a le compteur gelé' } }] },
+  standard: { id: 'standard', title: 'Le standard explose', who: 'chef', needs: 'none', text: "« Depuis 6 h, un appel par minute : des abonnés sans eau, partout. Le central peut en garder pour demain, mais il fait −8 dehors. »", choices: [
+    { label: 'On en prend un de plus', hint: 'Nouvel abonné sans eau, abonnés +1', fx: { addTicket: 'gel_cpt', sat: 1, log: 'On prend un compteur gelé de plus' } },
+    { label: 'Le central les garde', hint: 'Abonnés −2', fx: { sat: -2, log: 'Le central garde les compteurs gelés pour demain' } }] },
+  apres_cpt: { id: 'apres_cpt', title: '« Ça coule dans mon garage ! »', who: 'kevin', needs: 'none', text: "Le compteur va bien : c'est le tuyau de l'abonnée, après le compteur, qui a éclaté avec le gel. Ça, c'est pour son plombier. Mais elle ne sait même pas où est son compteur pour fermer.", choices: [
+    { label: 'Lui expliquer au téléphone', hint: 'Abonnés −1', fx: { sat: -1, log: "Kevin explique où fermer, au téléphone. Pas simple." } },
+    { label: 'Envoyer un capy lui montrer', hint: 'Nouveau ticket « introuvable », abonnés +1', fx: { addTicket: 'introuvable', sat: 1, log: 'Un capy va montrer son compteur à une abonnée' } }] },
+  degel_cpt: { id: 'degel_cpt', title: 'Le compteur pleure au dégel', who: 'kevin', needs: 'none', text: "Avec le redoux, la glace fond dans la niche : le compteur gelé cette semaine s'est fendu, et maintenant ça goutte.", choices: [
+    { label: 'Créer le ticket', hint: 'Nouvelle fuite au compteur', fx: { addTicket: 'fuite_pc', log: 'Un compteur fendu par le gel fuit au dégel' } }] },
+  manchon: { id: 'manchon', title: 'Plus de manchons !', who: 'capy', needs: 'dig', text: "Troisième casse de la semaine : il n'y a plus de manchon de DN 150 dans le fourgon.", choices: [
+    { label: 'Passer au magasin de l’agence', hint: '+1 créneau', fx: { slots: 1, log: 'est passé au magasin chercher un manchon' } },
+    { label: 'Collier provisoire, on reviendra', hint: 'Abonnés −2', fx: { sat: -2, log: 'a posé un collier provisoire en attendant' } }] },
   voiture: { id: 'voiture', title: 'Voiture sur le regard', who: 'capy', needs: 'job', text: 'Une voiture est garée pile sur la plaque du regard. Pas de mot sur le pare-brise.', choices: [
     { label: 'Attendre le propriétaire', hint: '+1 créneau', fx: { slots: 1, log: 'a attendu le propriétaire de la voiture' } },
     { label: 'Appeler la police municipale', hint: 'Satisfaction −2', fx: { sat: -2, log: 'a fait déplacer la voiture par la police municipale' } }] },
@@ -199,6 +215,8 @@ export const DAY_CARDS: Record<string, DayCard> = {
   marche: { id: 'marche', title: 'Marché aux Halles', text: 'Place Pie et alentours très encombrés : tout trajet vers ce secteur coûte un créneau.', icon: 'basket', brief: 'Marché aux Halles : la place Pie est bouchée.', fx: [['basket', 'Trajet vers les Halles +1 créneau'], ['van', 'Évite les allers-retours']] },
   orage: { id: 'orage', title: 'Orage cette nuit', text: 'Les sols ont bougé : deux fuites urgentes au briefing.', icon: 'storm', brief: 'L’orage a fait bouger les sols cette nuit.', fx: [['storm', 'Deux fuites urgentes'], ['drop', 'Chaque heure coûte des m³']] },
   festival: { id: 'festival', title: 'Festival d’Avignon', text: 'Intra-muros noir de monde : un trajet de plus de 350 m coûte un créneau. Arrêté municipal : pas de chantier de chaussée non urgent intra-muros, les coupures programmées attendent demain.', icon: 'sun', brief: 'Festival et canicule : intra-muros noir de monde.', fx: [['van', 'Plus de 350 m = +1 créneau'], ['warn', 'Pas de coupure programmée']] },
+  gel: { id: 'gel', title: 'Gel cette nuit', text: 'Sous zéro au petit matin et mistral glacial : les compteurs gèlent dans les niches, des abonnés n’ont plus d’eau. Et quand un compteur gèle, ceux de la rue suivent.', icon: 'snow', brief: 'Nuit sous zéro : compteurs gelés.', fx: [['snow', 'Abonnés sans eau : urgent'], ['phone', 'Les voisins appellent aussi']] },
+  redoux: { id: 'redoux', title: 'Redoux', text: 'Le sol dégèle et les tuyaux lâchent : c’est au dégel qu’on découvre les casses et les fuites cachées. Les m³ filent.', icon: 'thaw', brief: 'Redoux : le dégel révèle les casses.', fx: [['pipe', 'Casse et fuite au dégel'], ['ear', 'Fuites cachées : débit de nuit']] },
   pluie: { id: 'pluie', title: 'Pluie fine', text: 'Pas de quoi arrêter un capybara (ils adorent l’eau).', icon: 'rain', brief: 'Pluie fine : rien qui arrête un capybara.', fx: [['rain', 'Pas d’effet sur les trajets'], ['heart', 'Abonnés à choyer']] },
 };
 
@@ -210,7 +228,7 @@ export const objText = (o: Obj): string => ({
   done: `${o.n} interventions bouclées`,
   m3: `${o.n} m³ perdus au maximum`,
   backlog: o.n === 1 ? 'Rien qui traîne depuis plus d’un jour' : 'Rien qui traîne depuis plus de 2 jours',
-  travel: `${o.n} h de route au maximum`,
+  travel: o.n ? `${o.n} h de route au maximum` : 'Pas une heure perdue sur la route',
   sat: o.n ? `Abonnés : +${o.n} dans la journée` : "Des abonnés plus contents qu'au matin",
   yield: `Rendement : +${String(o.n).replace('.', ',')} pt dans la journée`,
 }[o.id]);
@@ -229,6 +247,10 @@ export const GLOSSARY: Record<string, string> = {
   'Poste de comptage': 'Poste de comptage : le compteur et ses robinets, souvent dans une niche ou un regard.',
   Purge: "Purge : on ouvre une vanne en bout de tuyau jusqu'à ce que l'eau redevienne claire.",
   Coupure: "Coupure programmée : on prévient les voisins 48 h avant (c'est la loi), puis on coupe l'eau le temps du chantier.",
+  'Compteur gelé': "Compteur gelé : sous −5 °C, l'eau gèle dans le compteur et le fait éclater. Plus d'eau chez l'abonné. On le change, et on isole la niche au polystyrène extrudé.",
+  Redoux: "Redoux : le retour du doux après le gel. C'est là que les tuyaux fragilisés cassent et que les fuites apparaissent.",
+  'Après compteur': "Après compteur : tout ce qui est après le compteur appartient à l'abonné. Une fuite là, c'est son plombier (et sa facture).",
+  Hivernage: "Hivernage : pour une maison vide l'hiver, on ferme le robinet avant compteur et on vidange. Sur demande, le service ferme le branchement sous la rue.",
   Introuvable: 'Compteur introuvable : la télérelève ne répond plus et personne ne sait où il est.',
 };
 /** One-line portrait of each capy, shown on its row and in the calls. */
@@ -269,6 +291,44 @@ export const ABONNES = ['Mme Bérard', 'M. Chabaud', 'Mme Fabre', 'M. Roux', 'Mm
 export const PREFET = "Hôtel Forbin de Sainte-Croix · résidence du préfet (sonner chez le majordome)";
 
 /** What the caller said, for the ticket front (picked by street number, so it never changes for a ticket). */
+
+// ---------------------------------------------------------------- seasons (Maxime, 2026-11-01: « attaque les saisons et l'hiver »)
+// A fortnight belongs to one season (picked when it starts, today's season by default); the « Tournée du jour » follows the
+// calendar. The Festival only happens in summer; winter has its own story day (Grand froid) and the thaw the day after.
+// Sources: Midi Libre 10/02/2012, Gard rhodanien and Grand Avignon, 350 interventions in a week, nights at −10 °C
+// (midilibre.fr/2012/02/10/la-saur-prendra-t-elle-en-charge-le-remplacement-des-compteurs-geles,455926.php), 15 000 calls in a
+// day (midilibre.fr/2012/02/05/dma-gel-des-compteurs-d-eau-jusqu-a-15-000-appels-recus-par-la-saur,453705.php), « attention au
+// dégel » (midilibre.fr/2012/02/07/des-compteurs-d-eau-vraiment-frigorifies,454730.php); polystyrène, no glass wool, hair dryer,
+// never a flame (eaudugrandlyon.com/actualites/comment-proteger-compteur-eau-du-gel/, rese.fr/proteger-votre-compteur-deau);
+// casses on the public network after a long frost (sudouest.fr … charente-maritime-apres-le-degel-attention-aux-fuites-27348915.php);
+// hivernage du branchement (agglo-sophiaantipolis.fr règlement, annexe 4).
+export type Season = 'ete' | 'automne' | 'hiver' | 'printemps';
+export const SEASON_LIST: Season[] = ['printemps', 'ete', 'automne', 'hiver'];
+export interface SeasonInfo { id: Season; name: string; icon: string; line: string; /** day cards the generator draws from */ cards: string[] }
+export const SEASONS: Record<Season, SeasonInfo> = {
+  printemps: { id: 'printemps', name: 'Printemps', icon: 'sun', line: 'Les journées rallongent, le maire relit le rapport annuel.', cards: ['calme', 'pluie', 'mistral', 'marche', 'orage'] },
+  ete: { id: 'ete', name: 'Été', icon: 'sun', line: 'Festival, canicule et orages.', cards: ['calme', 'mistral', 'marche', 'orage', 'pluie'] },
+  automne: { id: 'automne', name: 'Automne', icon: 'rain', line: 'Pluies d’automne et épisodes cévenols.', cards: ['pluie', 'calme', 'orage', 'marche', 'mistral'] },
+  hiver: { id: 'hiver', name: 'Hiver', icon: 'snow', line: 'Gel, compteurs gelés, et les casses du redoux.', cards: ['gel', 'redoux', 'mistral', 'gel', 'calme', 'redoux'] },
+};
+/** Meteorological seasons (déc.–févr. = hiver). */
+export const seasonOfDate = (k: string): Season => { const m = +k.slice(5, 7); return m === 12 || m <= 2 ? 'hiver' : m <= 5 ? 'printemps' : m <= 8 ? 'ete' : 'automne'; };
+const D6 = DAYS_SPEC[6], D7 = DAYS_SPEC[7];
+const noFest = D6.jobs.map((j) => (Array.isArray(j) ? [...j] : j)) as DaySpec['jobs'];
+/** The scripted fortnight of a season: the Festival day (day 7) changes outside summer, and in winter the storm becomes the thaw. */
+const SEASON_DAYS: Record<Season, DaySpec[]> = {
+  ete: DAYS_SPEC,
+  automne: DAYS_SPEC.map((d, i) => (i === 6 ? { ...D6, card: 'pluie', jobs: noFest, events: [[2, 'riverain'], [4, 'voiture']], objs: [{ id: 'urgent' }, { id: 'sat' }, { id: 'yield', n: 1 }],
+    chef: "Pluie d'automne sur Avignon, {nom}. Les feuilles bouchent les regards et le téléphone sonne : une fuite à prendre vite, et des abonnés à garder de bonne humeur." } : d)),
+  printemps: DAYS_SPEC.map((d, i) => (i === 6 ? { ...D6, card: 'calme', jobs: noFest, events: [[1, 'riverain'], [3, 'avis_rate']], objs: [{ id: 'urgent' }, { id: 'sat' }, { id: 'yield', n: 1 }],
+    chef: "Printemps, {nom} : le maire relit le rapport annuel de l'agence. Rendement en hausse et abonnés contents, s'il te plaît." } : d)),
+  hiver: DAYS_SPEC.map((d, i) => (i === 6 ? { card: 'gel', jobs: [['gel_cpt'], ['gel_cpt'], ['prc', 'absent'], ['debit_nuit'], ['introuvable'], ['resilie'], ['prc'], ['fuite_pc'], ['prc', 'cafe'], ['resilie'], ['purge']], rdv: 2,
+    events: [[1, 'standard'], [3, 'gel_voisin'], [4, 'apres_cpt']], objs: [{ id: 'urgent' }, { id: 'sat' }, { id: 'yield', n: 0.5 }],
+    chef: "Grand froid, {nom} : −8 °C cette nuit avec le mistral. Les compteurs gèlent dans les niches et des abonnés n'ont plus d'eau : ce sont tes urgences du jour. Rappelle-leur : sèche-cheveux, jamais de chalumeau." }
+    : i === 7 ? { ...D7, card: 'redoux', events: [[2, 'degel_cpt'], [4, 'poteau']],
+      chef: "Redoux, {nom}. Le sol dégèle et la vieille fonte lâche : une casse sur conduite et une fuite sur branchement. C'est au dégel que les tuyaux cassent, chaque heure coûte des m³." } : d)),
+};
+export const seasonDays = (s: Season | undefined): DaySpec[] => SEASON_DAYS[s ?? 'ete'];
 export const QUOTES: Record<JobId, string[]> = {
   fuite_bt: ['« Le trottoir fait des bulles, c’est normal ? »', '« Mon chat refuse de sortir, la rue est une piscine. »', '« Ça coule depuis ce matin, j’ai mis un seau, il déborde. »'],
   fuite_pc: ['« Le compteur pleure. Un peu. Beaucoup. »', '« Il y a une flaque dans le regard, et elle grandit. »', '« J’entends goutter la nuit, je ne dors plus. »'],
@@ -280,5 +340,6 @@ export const QUOTES: Record<JobId, string[]> = {
   purge: ['« L’eau sort couleur sirop de grenadine. »', '« Mon café a un goût de rouille. »', '« L’eau est jaune, même mon chien n’en veut pas. »'],
   fontaine: ['« La borne ne coule plus, les pigeons font la tête. »', '« Les touristes cherchent de l’eau fraîche. »', '« Elle crachote, puis plus rien. »'],
   casse: ['« La rue est devenue une rivière, et ça monte. »', '« Le bitume a gonflé puis il a explosé. »', '« Plus d’eau dans tout l’immeuble, et un lac devant. »'],
+  gel_cpt: ['« J’ouvre le robinet, il tousse, puis plus rien. »', '« Le compteur a fait crac cette nuit. »', '« Plus d’eau, et j’ai mis le sèche-cheveux sur le tuyau, c’est bien ? »'],
   poteau: ['« Un camion a embrassé le poteau. Geyser sur la place ! »', '« Les enfants adorent, la mairie un peu moins. »', '« Il y a un jet d’eau de trois mètres devant chez moi. »'],
 };

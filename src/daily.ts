@@ -2,7 +2,7 @@
 // One ranked attempt (the first one started), then free tries. A missed day stays playable 7 days. No streaks:
 // an empty day is just empty. The result is shared as spoiler-free text (stars, yield, water, driving, each capy's load).
 import { newGame, startDay, yieldWhy, type Game } from './game';
-import { TEAM, type DaySpec, type Obj } from './content';
+import { TEAM, seasonOfDate, type DaySpec, type Obj } from './content';
 import { SLOTS } from './rules';
 import { stats } from './gen';
 import { tryDay } from './hindsight';
@@ -34,13 +34,15 @@ export const WINKS: Record<string, string> = {
   '07-14': '14 Juillet : feu d’artifice sur le Rhône ce soir. D’ici là, on boucle les tickets.',
 };
 /** The day's game, fresh and briefed (generated and proven 3 ★ from this very morning). */
-const fresh = (k: string) => { const g = newGame(seedOf(k)); g.gen = true; g.daily = k; g.day = BASE_DAYS[seedOf(k) % BASE_DAYS.length]; return g; };
+const fresh = (k: string) => { const g = newGame(seedOf(k), seasonOfDate(k)); g.gen = true; g.daily = k; g.day = BASE_DAYS[seedOf(k) % BASE_DAYS.length]; return g; };
 /** In a one-day tournée nothing is carried from yesterday and the drive limits of a fortnight are loose, so « rien qui traîne »
  *  and « N h de route » were free stars. They are replaced by the bar of the best 3 ★ plan the search player found on this
  *  very morning (most jobs done, then least driving; the same 48 tries as the « Et si… » replay): « N interventions bouclées » and « N h de route au maximum ».
  *  The reference try is replayed against the new bar (it is deterministic) before the day keeps it. */
 export function harden(k: string, spec: DaySpec): DaySpec {
-  if (!spec.objs.some((o) => o.id === 'backlog' || o.id === 'travel')) return spec;
+  // frost days (winter): the urgent meters are obvious, so the mood bar also comes from the best plan (at most +2 on the written one)
+  const frost = spec.card === 'gel' && spec.objs.some((o) => o.id === 'sat');
+  if (!frost && !spec.objs.some((o) => o.id === 'backlog' || o.id === 'travel')) return spec;
   const run = (sp: DaySpec, i: number) => { const g0 = fresh(k); g0.specs = { [g0.day]: sp }; startDay(g0);
     return tryDay(g0, g0.seed * 7919 + g0.day * 104729 + i * 31 + 5, i < 3 ? 0 : Math.min(1, (i / 48) * 1.5), i < 3 ? 0.15 * i : 0.35, i < 6 ? 0 : (i % 5) * 0.06, 1, false); };
   let ref: Game | null = null; let ri = -1; let rs = -Infinity;
@@ -49,7 +51,8 @@ export function harden(k: string, spec: DaySpec): DaySpec {
   const bar = (id: 'done' | 'travel'): Obj => (id === 'done' ? { id, n: d.done.length } : { id, n: d.travel });
   const ids = spec.objs.map((o) => o.id); const objs: Obj[] = [];
   for (const o of spec.objs) { const id = o.id === 'travel' ? 'travel' : o.id === 'backlog' ? (ids.includes('done') ? 'travel' : 'done') : null;
-    if (!id) objs.push(o); else if (!objs.some((p) => p.id === id) && !(o.id === 'backlog' && id === 'travel' && ids.includes('travel'))) objs.push(bar(id)); }
+    if (frost && o.id === 'sat') objs.push({ id: 'sat', n: Math.max(o.n ?? 1, Math.min((o.n ?? 1) + 2, Math.floor(ref.sat - d.satStart))) });
+    else if (!id) objs.push(o); else if (!objs.some((p) => p.id === id) && !(o.id === 'backlog' && id === 'travel' && ids.includes('travel'))) objs.push(bar(id)); }
   if (objs.length < spec.objs.length) return spec;
   const out = { ...spec, objs }; return run(out, ri).today!.stars === 3 ? out : spec;
 }

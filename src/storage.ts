@@ -77,6 +77,7 @@ export function game(x: unknown): Game | null {
   if (!Array.isArray(g.news) || !g.news.every((s) => str(s, 300))) g.news = [];
   if (g.daily !== undefined && !(typeof g.daily === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(g.daily))) return null;
   if (g.gen !== undefined && typeof g.gen !== 'boolean') delete g.gen;
+  if (g.season !== undefined && !(['automne', 'hiver', 'printemps'] as unknown[]).includes(g.season)) delete g.season; // absent = summer (saves made before the seasons)
   if (g.specs !== undefined && !(isObj(g.specs) && Object.entries(g.specs).every(([k, v]) => /^[3-9]$/.test(k) && spec(v)))) delete g.specs; // a broken generated day is generated again
   if (g.moments !== undefined && !(Array.isArray(g.moments) && g.moments.every((s) => s === null || str(s, 400)))) delete g.moments;
   // the map changed (v1 intra-muros → v2 with the quartiers outside): graph node numbers moved, site indices did not;

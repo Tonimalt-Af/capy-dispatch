@@ -1,6 +1,6 @@
 // Game state and rules: tickets, planning preview, slot-by-slot resolution, cards, day close and scoring.
 // Pure TypeScript (no DOM): everything here is covered by the Vitest suite.
-import { JOBS, TEAM, CAPY, slotsFor, ignoresRisk, RISK_CARDS, EVENTS, DAYS_SPEC, ABONNES, objText, type JobId, type Risk, type CapyId, type Card, type Effect, type Obj, type DaySpec, PREFET, VIPS, vipOutcome, type VipId } from './content';
+import { JOBS, TEAM, CAPY, slotsFor, ignoresRisk, RISK_CARDS, EVENTS, DAYS_SPEC, seasonDays, type Season, ABONNES, objText, type JobId, type Risk, type CapyId, type Card, type Effect, type Obj, type DaySpec, PREFET, VIPS, vipOutcome, type VipId } from './content';
 import { SITES, PREFET_SITE, dist, DEPOT, labelXY, quarterOf, quarterOfNode, qTravel, GROUPS_BY_Q, MAP_V, QUARTERS } from './map';
 import { SLOTS, TRAVEL_M, FESTIVAL_TRAVEL_M, URGENT_TARGET, NIGHT_SLOTS, SECTOR_M3, START_YIELD, SAFETY_RULE, DAYS, slotLabel, DAY_END, type SafetyRule } from './rules';
 
@@ -32,14 +32,14 @@ export interface DayState {
   /** end-of-day replay: trips [capy, start slot, slots, ticket] and card answers [card id, choice] */ trips?: [CapyId, number, number, string][]; picks?: [string, number][];
 }
 export interface DayResult { day: number; stars: number; met: boolean[]; m3: number; yield: number; done: number; incidents: number; sat: number; rdvKept: number; rdvTotal: number }
-export interface Game { v: 1; /** « Tournée du jour »: the date (YYYY-MM-DD) */ daily?: string; /** generated campaign: days 4 to 10 come from gen.ts */ gen?: boolean; /** generated day specs, by day index */ specs?: Record<number, DaySpec>; /** map layout version (graph node numbers) */ map?: number; seed: number; day: number; tickets: Record<string, Ticket>; pile: string[]; sat: number; bg: number; history: DayResult[]; today: DayState | null; stickers: string[]; next: number; over: boolean; /** overnight news shown at the next briefing */ news: string[]; /** one line per finished day (the « pot du vendredi » picks a funny one) */ moments?: string[] }
+export interface Game { v: 1; /** season of the fortnight (absent in older saves = summer, the Festival fortnight) */ season?: Season; /** « Tournée du jour »: the date (YYYY-MM-DD) */ daily?: string; /** generated campaign: days 4 to 10 come from gen.ts */ gen?: boolean; /** generated day specs, by day index */ specs?: Record<number, DaySpec>; /** map layout version (graph node numbers) */ map?: number; seed: number; day: number; tickets: Record<string, Ticket>; pile: string[]; sat: number; bg: number; history: DayResult[]; today: DayState | null; stickers: string[]; next: number; over: boolean; /** overnight news shown at the next briefing */ news: string[]; /** one line per finished day (the « pot du vendredi » picks a funny one) */ moments?: string[] }
 
 export const BG0 = Math.round(SECTOR_M3 * (1 / START_YIELD - 1)); // background losses giving the real starting yield
 /** The day's spec: generated (days 4 to 10 of a generated campaign, saved in the game) or scripted. */
-export const specOf = (g: Pick<Game, 'specs'>, day: number): DaySpec => g.specs?.[day] ?? DAYS_SPEC[day];
+export const specOf = (g: Pick<Game, 'specs' | 'season'>, day: number): DaySpec => g.specs?.[day] ?? seasonDays(g.season)[day];
 /** Set by gen.ts: builds (and proves) the spec of a generated day before its briefing. */
 export const hooks: { beforeDay?: (g: Game) => void } = {};
-export const newGame = (seed = 2026): Game => ({ v: 1, map: MAP_V, seed, day: 0, tickets: {}, pile: [], sat: 60, bg: BG0, history: [], today: null, stickers: [], next: 1, over: false, news: [] });
+export const newGame = (seed = 2026, season?: Season): Game => ({ v: 1, ...(season && season !== 'ete' ? { season } : {}), map: MAP_V, seed, day: 0, tickets: {}, pile: [], sat: 60, bg: BG0, history: [], today: null, stickers: [], next: 1, over: false, news: [] });
 const clampSat = (s: number) => Math.max(0, Math.min(100, s));
 /** Change the subscribers' mood and remember why (for the « Abonnés » sheet). */
 /** Soft floor: below SAT_FLOOR the subscribers only lose half as much (a bad run is not a death spiral). */
@@ -266,7 +266,9 @@ export function choose(g: Game, i: number): Ticket | null {
   log(d, (p.capy ? who : '') + fx.log); if (fx.log && !fx.addTicket) (d.story ??= []).push((p.capy ? who : '') + fx.log);
   if (fx.addTicket) {
     const r = rng(g.seed * 31 + d.day * 101 + d.slot * 7 + g.next);
-    const t = makeTicket(g, fx.addTicket, r, { slot: d.slot, rdv: fx.addRdvSoon ? [Math.min(d.slot + 1, SLOTS - 1), Math.min(d.slot + 2, SLOTS - 1)] : null });
+    // a frozen meter calls its neighbours: the new one is in the same street corner
+    const cold = fx.addTicket === 'gel_cpt' ? g.pile.map((id) => g.tickets[id]).reverse().find((x) => x.job === 'gel_cpt') : undefined;
+    const t = makeTicket(g, fx.addTicket, r, { near: cold ? cold.site : null, slot: d.slot, rdv: fx.addRdvSoon ? [Math.min(d.slot + 1, SLOTS - 1), Math.min(d.slot + 2, SLOTS - 1)] : null });
     if (p.card === 'prefet') { t.prefet = true; t.who = PREFET; t.risks = []; t.site = PREFET_SITE; t.num = SITES[PREFET_SITE].num; } // Hôtel Forbin de Sainte-Croix; the butler is always home
     if (fx.vip) { const V = VIPS[fx.vip]; t.vip = fx.vip; t.who = V.who; t.risks = [];
       if (V.site) { const i = SITES.findIndex((s) => s.num === V.site![0] && s.street === V.site![1]); if (i >= 0) { t.site = i; t.num = SITES[i].num; } } }

@@ -161,9 +161,11 @@ export class MapView {
   private driving = new Set<string>();
   private dress = '';
   /** Special-day dressing (section 14): bunting and a crowd intra-muros for the Festival, a crowd and stalls at the Halles on market day; weather tints are CSS classes on the map. */
+  /** Season tint of the whole fortnight (under the day's weather). */
+  setSeason(s: string | undefined) { for (const x of ['printemps', 'automne', 'hiver']) this.el.classList.toggle(`s-${x}`, s === x); }
   setDress(card: string) { if (card === this.dress) return; this.dress = card; const g = this.svg.querySelector('.dress')!; const cols = ['#E5507A', '#F5B82E', '#2BA6A0', '#3B7BD9', '#7BB82E', '#F08A3E'];
-    this.el.classList.remove('d-festival', 'd-hot', 'd-storm', 'd-wind', 'd-rain', 'd-marche', 'd-frost');
-    const cls: Record<string, string[]> = { festival: ['d-festival', 'd-hot'], orage: ['d-storm'], mistral: ['d-wind'], pluie: ['d-rain'], marche: ['d-marche'], gel: ['d-frost'] }; this.el.classList.add(...(cls[card] ?? []));
+    this.el.classList.remove('d-festival', 'd-hot', 'd-storm', 'd-wind', 'd-rain', 'd-marche', 'd-frost', 'd-thaw');
+    const cls: Record<string, string[]> = { festival: ['d-festival', 'd-hot'], orage: ['d-storm'], mistral: ['d-wind'], pluie: ['d-rain'], marche: ['d-marche'], gel: ['d-frost'], redoux: ['d-thaw'] }; this.el.classList.add(...(cls[card] ?? []));
     let h = ''; let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
     const crowd = (x: number, y: number, n: number, spread: number) => { for (let i = 0; i < n; i++) { const a = rnd() * 6.283, r = Math.sqrt(rnd()) * spread; h += `<circle cx="${(x + Math.cos(a) * r).toFixed(0)}" cy="${(y + Math.sin(a) * r).toFixed(0)}" r="11" fill="${cols[i % cols.length]}" stroke="#fff" stroke-width="3"/>`; } };
     const bunting = (x: number, y: number, w: number, tilt: number) => { const x0 = x - w / 2, y0 = y - tilt, x1 = x + w / 2, y1 = y + tilt; h += `<path d="M${x0} ${y0} Q${x} ${y + 30} ${x1} ${y1}" fill="none" stroke="#8A6A45" stroke-width="3"/>`;

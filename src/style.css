@@ -499,6 +499,15 @@ details{font-size:var(--fs-s)}summary{cursor:pointer;font-weight:600;padding:var
 .map.d-frost::after{opacity:1;background:radial-gradient(circle at 0 0,#E6F4FF99,transparent 35%),radial-gradient(circle at 100% 100%,#E6F4FF99,transparent 35%),linear-gradient(#CFE8FF26,#CFE8FF26)}
 @keyframes wind{to{background-position:-200% 0}}
 .calm .map.d-wind::after{animation:none}
+/* seasons: a light tint over the whole fortnight, the day's weather goes on top */
+.map::before{content:'';position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .6s}
+.map.s-hiver::before{opacity:1;background:linear-gradient(#DCEEFF55,#EAF4FF44)}
+.map.s-automne::before{opacity:1;background:radial-gradient(circle at 100% 0,#F2A54A2e,transparent 50%),linear-gradient(#E8B25A14,#E8B25A14)}
+.map.s-printemps::before{opacity:1;background:radial-gradient(circle at 0 100%,#FFB7D52a,transparent 45%),linear-gradient(#B8E89414,#B8E89414)}
+.map.d-frost::after{background:radial-gradient(circle,#fffe 0 1.2px,transparent 1.8px) 0 0/38px 38px,radial-gradient(circle,#fffc 0 1px,transparent 1.6px) 19px 21px/38px 38px,radial-gradient(ellipse at 0 0,#F4FBFFee,transparent 34%),radial-gradient(ellipse at 100% 100%,#F4FBFFee,transparent 34%),radial-gradient(ellipse at 0 100%,#EAF6FFaa,transparent 26%),radial-gradient(ellipse at 100% 0,#EAF6FFaa,transparent 26%),linear-gradient(#CFE8FF4d,#CFE8FF4d)}
+.map.d-thaw::after{opacity:1;background:radial-gradient(ellipse 9% 5% at 22% 68%,#7FB6E055,transparent),radial-gradient(ellipse 7% 4% at 63% 30%,#7FB6E055,transparent),radial-gradient(ellipse 8% 4% at 80% 78%,#7FB6E055,transparent),linear-gradient(#8FA3B522,#8FA3B214)}
+.season{display:inline-flex;align-items:center;gap:.25em}
+.season .ic{width:1.1em;height:1.1em}
 
 /* field notebook at the Friday pot (section 14, P2) */
 button.stickers{border:0;font:inherit;color:inherit;text-align:left;cursor:pointer;box-shadow:0 3px 0 #0002}
@@ -580,3 +589,12 @@ button.stickers{border:0;font:inherit;color:inherit;text-align:left;cursor:point
 @media (max-height:400px){.d-res{display:grid;grid-template-columns:1fr auto;column-gap:8px;align-items:center}.d-res h3{grid-area:1/1;margin:0}.d-res .btns{grid-area:1/2}.d-res .d-share{grid-area:2/1/3/3;margin:4px 0 0;line-height:1.2}.d-res .btns .btn{min-height:var(--hit)}}
 @media (max-height:340px){.d-share{line-height:1.12}.d-week p{display:none}}
 .d-day{position:relative}.d-day::after{content:'';position:absolute;left:-3px;right:-3px;top:0;bottom:0} /* 7 days in a narrow column: the tap area spans the gaps (≥ 44 px) */
+
+/* season picker (new fortnight) */
+.seasons{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+.seasons .sea{display:flex;align-items:center;gap:8px;text-align:left;justify-content:flex-start;min-height:56px;padding:8px 10px;white-space:normal}
+.seasons .sea .ic{width:28px;height:28px;flex:none}
+.seasons .sea span{display:flex;flex-direction:column;gap:2px}
+.seasons .sea small{font-weight:500;font-size:12px;line-height:1.25;opacity:.8}
+.seasons .sea b small{display:inline-block;margin-left:4px;padding:0 6px;border-radius:8px;background:var(--green,#3FAE6A);color:#fff;font-size:11px;opacity:1}
+.seasons .sea.now{outline:2px solid var(--green,#3FAE6A)}

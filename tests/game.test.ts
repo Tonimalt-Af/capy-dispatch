@@ -15,8 +15,8 @@ describe('rules', () => {
     expect([0, 4, 8].map(slotShort)).toEqual(['8h', '13h30', '17h30']); expect(slotEnd(3)).toBe('12 h'); expect(slotEnd(4, true)).toBe('14h30'); expect(LUNCH_LABEL).toBe('Pause déjeuner (12 h – 13 h 30)');
   });
   it('the safety rule is configured in one place and defaults to cap1', () => { expect(SAFETY_RULE).toBe('cap1'); });
-  it('11 job types, each with phase-2 data hooks (side / habilitation) and a known skill', () => {
-    expect(Object.keys(JOBS).length).toBe(11);
+  it('12 job types (with the frozen meter), each with phase-2 data hooks (side / habilitation) and a known skill', () => {
+    expect(Object.keys(JOBS).length).toBe(12);
     for (const j of Object.values(JOBS)) { expect(['icc', 'reseau', 'fuite']).toContain(j.skill); expect(['avant', 'apres', 'na']).toContain(j.side); expect(j).toHaveProperty('habilitation'); }
   });
   it('10 days, 3 objectives each (3 stars = 3 objectives shown at the briefing)', () => {
@@ -237,9 +237,9 @@ it('every surprise is a real choice: a call that creates a ticket offers at leas
 
 import { carnet } from '../src/carnet';
 describe('field notebook', () => {
-  it('lists 20 stickers (14 + 6 season pages), all missing on a new game, and fills up over a played fortnight', async () => {
+  it('lists 22 stickers (14 + 8 season pages), all missing on a new game, and fills up over a played fortnight', async () => {
     const { playKind } = await import('./bot');
-    expect(carnet(G.newGame(1)).length).toBe(20); expect(carnet(G.newGame(1)).filter((s) => s.got).length).toBe(0);
+    expect(carnet(G.newGame(1)).length).toBe(22); expect(carnet(G.newGame(1)).filter((s) => s.got).length).toBe(0);
     const best = Math.max(...[1, 2, 3, 4].map((seed) => carnet(playKind(seed, 'opt')).filter((s) => s.got).length));
     expect(best).toBeGreaterThanOrEqual(3);
   });

@@ -22,7 +22,7 @@ describe('day generator', () => {
       if (c.card === 'orage') { expect(c.jobs.some((j) => j[0] === 'fuite_bt')).toBe(true); expect(c.jobs.some((j) => j[0] === 'casse')).toBe(true); }
       expect(c.card === 'festival').toBe(DAYS_SPEC[d].card === 'festival'); }
     for (const l of Object.values(CHEF).flat()) for (const sx of ['homme', 'femme'] as const) expect(agree(l, sx).replaceAll('{nom}', '')).not.toMatch(/[{}|]/);
-    expect(Object.keys(MIXES).length).toBeGreaterThanOrEqual(4); expect(Object.keys(TRIOS).length).toBe(5);
+    expect(Object.keys(MIXES).length).toBeGreaterThanOrEqual(4); expect(Object.keys(TRIOS).length).toBe(7);
   });
   it('days 1 to 3 stay scripted; the story calls (VIP, Festival, director) still happen once each, on their day', () => {
     for (const g of res.opt) { for (let d = 0; d < 3; d++) expect(g.specs?.[d]).toBeUndefined();

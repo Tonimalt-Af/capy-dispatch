@@ -2,7 +2,7 @@
 // carnet(g) reads what the current campaign has found; the « livre » is the permanent copy, saved under its own key,
 // so « Nouvelle quinzaine » never erases a sticker. Existing saves are migrated on first load (what the current
 // campaign already found is copied in). Season pages: one sticker per special day held with at least 2 ★.
-import { VIPS, DAYS_SPEC, type VipId, type DaySpec } from './content';
+import { VIPS, seasonDays, type VipId, type DaySpec } from './content';
 import { facade, type SpotKind } from './facade';
 import type { Game } from './game';
 
@@ -16,10 +16,12 @@ export const SEASONS: [string, string, string, string][] = [
   ['orage', 'Après l’orage', 'Été', 'Un lendemain d’orage à 2 ★ ou plus'],
   ['pluie', 'Sous la pluie', 'Automne', 'Une journée de pluie à 2 ★ ou plus'],
   ['marche', 'Jour de marché', 'Automne', 'Un jour de marché aux Halles à 2 ★ ou plus'],
+  ['gel', 'Grand froid', 'Hiver', 'Une journée de gel à 2 ★ ou plus'],
+  ['redoux', 'Après le redoux', 'Hiver', 'Un jour de redoux à 2 ★ ou plus'],
   ['mistral', 'Mistral dompté', 'Hiver', 'Une journée de mistral à 2 ★ ou plus'],
   ['calme', 'Ciel bleu', 'Printemps', 'Une journée calme à 3 ★'],
 ];
-const specFor = (g: Game, day: number): DaySpec | undefined => (g as Game & { specs?: Record<number, DaySpec> }).specs?.[day] ?? DAYS_SPEC[day];
+const specFor = (g: Game, day: number): DaySpec | undefined => g.specs?.[day] ?? seasonDays(g.season)[day];
 
 export function carnet(g: Game): Sticker[] {
   const done = Object.values(g.tickets).filter((t) => !g.pile.includes(t.id) && t.day <= g.day);
