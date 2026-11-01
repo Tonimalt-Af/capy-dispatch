@@ -61,42 +61,57 @@ export class MapView {
     this.routes = this.svg.querySelector('.routes')!; this.pins = this.svg.querySelector('.pins')!; this.capys = this.svg.querySelector('.capys')!; this.labels = this.svg.querySelector('.labels')!;
     this.el.querySelectorAll<HTMLButtonElement>('.mbtn').forEach((b) => b.addEventListener('click', () => { const z = b.dataset.z; if (z === 'home') this.setVB({ ...HOME }); else if (z === 'wide') this.setVB({ ...WIDE }); else this.zoom(z === 'in' ? 0.7 : 1 / 0.7); }));
     this.towers(); this.gestures(); this.applyVB();
-    new ResizeObserver(() => this.applyVB()).observe(this.el);
+    new ResizeObserver((es) => { const r = es[0].contentRect; this.W = r.width; this.H = r.height; this.drawnK = 0; this.applyVB(); }).observe(this.el);
   }
+  // Performance (slow phones): a drag or pinch never re-renders the SVG. The committed viewBox stays put and the
+  // gesture is shown as a compositor-only CSS transform of the <svg> (one per frame, coalesced in rAF); the real
+  // viewBox is committed when the finger lifts or pauses. Overlays (pins, labels, routes, capys) are only rebuilt
+  // when the zoom (k) actually changed, and sizes come from the ResizeObserver, never from layout reads mid-gesture.
+  private W = 0; private H = 0; private cv: VB = { ...HOME }; private drawnK = 0; private raf = 0; private idle = 0;
   /** px of SVG user units per screen pixel */
-  private k() { const r = this.svg.getBoundingClientRect(); return r.width ? Math.max(this.vb.w / r.width, this.vb.h / r.height) : 4; }
-  private setVB(v: VB) { const minW = 260, maxW = WIDE.w * 1.1; const s = Math.min(maxW, Math.max(minW, v.w)) / v.w; const cx = v.x + v.w / 2, cy = v.y + v.h / 2; const w = v.w * s, h = v.h * s;
-    this.vb = { x: Math.min(MAP.w + 200 - w / 2, Math.max(-200 - w / 2, cx - w / 2)), y: Math.min(MAP.h + 200 - h / 2, Math.max(-200 - h / 2, cy - h / 2)), w, h }; this.applyVB(); }
-  private applyVB() { const v = this.vb; this.svg.setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`); this.drawPins(this.lastPins); this.drawRoutes(this.lastRoutes); this.drawLabels(); this.drawCapys(); }
-  zoom(f: number, cx = this.vb.x + this.vb.w / 2, cy = this.vb.y + this.vb.h / 2) { const w = this.vb.w * f, h = this.vb.h * f; this.setVB({ x: cx - (cx - this.vb.x) * f, y: cy - (cy - this.vb.y) * f, w, h }); }
+  private k(v: VB = this.vb) { if (!this.W) { const r = this.el.getBoundingClientRect(); this.W = r.width; this.H = r.height; } return this.W ? Math.max(v.w / this.W, v.h / this.H) : 4; }
+  private setVB(v: VB, live = false) { const minW = 260, maxW = WIDE.w * 1.1; const s = Math.min(maxW, Math.max(minW, v.w)) / v.w; const cx = v.x + v.w / 2, cy = v.y + v.h / 2; const w = v.w * s, h = v.h * s;
+    this.vb = { x: Math.min(MAP.w + 200 - w / 2, Math.max(-200 - w / 2, cx - w / 2)), y: Math.min(MAP.h + 200 - h / 2, Math.max(-200 - h / 2, cy - h / 2)), w, h }; if (live) this.live(); else this.applyVB(); }
+  /** Show the pending viewBox as a transform of the committed one (no SVG re-render). */
+  private live() { clearTimeout(this.idle); this.idle = window.setTimeout(() => this.applyVB(), 140); // finger paused: commit
+    if (this.raf) return; this.raf = requestAnimationFrame(() => { this.raf = 0; const c = this.cv, p = this.vb, kc = this.k(c), kp = this.k(p); const a = kc / kp;
+      const oc = [(this.W - c.w / kc) / 2, (this.H - c.h / kc) / 2], op = [(this.W - p.w / kp) / 2, (this.H - p.h / kp) / 2];
+      const bx = (c.x - p.x) / kp + op[0] - a * oc[0], by = (c.y - p.y) / kp + op[1] - a * oc[1];
+      this.svg.style.transform = `translate(${bx.toFixed(1)}px,${by.toFixed(1)}px) scale(${a.toFixed(4)})`; }); }
+  private applyVB() { clearTimeout(this.idle); if (this.raf) { cancelAnimationFrame(this.raf); this.raf = 0; } const v = this.vb; this.cv = { ...v };
+    this.svg.setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`); this.svg.style.transform = '';
+    const k = this.k(); if (Math.abs(k - this.drawnK) <= k * 1e-3) return; this.drawnK = k; // a pure pan: overlays are in map units, nothing to rebuild
+    this.drawPins(this.lastPins); this.drawRoutes(this.lastRoutes); this.drawLabels(); this.drawCapys(); }
+  zoom(f: number, cx = this.vb.x + this.vb.w / 2, cy = this.vb.y + this.vb.h / 2, live = false) { const w = this.vb.w * f, h = this.vb.h * f; this.setVB({ x: cx - (cx - this.vb.x) * f, y: cy - (cy - this.vb.y) * f, w, h }, live); }
   /** Back to the whole-city view. */
   home() { this.setVB({ ...HOME }); }
   /** Centre the view on a site, zooming in a little if we are zoomed out. */
   focus(site: number) { const s = SITES[site]; if (this.vb.w > HOME.w * 0.75) return; this.setVB({ x: s.x - this.vb.w / 2, y: s.y - this.vb.h / 2, w: this.vb.w, h: this.vb.h }); }
-  private toUser(cx: number, cy: number) { const r = this.svg.getBoundingClientRect(); const k = this.k(); const ox = (r.width * k - this.vb.w) / 2, oy = (r.height * k - this.vb.h) / 2; return [this.vb.x - ox + (cx - r.left) * k, this.vb.y - oy + (cy - r.top) * k]; }
+  private box: DOMRect | null = null; // container rect, read once per gesture (before any write)
+  private toUser(cx: number, cy: number) { const r = this.box ?? this.el.getBoundingClientRect(); const k = this.k(); const ox = (r.width * k - this.vb.w) / 2, oy = (r.height * k - this.vb.h) / 2; return [this.vb.x - ox + (cx - r.left) * k, this.vb.y - oy + (cy - r.top) * k]; }
   private gestures() {
     const pts = new Map<number, { x: number; y: number }>(); let moved = false; let start: { vb: VB; d: number; mx: number; my: number } | null = null;
     const s = this.svg;
-    s.addEventListener('pointerdown', (e) => { pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = false; start = null; });
+    s.addEventListener('pointerdown', (e) => { if (!pts.size) this.box = this.el.getBoundingClientRect(); pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = false; start = null; });
     s.addEventListener('pointermove', (e) => {
       const p = pts.get(e.pointerId); if (!p) return; const k = this.k();
       if (pts.size === 1) { const dx = e.clientX - p.x, dy = e.clientY - p.y; if (!moved && Math.hypot(dx, dy) < 7) return; if (!moved) { moved = true; s.setPointerCapture(e.pointerId); }
-        this.vb.x -= dx * k; this.vb.y -= dy * k; p.x = e.clientX; p.y = e.clientY; this.setVB(this.vb); }
+        this.vb.x -= dx * k; this.vb.y -= dy * k; p.x = e.clientX; p.y = e.clientY; this.setVB(this.vb, true); }
       else if (pts.size === 2) { p.x = e.clientX; p.y = e.clientY; const [a, b] = [...pts.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2; moved = true;
         if (!start) { start = { vb: { ...this.vb }, d, mx, my }; return; }
-        const f = start.d / Math.max(20, d); const [ux, uy] = this.toUser(start.mx, start.my); this.vb = { ...start.vb }; this.zoom(f, ux, uy); }
+        const f = start.d / Math.max(20, d); const [ux, uy] = this.toUser(start.mx, start.my); this.vb = { ...start.vb }; this.zoom(f, ux, uy, true); }
     });
-    const up = (e: PointerEvent) => { pts.delete(e.pointerId); if (pts.size < 2) start = null; };
+    const up = (e: PointerEvent) => { pts.delete(e.pointerId); if (pts.size < 2) start = null; if (!pts.size) { this.box = null; if (moved) this.applyVB(); } };
     s.addEventListener('pointerup', (e) => { const wasMoved = moved; up(e); if (!wasMoved) { const g = (e.target as Element).closest?.('[data-pin]'); if (g) this.onPin(g.getAttribute('data-pin')!); } });
     s.addEventListener('pointercancel', up);
-    s.addEventListener('wheel', (e) => { e.preventDefault(); const [ux, uy] = this.toUser(e.clientX, e.clientY); this.zoom(e.deltaY > 0 ? 1.15 : 1 / 1.15, ux, uy); }, { passive: false });
+    s.addEventListener('wheel', (e) => { e.preventDefault(); const [ux, uy] = this.toUser(e.clientX, e.clientY); this.zoom(e.deltaY > 0 ? 1.15 : 1 / 1.15, ux, uy, true); }, { passive: false });
   }
   /** Round towers every ~140 units along the remparts (sticker style). */
   private towers() { const wl = this.svg.querySelector<SVGPathElement>('.wall-line'); const g = this.svg.querySelector('.towers'); if (!wl || !g || !wl.getTotalLength) return;
     let L = 0; try { L = wl.getTotalLength(); } catch { return; } const out: string[] = [];
     for (let d = 40; d < L; d += 140) { const p = wl.getPointAtLength(d); out.push(`<g transform="translate(${p.x.toFixed(0)} ${p.y.toFixed(0)})"><circle r="13" fill="#fff"/><circle r="10" fill="#D2A866"/><circle r="10" fill="none" stroke="#E9CD98" stroke-width="4" stroke-dasharray="4 3.85"/><circle r="4.5" fill="#B88B4C"/></g>`); }
     g.innerHTML = out.join(''); }
-  private drawLabels() { const k = this.k();
+  private drawLabels() { const k = this.k(this.cv);
     const pins = this.lastPins.map((p) => SITES[p.site]); const near = (x: number, y: number) => pins.some((s) => Math.abs(s.x - x) < 34 * k && Math.abs(s.y - 8 * k - y) < 22 * k);
     // declutter: landmarks first, then any label overlapping one already placed is skipped
     const placed: [number, number, number, number][] = []; const lm0 = (k: string) => k === 'palais' || k === 'pont';
@@ -110,7 +125,7 @@ export class MapView {
       return `${st}${dot}<text x="${l.x}" y="${l.y + (lm ? 1 * k : 0)}" font-size="${9.5 * k}" text-anchor="middle" class="mlabel${lm ? ' big' : ''}${l.k === 'quartier' ? ' q' : ''}${l.k === 'prefecture' ? ' pf' : ''}${near(l.x, l.y) ? ' dim' : ''}" stroke-width="${3 * k}">${escT(l.t)}</text>`; }).join('')
       + `<g transform="translate(${DX} ${DY}) scale(${k})">${vanSvg('fourgon').replace('<svg ', '<svg x="-26" y="-22" width="52" height="29" ')}<rect x="-24" y="8" width="48" height="16" rx="8" fill="#030F40" stroke="#fff" stroke-width="2.5"/><text x="0" y="20.5" font-size="12" text-anchor="middle" fill="#fff" class="dep">Dépôt</text></g>`; }
   setPins(p: Pin[]) { this.lastPins = p; this.drawPins(p); this.drawLabels(); }
-  private drawPins(list: Pin[]) { const k = this.k();
+  private drawPins(list: Pin[]) { const k = this.k(this.cv);
     this.pins.innerHTML = [...list].sort((a, b) => Number(a.selected) - Number(b.selected)).map((p) => { const s = SITES[p.site]; const sc = (p.selected ? 1.35 : 1) * k;
       return `<g data-pin="${p.id}" class="pin ${p.state}${p.selected ? ' sel' : ''}${p.urgent ? ' urg' : ''}" transform="translate(${s.x} ${s.y}) scale(${sc})">
         ${p.urgent && p.state !== 'done' ? '<circle r="15" class="pulse"/>' : ''}<circle r="22" fill="transparent"/>
@@ -119,7 +134,7 @@ export class MapView {
         ${p.badge ? `<g transform="translate(9 -25)"><circle r="7" fill="${p.badge.color}" stroke="#fff" stroke-width="2"/><text y="3.5" text-anchor="middle" font-size="9.5" fill="#fff" font-weight="700">${p.badge.n}</text></g>` : ''}</g>`; }).join(''); }
   private pathPts(a: number, b: number) { const key = a + ':' + b; let p = this.pathCache.get(key); if (!p) { p = path(a, b); this.pathCache.set(key, p); if (this.pathCache.size > 300) this.pathCache.clear(); } return p; }
   setRoutes(r: Route[]) { this.lastRoutes = r; this.drawRoutes(r); }
-  private drawRoutes(list: Route[]) { const k = this.k();
+  private drawRoutes(list: Route[]) { const k = this.k(this.cv);
     this.routes.innerHTML = list.map((r) => { const pts: [number, number][] = []; for (let i = 1; i < r.nodes.length; i++) pts.push(...this.pathPts(r.nodes[i - 1], r.nodes[i]));
       if (pts.length < 2) return ''; const d = 'M' + pts.map((p) => p[0].toFixed(0) + ' ' + p[1].toFixed(0)).join('L');
       return `<path d="${d}" fill="none" stroke="#fff" stroke-width="${7 * k}" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/><path d="${d}" fill="none" stroke="${r.color}" stroke-width="${3.6 * k}" stroke-dasharray="${2 * k} ${6 * k}" stroke-linecap="round" stroke-linejoin="round"/>`; }).join(''); }
@@ -152,8 +167,13 @@ export class MapView {
       const bs = Math.max(1, Math.floor(inside.length / 8)); inside.forEach((st, i) => { if (i % bs === bs >> 1) bunting(st.x, st.y - 20, 180, (i % 2 ? 8 : -8)); }); }
     if (card === 'marche') { const l = labelXY('halles'); if (l) { crowd(l.x, l.y + 40, 30, 110); for (let i = 0; i < 5; i++) { const x = l.x - 160 + i * 80, y = l.y + 130; h += `<path d="M${x - 34} ${y} h68 l-8 -24 h-52z" fill="${cols[i % cols.length]}" stroke="#fff" stroke-width="3"/><rect x="${x - 28}" y="${y}" width="56" height="22" fill="#F4E3C3" stroke="#fff" stroke-width="3"/>`; } } }
     g.innerHTML = h; }
-  private drawCapys() { const k = this.k(); const seen = new Map<string, number>();
-    this.capys.innerHTML = Object.entries(this.capyPos).map(([id, [x, y]]) => { const key = Math.round(x / 12) + ':' + Math.round(y / 12); const n = seen.get(key) ?? 0; seen.set(key, n + 1);
-      return `<g class="mcapy" transform="translate(${x + (n - 1) * 15 * k} ${y - 4 * k}) scale(${k})"><circle r="15" fill="#fff" opacity=".85"/>${who(id as CapyId).replace('<svg ', '<svg x="-15" y="-15" width="30" height="30" ')}${this.driving.has(id) ? `<g class="mvan">${ICONS.van.replace('<svg ', '<svg x="4" y="2" width="22" height="22" ')}</g>` : ''}</g>`; }).join(''); }
-  resetCapys() { this.capyPos = {}; this.drawCapys(); }
+  private capyEls = new Map<string, SVGGElement>();
+  /** Capy heads are built once; a frame of a drive only moves a transform (no innerHTML, no re-parse of the head SVG). */
+  private drawCapys() { const k = this.k(this.cv); const seen = new Map<string, number>();
+    for (const [id, [x, y]] of Object.entries(this.capyPos)) { const key = Math.round(x / 12) + ':' + Math.round(y / 12); const n = seen.get(key) ?? 0; seen.set(key, n + 1);
+      let el = this.capyEls.get(id); if (!el) { el = document.createElementNS(NS, 'g'); el.setAttribute('class', 'mcapy');
+        el.innerHTML = `<circle r="15" fill="#fff" opacity=".85"/>${who(id as CapyId).replace('<svg ', '<svg x="-15" y="-15" width="30" height="30" ')}<g class="mvan">${ICONS.van.replace('<svg ', '<svg x="4" y="2" width="22" height="22" ')}</g>`;
+        this.capys.appendChild(el); this.capyEls.set(id, el); }
+      el.setAttribute('transform', `translate(${(x + (n - 1) * 15 * k).toFixed(1)} ${(y - 4 * k).toFixed(1)}) scale(${k})`); el.classList.toggle('drv', this.driving.has(id)); } }
+  resetCapys() { this.capyPos = {}; this.capyEls.forEach((e) => e.remove()); this.capyEls.clear(); }
 }
