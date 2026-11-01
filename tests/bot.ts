@@ -41,7 +41,7 @@ export function playAll(seed = 2026, policy: Policy = safe, mini: 0 | 1 = 0) {
 }
 
 // ---------------------------------------------------------------- three players for the balance report (obvious / optimised / random)
-import { rng, closeDay } from '../src/game';
+import { rng, closeDay, createIndex, dispatchOptions, dispatch } from '../src/game';
 export type Kind = 'obvious' | 'opt' | 'random';
 /** The obvious plan: what the ticket colours say. Red urgent tickets first (top of the specialist's queue), then the tray in order, each to its specialist or the next capy when that row is full, at the end of the queue; first choice on every card. */
 export function planObvious(g: Game) {
@@ -67,7 +67,10 @@ export function playKind(seed: number, kind: Kind, spy?: (g: Game, at: 'plan' | 
   while (!g.over) { spy?.(g, 'plan'); doPlan(); launch(g); let guard = 0;
     while (g.today!.phase === 'run' && guard++ < 500) { step(g); const d = g.today!;
       while (d.pending.length) { const p = d.pending[0]; if (p.kind === 'mini') { miniResult(g, kind === 'random' ? (r() < 0.5 ? 1 : 0) : 1, 'a trouvé le compteur'); continue; }
-        const n = cardOf(p).choices.length; const i = p.kind === 'safety' ? 0 : kind === 'opt' ? lookahead(g, p.card) : kind === 'obvious' ? 0 : Math.floor(r() * n); spy?.(g, 'card'); choose(g, i); if (kind === 'opt' || g.today!.pending.length === 0) doPlan(); } }
+        const n = cardOf(p).choices.length; const i = p.kind === 'safety' ? 0 : kind === 'opt' ? lookahead(g, p.card) : kind === 'obvious' ? 0 : Math.floor(r() * n); spy?.(g, 'card');
+        // the obvious player taps the top row of « Qui lâche quoi ? » (the call window sorts the moves, least water lost first)
+        const ci = createIndex(cardOf(p)); const top = kind === 'obvious' && p.kind === 'event' && ci === i && ci >= 0 ? dispatchOptions(g, ci)[0] : undefined;
+        if (top) { const t = dispatch(g, ci, top); if (t && JOBS[t.job].dig && !t.gas) toggleGas(g, t.id); } else choose(g, i); if (kind === 'opt' || g.today!.pending.length === 0) doPlan(); } }
     if (g.today!.phase !== 'close') closeDay(g); spy?.(g, 'close'); nextDay(g); }
   return g;
 }

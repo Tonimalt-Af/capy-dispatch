@@ -308,7 +308,7 @@ export function evalObj(g: Game, o: Obj): boolean {
     case 'rdv': return d.rdvMissed.length === 0 && d.rdvToday.every((id) => d.rdvKept.includes(id) || d.absentOk.includes(id));
     case 'done': return d.done.length >= (o.n ?? 0);
     case 'm3': return d.m3 < (o.n ?? 0);
-    case 'backlog': return !g.pile.some((id) => avail(g, id) && g.day - g.tickets[id].day > 2);
+    case 'backlog': return !g.pile.some((id) => avail(g, id) && g.day - g.tickets[id].day > (o.n ?? 2));
     case 'travel': return d.travel <= (o.n ?? 0);
     case 'sat': return o.n ? g.sat - d.satStart >= o.n : g.sat > d.satStart;
     case 'yield': return (closeYield(g) - (d.y0 ?? START_YIELD)) * 100 >= (o.n ?? 0) - 1e-9;
