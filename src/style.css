@@ -43,6 +43,16 @@ a{color:var(--ldr-blue-d)}
 .home{position:relative;flex:1;display:flex;align-items:center;padding:var(--sp-4) var(--sp-5);overflow:hidden;background:#BFE3F5}
 .h-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:70% 60%}
 .h-veil{position:absolute;inset:0;background:linear-gradient(90deg,#FFF8ECf2 0,#FFF8ECe0 32%,#FFF8EC66 50%,#FFF8EC00 64%)}
+/* home hero: backdrop painting (no characters) + the crew drawn with the game's own SVG art (same heads/outfits as the planning) */
+.h-scene{position:absolute;right:0;bottom:0;width:47%;height:100%;pointer-events:none;container-type:size;--ch:min(50cqh,40cqw)}
+.h-van{position:absolute;right:-14cqw;bottom:calc(var(--ch) * .32);width:min(80cqw,120cqh);height:auto}
+.h-crew{position:absolute;left:-2cqw;right:8cqw;bottom:1cqh;display:flex;align-items:flex-end;justify-content:center}
+.h-cap{display:block;flex:none;height:var(--ch);aspect-ratio:112/106;margin:0 -6.5cqw;animation:hbob 3.2s ease-in-out infinite;transform-origin:50% 100%}
+.h-cap svg{width:100%;height:100%;display:block;filter:drop-shadow(0 4px 3px #5a371926)}
+.h-cap.me{display:none;z-index:2;animation-delay:-.4s}.h-cap.momo{animation-delay:-1.1s;z-index:1;height:calc(var(--ch) * 1.05)}.h-cap.lulu{animation-delay:-2s}
+@media (min-width:1000px){.h-scene{width:56%;--ch:min(40cqh,31cqw)}.h-van{width:min(62cqw,90cqh);right:-8cqw;bottom:calc(var(--ch) * .5)}.h-cap{margin:0 -5cqw}.h-cap.me{display:block;height:calc(var(--ch) * .9)}}
+@keyframes hbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@media (prefers-reduced-motion:reduce){.h-cap{animation:none}}
 .h-left{position:relative;flex:none;width:min(470px,52%);display:flex;flex-direction:column;gap:var(--sp-2)}
 .brand{display:flex;align-items:center;gap:var(--sp-2)}.brand .b1{font-weight:700;color:var(--ldr-navy);font-size:var(--fs-m)}.brand .b2{font-size:var(--fs-s);color:var(--ink-2)}
 .title{margin:2px 0 0;font-size:clamp(40px,7.4vw,72px);line-height:1;color:#fff;-webkit-text-stroke:9px var(--ldr-navy);paint-order:stroke fill;text-shadow:0 5px 0 var(--ldr-navy);letter-spacing:.5px}

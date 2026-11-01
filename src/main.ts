@@ -103,6 +103,7 @@ function home() {
   $('#home').innerHTML = `<div class="home">
     <img class="h-bg" src="./art/home-keyart.webp" srcset="./art/home-keyart-854.webp 854w, ./art/home-keyart.webp 1280w" sizes="100vw" alt="" decoding="async" fetchpriority="high">
     <div class="h-veil"></div>
+    <div class="h-scene" aria-hidden="true">${vanSvg('fourgon', 'h-van')}<div class="h-crew">${S.player ? `<span class="h-cap me">${me()}</span>` : ''}${(['josette', 'momo', 'lulu'] as const).map((c) => `<span class="h-cap ${c}">${who(c)}</span>`).join('')}</div></div>
     <div class="h-left">
       <div class="brand">${logoLDR(46)}<div><div class="b1">Lyonnaise des Robinets</div><div class="b2">Agence d'Avignon · eau potable</div></div></div>
       <h1 class="title"><span>Capy</span> Dispatch</h1>
