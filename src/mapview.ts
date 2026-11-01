@@ -131,13 +131,14 @@ export class MapView {
     const near = (p: [number, number]) => { let best = 0, bd = 1e12; for (let i = 0; i < MAP.graph.nodes.length / 2; i += 1) { const dx = MAP.graph.nodes[i * 2] - p[0], dy = MAP.graph.nodes[i * 2 + 1] - p[1]; const dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; best = i; } } return best; };
     const pts = this.pathPts(near(from), node); if (pts.length < 2) { this.capyPos[id] = to; this.drawCapys(); return; }
     const L: number[] = [0]; for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
-    const t0 = performance.now(); const tot = L[L.length - 1] || 1;
+    const t0 = performance.now(); const tot = L[L.length - 1] || 1; this.driving.add(id);
     const tick = () => { const f = Math.min(1, (performance.now() - t0) / ms); const e = f < 0.5 ? 2 * f * f : 1 - (-2 * f + 2) ** 2 / 2; const dd = e * tot; let i = 1; while (i < L.length - 1 && L[i] < dd) i++;
-      const a = pts[i - 1], b = pts[i]; const u = (dd - L[i - 1]) / Math.max(1e-6, L[i] - L[i - 1]); this.capyPos[id] = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]; this.drawCapys(); if (f < 1) requestAnimationFrame(tick); };
+      const a = pts[i - 1], b = pts[i]; const u = (dd - L[i - 1]) / Math.max(1e-6, L[i] - L[i - 1]); this.capyPos[id] = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]; if (f >= 1) this.driving.delete(id); this.drawCapys(); if (f < 1) requestAnimationFrame(tick); };
     requestAnimationFrame(tick);
   }
+  private driving = new Set<string>();
   private drawCapys() { const k = this.k(); const seen = new Map<string, number>();
     this.capys.innerHTML = Object.entries(this.capyPos).map(([id, [x, y]]) => { const key = Math.round(x / 12) + ':' + Math.round(y / 12); const n = seen.get(key) ?? 0; seen.set(key, n + 1);
-      return `<g class="mcapy" transform="translate(${x + (n - 1) * 15 * k} ${y - 4 * k}) scale(${k})"><circle r="15" fill="#fff" opacity=".85"/>${who(id as CapyId).replace('<svg ', '<svg x="-15" y="-15" width="30" height="30" ')}</g>`; }).join(''); }
+      return `<g class="mcapy" transform="translate(${x + (n - 1) * 15 * k} ${y - 4 * k}) scale(${k})"><circle r="15" fill="#fff" opacity=".85"/>${who(id as CapyId).replace('<svg ', '<svg x="-15" y="-15" width="30" height="30" ')}${this.driving.has(id) ? `<g class="mvan">${ICONS.van.replace('<svg ', '<svg x="4" y="2" width="22" height="22" ')}</g>` : ''}</g>`; }).join(''); }
   resetCapys() { this.capyPos = {}; this.drawCapys(); }
 }

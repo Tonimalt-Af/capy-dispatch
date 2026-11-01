@@ -463,3 +463,16 @@ details{font-size:var(--fs-s)}summary{cursor:pointer;font-weight:600;padding:var
 .mlabel.q{fill:#4E6B3A;font-weight:700;text-transform:uppercase;letter-spacing:.08em;opacity:.7}
 .map-svg.far .mlabel:not(.q):not(.big){display:none}
 .chip.qx{background:#E4F0D6;color:#3F5A2C}
+
+/* game feel (section 14): stamp on a finished block, the capy's bubble, the star flying to the yield gauge, a van on the map while driving */
+.fx{position:fixed;z-index:60;pointer-events:none;transform:translate(-50%,-50%)}
+.fx.stamp{font:700 var(--fs-m)/1 Fredoka,sans-serif;color:#1E8A4C;border:3px solid #1E8A4C;border-radius:8px;padding:4px 8px;background:#ffffffd9;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;animation:stamp 1.5s ease-out forwards}
+@keyframes stamp{0%{transform:translate(-50%,-50%) rotate(-12deg) scale(2.2);opacity:0}15%{transform:translate(-50%,-50%) rotate(-12deg) scale(1);opacity:1}75%{opacity:1}100%{transform:translate(-50%,-50%) rotate(-12deg) scale(1);opacity:0}}
+.fx.say{transform:translate(-10%,-150%);background:#fff;color:var(--ink);font-size:var(--fs-s);font-weight:700;padding:5px 9px;border-radius:12px;box-shadow:0 2px 6px #0003;white-space:nowrap;animation:say 1.7s ease-out forwards}
+.fx.say::after{content:'';position:absolute;left:14px;bottom:-6px;border:6px solid transparent;border-top-color:#fff;border-bottom:0}
+@keyframes say{0%{opacity:0;margin-top:6px}12%{opacity:1;margin-top:0}80%{opacity:1}100%{opacity:0}}
+.fx.fly{width:26px;height:26px}.fx.fly svg{width:100%;height:100%}
+.mcapy .mvan{animation:bob .5s ease-in-out infinite}
+.fx.confetti{width:0;height:0}.fx.confetti i{position:absolute;width:8px;height:12px;border-radius:2px;animation:conf 1.2s ease-out forwards}
+@keyframes conf{from{transform:translate(0,0) rotate(0);opacity:1}to{transform:translate(var(--dx),var(--dy)) rotate(var(--r));opacity:0}}
+.calm .fx,body:has(#ov.show) .fx:not(.confetti){display:none}

@@ -340,7 +340,7 @@ function panel() {
   const selT = sel && G.avail(g!, sel) ? g!.tickets[sel] : null; const gs = selT && edit ? ghosts(sel!) : null;
   const rows = TEAM.map((c) => {
     const pv = G.preview(g!, c.id); const fa = G.freeAt(g!, c.id); const cr = d.capys[c.id]; let html = '';
-    for (const [id, s0, e0] of d.hist[c.id]) { const J = JOBS[g!.tickets[id].job]; html += `<div class="blk done" style="left:${xs(s0)}%;width:${xe(e0) - xs(s0)}%;--c:${SK_COL[J.skill]}"><div class="b1">${icon(J.icon, 'ic s')}<b>${TAG[J.id]}</b></div><div class="b2"><span class="ok">${glyph('check')}</span></div></div>`; }
+    for (const [id, s0, e0] of d.hist[c.id]) { const J = JOBS[g!.tickets[id].job]; html += `<div class="blk done" data-d="${id}" style="left:${xs(s0)}%;width:${xe(e0) - xs(s0)}%;--c:${SK_COL[J.skill]}"><div class="b1">${icon(J.icon, 'ic s')}<b>${TAG[J.id]}</b></div><div class="b2"><span class="ok">${glyph('check')}</span></div></div>`; }
     if (cr.job) { const t = g!.tickets[cr.job]; const J = JOBS[t.job]; html += `<div class="blk now" style="left:${xs(cr.started)}%;width:${xe(d.slot + cr.left) - xs(cr.started)}%;--c:${SK_COL[J.skill]}"><div class="b1">${icon(J.icon, 'ic s')}<b>${TAG[J.id]}</b></div><div class="b2"><span class="bd">en cours</span>${cr.extra ? `<i class="plus">+${cr.extra} h</i>` : ''}</div></div>`; }
     if (cr.travel && cr.target) html += `<div class="trv" style="left:${xs(d.slot)}%;width:${xe(d.slot + cr.travel) - xs(d.slot)}%" title="Trajet">${icon('van', 'ic xs')}</div>`;
     pv.forEach((s, i) => { const t = g!.tickets[s.id]; const J = JOBS[t.job]; const prev = i ? pv[i - 1].end : fa.at;
@@ -572,13 +572,33 @@ function tick() {
 function afterStep(before: { slot: number; done: number }) {
   const d = g!.today!; const ms = skipping ? 140 : speed === 2 ? 520 : 1000;
   for (const c of TEAM) { const cr = d.capys[c.id]; const tgt = cr.job ?? cr.target; if (tgt && (cr.job || cr.travel === 0 || d.sub === 'mid')) mv?.moveCapy(c.id, SITES[g!.tickets[tgt].site].node, ms); }
-  if (d.done.length > before.done) snd.play('match');
+  const fresh = d.done.slice(before.done); if (fresh.length) snd.play('match');
   if (before.slot === LUNCH_AFTER - 1 && d.slot === LUNCH_AFTER && !skipping) toast(LUNCH_LABEL, 1400);
-  if (d.phase === 'close') { stop(); render(); setTimeout(closeScreen, 500); return; }
-  render();
+  if (d.phase === 'close') { stop(); render(); celebrate(fresh); setTimeout(closeScreen, 500); return; }
+  render(); celebrate(fresh);
   if (d.pending.length) { stop(); showPending(); return; }
   schedule();
 }
+// ---------------------------------------------------------------- game feel: « Réparé ! » stamp, the capy's bubble, a star flying to the yield gauge
+const calmNow = () => !!S.settings.calm || matchMedia('(prefers-reduced-motion: reduce)').matches;
+const STAMP: Record<JobId, string> = { fuite_bt: 'Réparé !', fuite_pc: 'Réparé !', poteau: 'Fermé !', fontaine: 'Réparé !', coupure: 'Réparé !', purge: 'Eau claire !', prc: 'Posé !', introuvable: 'Trouvé !', resilie: 'Réglé !', debit_nuit: 'Trouvé !' };
+const QUIPS = ['Et voilà !', 'Au suivant !', 'Nickel.', 'Du travail propre.', 'Pas de souci.'], WET = ['Plus une goutte !', 'Ça ne coule plus.', 'Et voilà !'];
+function fxAt(el: Element | null, cls: string, text: string, ms: number) { if (!el) return null; const r = el.getBoundingClientRect(); if (!r.width) return null;
+  const f = document.createElement('div'); f.className = `fx ${cls}`; f.textContent = text; f.style.left = `${r.left + r.width / 2}px`; f.style.top = `${r.top + r.height / 2}px`; document.body.appendChild(f); setTimeout(() => f.remove(), ms); return f; }
+function flyStar(from: Element | null, to: Element | null) { if (!from || !to) return; const a = from.getBoundingClientRect(), b = to.getBoundingClientRect(); if (!a.width || !b.width) return;
+  const f = document.createElement('div'); f.className = 'fx fly'; f.innerHTML = ICONS.star; f.style.left = `${a.left + a.width / 2}px`; f.style.top = `${a.top + a.height / 2}px`; document.body.appendChild(f);
+  const dx = b.left + b.width / 2 - a.left - a.width / 2, dy = b.top + b.height / 2 - a.top - a.height / 2;
+  const an = f.animate([{ transform: 'translate(-50%,-50%) scale(1.2)' }, { transform: `translate(calc(-50% + ${dx * 0.5}px), calc(-50% + ${dy * 0.5 - 40}px)) scale(1)`, offset: 0.5 }, { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.5)`, opacity: 0.4 }], { duration: 850, easing: 'ease-in' });
+  an.onfinish = () => { f.remove(); snd.play('star'); to.classList.remove('kup'); void (to as HTMLElement).offsetWidth; to.classList.add('kup'); }; }
+function celebrate(ids: string[]) { if (!ids.length || calmNow() || skipping) return;
+  ids.forEach((id, i) => { const t = g!.tickets[id]; const blk = document.querySelector(`#game .blk[data-d="${id}"]`); fxAt(blk, 'stamp', STAMP[t.job], 1500);
+    const capy = (Object.keys(today().hist) as CapyId[]).find((k) => today().hist[k].some(([x]) => x === id));
+    if (capy) fxAt(document.querySelector(`#game .row[data-capy="${capy}"] .hd`), 'say', ((JOBS[t.job].leak ? WET : QUIPS)[(t.num + i) % (JOBS[t.job].leak ? WET : QUIPS).length]), 1700);
+    if (JOBS[t.job].leak || JOBS[t.job].fix) setTimeout(() => flyStar(blk, document.querySelector('#t-y')), 250 + i * 200); }); }
+/** A little party when the hidden meter is found. */
+function party(el: Element | null) { if (!el || calmNow()) return; const f = fxAt(el, 'confetti', '', 1300); if (!f) return; const cols = ['#F5B82E', '#E5507A', '#2BA6A0', '#7BB82E', '#3B7BD9'];
+  for (let i = 0; i < 22; i++) { const c = document.createElement('i'); const a = (i / 22) * Math.PI * 2; const r = 70 + (i * 37) % 60;
+    c.style.cssText = `background:${cols[i % cols.length]};--dx:${Math.round(Math.cos(a) * r)}px;--dy:${Math.round(Math.sin(a) * r + 30)}px;--r:${(i * 97) % 360}deg`; f.appendChild(c); } }
 function skipToDecision() { autoSkip = true; skipping = true; running = true; render(); schedule(); }
 
 // ---------------------------------------------------------------- cards
@@ -649,7 +669,7 @@ function miniGame(id: string, capy: CapyId) {
 `, 'wide mini');
     document.querySelectorAll<HTMLButtonElement>('.spot').forEach((b) => b.addEventListener('click', () => {
       if (done) return; const s = Number(b.dataset.s);
-      if (s === f.meter) { done = true; snd.play('star'); const extra = miniScore(wrong, hint); draw(); $('#say').innerHTML = `<b>Trouvé ${foundText(f.spots[s].kind)} !</b> ${extra ? 'Ça a pris un peu de temps : +1 h.' : 'Pile à l’heure, bravo !'}`; setTimeout(() => finish(extra, `a trouvé le compteur ${foundText(f.spots[s].kind)}`), 1500); }
+      if (s === f.meter) { done = true; snd.play('win'); const extra = miniScore(wrong, hint); draw(); party(document.querySelector('.facade')); $('#say').innerHTML = `<b>Trouvé ${foundText(f.spots[s].kind)} !</b> ${extra ? 'Ça a pris un peu de temps : +1 h.' : 'Pile à l’heure, bravo !'}`; setTimeout(() => finish(extra, `a trouvé le compteur ${foundText(f.spots[s].kind)}`), 1500); }
       else { wrong++; missed.add(s); snd.play('invalid'); b.classList.add('miss'); b.disabled = true; $('#say').textContent = wrongText(f, s, t.num); const k = $('.mini-k b'); if (k) k.textContent = String(wrong); }
     }));
     $('#mg-hint')?.addEventListener('click', () => { hint = true; snd.play('hint'); draw(); $('#say').textContent = f.hint; });
