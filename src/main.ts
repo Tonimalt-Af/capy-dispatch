@@ -5,7 +5,8 @@ import { SITES, QUARTERS, DEPOT, quarterOf, qTravel } from './map';
 import { SLOTS, LUNCH_AFTER, DAYS, SAFETY_RULE, YIELD_TARGET, START_YIELD, URGENT_TARGET, slotLabel, slotShort, slotEnd, LUNCH_LABEL, DAY_END } from './rules';
 import * as G from './game';
 import type { Game, Ticket } from './game';
-import { load, save as persist, defaults, KEY, type Save } from './storage';
+import { load, save as persist, defaults, KEY, game as validGame, type Save } from './storage';
+import * as D from './daily';
 import { readBook, merge, bookView, BOOK_KEY, SEASONS, type Sticker } from './carnet';
 import { MapView, type Pin, type Route } from './mapview';
 import { who, icon, ICONS, logoLDR, glyph, vanSvg, playerSvg, outfitThumb, headThumb, HEADS, setPlayerLook, FURS, OUTFITS, DEFAULT_LOOK, type Who, type Look } from './art';
@@ -39,7 +40,10 @@ snd.onCue = (n) => { if (n === 'place' || n === 'select' || n === 'drip') haptic
 const calm = () => document.documentElement.classList.toggle('calm', !!S.settings.calm); calm();
 const expert = () => !!S.settings.expert;
 let sel: string | null = null; let running = false; let timer = 0; let skipping = false; /** « Prochaine décision » is the default way to play (5-minute sessions), except on the first day; x1/x2 switch to watching */ let autoSkip = true; let speed: 1 | 2 = S.settings.speed;
-const save = () => { S.game = g; persist(S); };
+// « Tournée du jour »: its own store; while it is played, `g` is the day's game and the campaign waits in `camp`
+let dst = D.readDaily(localStorage.getItem(D.DAILY_KEY), validGame); let camp: Game | null = null;
+const saveDaily = () => { try { localStorage.setItem(D.DAILY_KEY, JSON.stringify(dst)); } catch { /* storage full */ } };
+const save = () => { if (g?.daily) { if (dst.cur?.date === g.daily) dst.cur.game = g; saveDaily(); return; } S.game = g; persist(S); };
 // the permanent field notebook (section 16): its own key, migrated from the current campaign on first load
 const book = readBook(localStorage.getItem(BOOK_KEY));
 const isoDay = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -50,7 +54,7 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 const SK_COL: Record<Skill, string> = { icc: '#F39A2B', reseau: '#2FA4A9', fuite: '#E86A92' };
 const pct = (v: number) => (v * 100).toFixed(1).replace('.', ',') + '\u202F%';
 const today = () => g!.today!;
-const dayName = (d: number) => `${WEEKDAYS[d % 5]} · Jour ${d + 1}/${DAYS}`;
+const dayName = (d: number) => g?.daily ? `Tournée du ${D.dateLabel(g.daily)}` : `${WEEKDAYS[d % 5]} · Jour ${d + 1}/${DAYS}`;
 const addr = (t: Ticket) => { const q = quarterOf(t.site); return `${t.num} ${SITES[t.site].street}${q ? ` (${QUARTERS[q].t})` : ''}`; };
 /** Extra-muros tickets: the quartier, with the road time from the walls. */
 const qChip = (t: Ticket) => { const q = quarterOf(t.site); if (!q) return ''; const h = qTravel(0, q); return `<span class="chip qx" title="Hors les murs : ${h} h de route depuis l’intra-muros, 0 h entre deux adresses du quartier">${icon('van', 'ic xs')}${esc(QUARTERS[q].t)} · ${h} h</span>`; };
@@ -107,8 +111,9 @@ const ovOpen = () => $('#ov').classList.contains('show');
 
 // ---------------------------------------------------------------- home
 function showView(v: 'home' | 'game' | 'create') { document.querySelectorAll('.view').forEach((e) => e.classList.toggle('active', e.id === v)); }
+function leaveDaily() { if (g?.daily) { g = camp ?? S.game; camp = null; morning = null; hs = null; } }
 function home() {
-  stop(); closeOv(); showView('home'); snd.music(0);
+  leaveDaily(); stop(); closeOv(); showView('home'); snd.music(0);
   const cont = g && !g.over && g.today;
   $('#home').innerHTML = `<div class="home">
     <img class="h-bg" src="./art/home-keyart.webp" srcset="./art/home-keyart-854.webp 854w, ./art/home-keyart.webp 1280w" sizes="100vw" alt="" decoding="async" fetchpriority="high">
@@ -120,7 +125,7 @@ function home() {
       <p class="pitch">${say("Tout juste {arrivé|arrivée} à l'agence d'Avignon, tu rejoins l'équipe de capybaras : fuites, compteurs, rendez-vous… dans toutes les rues de la ville.")}</p>
       <div class="h-btns">
         ${cont ? `<button class="btn primary big cta" id="h-cont">${glyph('play')}<span>Continuer <small>${dayName(g!.day)}</small></span></button>` : `<button class="btn primary big cta" id="h-new">${glyph('play')}<span>Jouer</span></button>`}
-        <div class="row2">${cont ? `<button class="btn small" id="h-new">Nouvelle quinzaine</button>` : ''}<button class="btn small" id="h-nb">${icon('heart', 'ic s')}<span>Carnet ${bookView(book, g).filter((x) => x.got).length}/${bookView(book, g).length}</span></button><button class="btn small" id="h-set">${glyph('gear')}<span>Réglages</span></button><button class="btn small" id="h-cred">Crédits</button></div>
+        <div class="row2"><button class="btn small h-daily" id="h-daily">${icon('sun', 'ic s')}<span>Tournée du jour${dst.res[D.dateKey()] ? ` · ${dst.res[D.dateKey()].stars} ★` : ''}</span></button>${cont ? `<button class="btn small" id="h-new">Nouvelle quinzaine</button>` : ''}<button class="btn small" id="h-nb">${icon('heart', 'ic s')}<span>Carnet ${bookView(book, g).filter((x) => x.got).length}/${bookView(book, g).length}</span></button><button class="btn small h-ico" id="h-set" aria-label="Réglages" title="Réglages">${glyph('gear')}</button><button class="btn small" id="h-cred">Crédits</button></div>
       </div>
       ${S.best.runs ? `<p class="best">Meilleure quinzaine : ${S.best.stars} ★ sur ${DAYS * 3} · rendement ${pct(S.best.yield)}</p>` : ''}
     </div>
@@ -129,7 +134,7 @@ function home() {
   fillNames($('#home'));
   $('#h-cont')?.addEventListener('click', () => enterGame());
   $('#h-new').addEventListener('click', () => { if (cont) confirmBox('Nouvelle quinzaine ?', 'La quinzaine en cours sera perdue.', 'Recommencer', newRun); else newRun(); });
-  $('#h-set').addEventListener('click', settings); $('#h-cred').addEventListener('click', credits); $('#h-nb').addEventListener('click', () => notebook());
+  $('#h-set').addEventListener('click', settings); $('#h-cred').addEventListener('click', credits); $('#h-nb').addEventListener('click', () => notebook()); $('#h-daily').addEventListener('click', () => dailyScreen());
   $('#h-me')?.addEventListener('click', () => creator(home, false));
 }
 // ---------------------------------------------------------------- character creation (first launch, then from the settings)
@@ -207,7 +212,47 @@ function notebook(page = 0) { keepBook(); const stk = bookView(book, g); const n
     <div class="chips nb-tabs" role="tablist">${pages.map((p, i) => `<button role="tab" aria-selected="${i === page}" data-pg="${i}">${p[0]} ${p[1].filter((x) => x.got).length}/${p[1].length}</button>`).join('')}</div>
     <div class="nb-page" aria-label="${title}">${body}</div><div class="btns"><button class="btn primary" id="nb-ok">OK</button></div>`, 'small');
   document.querySelectorAll<HTMLElement>('[data-pg]').forEach((b) => b.addEventListener('click', () => { snd.play('click'); notebook(Number(b.dataset.pg)); }));
-  $('#nb-ok').onclick = () => { closeOv(); if (view() === 'home') home(); }; }
+  $('#nb-ok').onclick = () => { closeOv(); if (view() === 'home') (document.querySelector('.daily') ? dailyScreen() : home()); }; }
+// ---------------------------------------------------------------- « Tournée du jour » (section 16)
+let dSel = D.dateKey(); const dPrev = new Map<string, { g: Game; proven: boolean }>();
+const preview = (k: string) => { let p = dPrev.get(k); if (!p) { p = D.dailyGame(k); dPrev.set(k, p); } return p; };
+function playDaily(k: string) {
+  if (!S.player) { creator(() => playDaily(k), true); return; }
+  if (!g?.daily) camp = g; const cur = dst.cur?.date === k ? dst.cur : null;
+  if (cur && cur.game.today?.phase !== 'close') g = cur.game;
+  else { g = structuredClone(preview(k).g); dst.cur = { date: k, ranked: !dst.res[k], game: g }; saveDaily(); forgetMorning(); }
+  sel = null; mv?.resetCapys(); enterGame();
+}
+function dailyScreen(k = dSel) {
+  leaveDaily(); stop(); closeOv(); showView('home'); snd.music(0);
+  const today = D.dateKey(); if (!D.playable(k, today)) k = today; dSel = k;
+  const { g: dg, proven } = preview(k); const spec = G.specOf(dg, dg.day); const card = DAY_CARDS[spec.card];
+  const res = dst.res[k]; const cur = dst.cur?.date === k ? dst.cur : null; const going = !!cur && cur.game.today?.phase !== 'close';
+  const yest = D.addDays(today, -1); const show = res ? k : dst.res[yest] ? yest : null; const sr = show ? dst.res[show] : null;
+  const calls = spec.events.length; const n = Object.keys(dg.tickets).length;
+  const when = (x: string) => (x === today ? 'd’aujourd’hui' : x === yest ? 'd’hier' : `du ${D.dateLabel(x, false)}`);
+  const play = going ? `Continuer la tournée` : res ? 'Rejouer (essai libre)' : 'Jouer la tournée';
+  const nbk = bookView(book, camp ?? g);
+  $('#home').innerHTML = `<div class="daily">
+    <nav class="d-tabs" aria-label="Menu"><button class="btn small" id="d-home">${glyph('home')}<span>Accueil</span></button><button class="btn small on" aria-current="page">${icon('sun', 'ic s')}<span>Tournée du jour</span></button><button class="btn small" id="d-run"><span>Quinzaine</span></button><button class="btn small" id="d-nb">${icon('heart', 'ic s')}<span>Carnet ${nbk.filter((x) => x.got).length}/${nbk.length}</span></button><p class="d-free">Pas de série à tenir : reviens quand tu veux.</p></nav>
+    <div class="d-grid"><section class="d-card"><p class="kicker">Tournée du ${D.dateLabel(k)}</p><h2>${icon(card.icon, 'ic')}<span>${card.title}</span></h2>
+      <p class="d-facts"><span>${n} tickets</span><span>${calls} appel${calls > 1 ? 's' : ''}</span>${proven ? '<span class="ok" title="Le joueur de recherche a fait 3 ★ sur cette journée avant de te la servir">3 ★ prouvées</span>' : ''}</p>
+      <div class="d-chef">${who('chef', 'chef')}<p>${say(spec.chef)}</p></div>
+      <ul class="d-objs">${spec.objs.map((o, i) => `<li class="${res?.met[i] ? 'ok' : ''}">${icon(res?.met[i] ? 'star' : 'starOff', 'ic s')}<span>${objText(o)}</span></li>`).join('')}</ul>
+      <div class="btns"><button class="btn primary" id="d-play">${glyph('play')}<span>${play}</span></button>${k === today && !dst.res[yest] ? '<button class="btn" id="d-yest">Hier</button>' : k !== today ? '<button class="btn" id="d-today">Aujourd’hui</button>' : ''}</div>
+      <p class="d-rank muted">${res ? `Partie classée : <b>${res.stars} ★</b>${res.tries > 1 ? ` · ${res.tries - 1} essai${res.tries > 2 ? 's' : ''} libre${res.tries > 2 ? 's' : ''} (meilleur : ${res.best} ★)` : ''}` : going && cur!.ranked ? 'Partie classée en cours.' : 'La première partie compte. Ensuite, essais libres.'}</p></section>
+      <section class="d-side"><div class="d-res">${sr ? `<h3>Ton résultat ${when(show!)}</h3><pre class="d-share" id="d-txt"></pre><div class="btns"><button class="btn small" id="d-share">${icon('mail', 'ic s')}<span>Partager</span></button>${dst.cur?.date === show && dst.cur.game.today?.phase === 'close' && !calmNow() ? `<button class="btn small" id="d-film">${icon('van', 'ic s')}<span>Revoir la journée</span></button>` : ''}</div>` : '<h3>Ton résultat</h3><p class="muted">Joue la tournée : ton résultat se partage sans rien dévoiler (étoiles, rendement, eau perdue, route, charge de chaque capy).</p>'}</div>
+      <div class="d-week"><h3>Les 7 derniers jours</h3><div class="d-days">${D.lastDays(today).map((x) => { const r = dst.res[x]; return `<button class="d-day${x === k ? ' on' : ''}" data-dk="${x}" aria-label="${D.dateLabel(x)}${r ? ` : ${r.stars} étoiles` : ''}"><small>${D.shortDay(x)}</small><b>${Number(x.slice(8))}</b><span>${r ? '★'.repeat(r.stars) + '☆'.repeat(3 - r.stars) : '–'}</span></button>`; }).join('')}</div>
+      <p class="muted">Une tournée ratée reste jouable 7 jours. Rien ne se perd.</p></div></section></div></div>`;
+  const txt = sr ? D.shareText(show!, sr, TEAM.map((c) => c.name), 'https://tonimalt-af.github.io/capy-dispatch/') : '';
+  if (sr) $('#d-txt').textContent = txt; fillNames($('#home'));
+  $('#d-home').onclick = home; $('#d-nb').onclick = () => notebook(); $('#d-play').onclick = () => playDaily(k);
+  $('#d-run').onclick = () => { g = camp ?? g; if (g && !g.over && g.today) enterGame(); else newRun(); };
+  $('#d-yest')?.addEventListener('click', () => { snd.play('click'); dailyScreen(yest); }); $('#d-today')?.addEventListener('click', () => { snd.play('click'); dailyScreen(today); });
+  document.querySelectorAll<HTMLElement>('[data-dk]').forEach((b) => b.addEventListener('click', () => { snd.play('click'); dailyScreen(b.dataset.dk!); }));
+  $('#d-share')?.addEventListener('click', async () => { try { if (navigator.share) { await navigator.share({ text: txt }); return; } await navigator.clipboard.writeText(txt); toast('Résultat copié : colle-le où tu veux.'); } catch { toast('Copie impossible ici : sélectionne le texte.', 2600, true); } });
+  $('#d-film')?.addEventListener('click', () => { if (!g?.daily) camp = g; g = dst.cur!.game; enterGame(); setTimeout(() => replayDay(true), 300); });
+}
 function credits() {
   openOv(`<h2>Crédits &amp; licences</h2><div class="cred">
     <p><b>Capy Dispatch</b> (titre de travail) · un jeu de Maxime Durand.</p>
@@ -252,7 +297,7 @@ function topbar() {
   if (lastKpi && lastKpi.day === cur.day) { if (cur.y !== lastKpi.y) bump.y = cur.y > lastKpi.y ? ' up' : ' down'; if (cur.m3 > lastKpi.m3) bump.m3 = ' down'; if (cur.sat !== lastKpi.sat) bump.sat = cur.sat > lastKpi.sat ? ' up' : ' down'; } lastKpi = cur; const lo = 0.65, hi = 0.9; const f = (v: number) => Math.max(0, Math.min(1, (v - lo) / (hi - lo))) * 100;
   const n = G.specOf(g!, d.day).objs.length; const met = d.met ? d.met.filter(Boolean).length : 0;
   $('#game .top').innerHTML = `<button class="iconbtn" id="t-menu" aria-label="Menu">${glyph('menu')}</button>
-    <div class="t-day"><span class="av">${me()}</span><div><b>${WEEKDAYS[d.day % 5]}</b><span>Jour ${d.day + 1}/${DAYS}</span></div>${icon(card.icon, 'ic s')}</div>
+    <div class="t-day"><span class="av">${me()}</span><div>${g!.daily ? `<b>Tournée du jour</b><span>${D.dateLabel(g!.daily, false)}</span>` : `<b>${WEEKDAYS[d.day % 5]}</b><span>Jour ${d.day + 1}/${DAYS}</span>`}</div>${icon(card.icon, 'ic s')}</div>
     <button class="t-obj" id="t-obj" aria-label="Objectifs du jour">${G.specOf(g!, d.day).objs.map((_, i) => icon(d.met?.[i] ? 'star' : 'starOff', 'ic s')).join('')}<span><span class="lbl">Objectifs</span><b>${met}/${n}</b></span></button>
     <div class="t-kpis">
       <button class="kpi k-y${bump.y}" id="t-y" aria-label="Rendement de réseau ${pct(y)}, but ${Math.round(YIELD_TARGET * 100)} % : qu'est-ce que c'est ?"><span class="lbl">Rendement de réseau</span><span class="kv"><b>${pct(y)}</b><span class="gauge"><i style="width:${f(y)}%"></i><em style="left:${f(YIELD_TARGET)}%"></em></span><span class="goal">but ${Math.round(YIELD_TARGET * 100)}</span></span></button>
@@ -627,7 +672,7 @@ function afterStep(before: { slot: number; done: number }) {
   for (const c of TEAM) { const cr = d.capys[c.id]; const tgt = cr.job ?? cr.target; if (tgt && (cr.job || cr.travel === 0 || d.sub === 'mid')) mv?.moveCapy(c.id, SITES[g!.tickets[tgt].site].node, ms); }
   const fresh = d.done.slice(before.done); if (fresh.length) snd.play('match');
   if (before.slot === LUNCH_AFTER - 1 && d.slot === LUNCH_AFTER && !skipping) toast(LUNCH_LABEL, 1400);
-  if (d.phase === 'close') { stop(); keepBook(); render(); celebrate(fresh); setTimeout(() => replayDay(), 600); return; }
+  if (d.phase === 'close') { stop(); keepBook(); if (g!.daily) { D.record(dst, g!.daily, D.result(g!)); saveDaily(); } render(); celebrate(fresh); setTimeout(() => replayDay(), 600); return; }
   render(); celebrate(fresh);
   if (d.pending.length) { stop(); showPending(); return; }
   schedule();
@@ -753,7 +798,7 @@ let closeReplay = false; const reopenClose = () => { closeReplay = true; closeSc
 function closeScreen() {
   stopReplay(); startHindsight(); const d = today(); const spec = G.specOf(g!, d.day); snd.music(0); if (!closeReplay) snd.play(d.stars ? 'win' : 'lose');
   const dsat = Math.round(g!.sat - d.satStart); const yw = G.yieldWhy(g!); const dy = (yw.y1 - yw.y0) * 100; const lost = Math.round(d.m3 + d.night);
-  const last = d.day + 1 >= DAYS; const next = last ? 'Le pot du vendredi' : `Au lit ! ${WEEKDAYS[(d.day + 1) % 5]}`;
+  const last = d.day + 1 >= DAYS; const next = g!.daily ? 'Retour à la tournée' : last ? 'Le pot du vendredi' : `Au lit ! ${WEEKDAYS[(d.day + 1) % 5]}`;
   const tile = (id: string, v: string, l: string, cls = '') => `<button class="ctile ${cls}" id="${id}"><b>${v}</b><span>${l}</span></button>`;
   const row = (ic: string, v: string, l: string) => `<div>${icon(ic, 'ic s')}<b>${v}</b><span>${l}</span></div>`;
   openOv(`<div class="close v2"><div class="c-main"><div class="c-top">
@@ -775,18 +820,18 @@ function closeScreen() {
   bindFix(); $('#c-film')?.addEventListener('click', () => replayDay(true));
   $('#c-y').onclick = () => explain('y', reopenClose); $('#c-m3').onclick = () => explain('m3', reopenClose);
   $('#c-more').onclick = () => { const det = $('#c-det'); const open = det.hidden; det.hidden = !open; $('#c-more').setAttribute('aria-expanded', String(open)); if (open) det.scrollIntoView({ block: 'nearest' }); };
-  $('#c-next').onclick = () => { clearGhost(); if (!S.seenTuto) { S.seenTuto = true; } G.nextDay(g!); sel = null; save(); closeOv(); if (g!.over) bilan(); else { mv?.resetCapys(); for (const c of TEAM) mv?.moveCapy(c.id, today().capys[c.id].pos); render(); briefing(); } };
+  $('#c-next').onclick = () => { clearGhost(); if (g!.daily) { const k = g!.daily; dailyScreen(k); return; } if (!S.seenTuto) { S.seenTuto = true; } G.nextDay(g!); sel = null; save(); closeOv(); if (g!.over) bilan(); else { mv?.resetCapys(); for (const c of TEAM) mv?.moveCapy(c.id, today().capys[c.id].pos); render(); briefing(); } };
 }
 // ---------------------------------------------------------------- « Le film de la journée » + « Si c'était à refaire » (end-of-day replay)
 // At launch the morning is kept (memory + one localStorage write, not in the main save). At closing, a 3–4 s sweep replays the day
 // on the planning (blocks, trips, what went wrong, tappable), the vans move on the map, then the close card lists at most 3 moves
 // taken from a better day that the real rules played from the same morning (src/hindsight.ts), searched in small chunks meanwhile.
-const M0 = KEY + '-m0'; const dkey = () => `${g!.seed}:${today().day}`;
+const m0k = () => (g?.daily ? KEY + '-daily-m0' : KEY + '-m0'); const dkey = () => `${g!.seed}:${today().day}`;
 let morning: { key: string; g: Game } | null = null;
-function keepMorning() { morning = { key: dkey(), g: structuredClone(g!) }; try { localStorage.setItem(M0, JSON.stringify(morning)); } catch { /* storage full: the film still plays, without the lesson */ } }
-function forgetMorning() { morning = null; hs = null; try { localStorage.removeItem(M0); } catch { /* ignore */ } }
+function keepMorning() { morning = { key: dkey(), g: structuredClone(g!) }; try { localStorage.setItem(m0k(), JSON.stringify(morning)); } catch { /* storage full: the film still plays, without the lesson */ } }
+function forgetMorning() { morning = null; hs = null; try { localStorage.removeItem(m0k()); } catch { /* ignore */ } }
 function morningOf(): Game | null { const k = dkey(); if (morning?.key === k) return morning.g;
-  try { const m = JSON.parse(localStorage.getItem(M0) ?? 'null'); if (m?.key === k && m.g?.today && m.g.today.day === today().day && m.g.today.phase !== 'close') { morning = m; return m.g; } } catch { /* ignore */ } return null; }
+  try { const m = JSON.parse(localStorage.getItem(m0k()) ?? 'null'); if (m?.key === k && m.g?.today && m.g.today.day === today().day && m.g.today.phase !== 'close') { morning = m; return m.g; } } catch { /* ignore */ } return null; }
 let hs: { key: string; res: H.Hindsight | null; busy: boolean } | null = null;
 function startHindsight() { const k = dkey(); if (hs?.key === k) return; const d = today(); if (d.phase !== 'close') return;
   if (d.stars === 3) { hs = { key: k, res: { stars: 3, fixes: [], best: null }, busy: false }; return; }

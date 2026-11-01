@@ -61,16 +61,17 @@ function finishGreedy(g: Game) { let guard = 0; while (g.today!.phase === 'run' 
 const lookahead: Policy = (g) => { const c = cardOf(g.today!.pending[0]); if (c.choices.length < 2) return 0; let best = 0, bs = -Infinity;
   c.choices.forEach((_, i) => { const h = structuredClone(g); if (choose(h, i)) plan(h); const s = finishGreedy(h); if (s > bs) { bs = s; best = i; } }); return best; };
 /** spy: called when a day is planned ('plan'), on every card answered ('card') and when it is closed ('close'). */
-export function playKind(seed: number, kind: Kind, spy?: (g: Game, at: 'plan' | 'card' | 'close') => void, gen = false) {
-  const g = newGame(seed); if (gen) g.gen = true; startDay(g); const r = rng(seed * 31 + 7);
+/** `start`: play only that day (already briefed), e.g. a « Tournée du jour ». */
+export function playKind(seed: number, kind: Kind, spy?: (g: Game, at: 'plan' | 'card' | 'close') => void, gen = false, start?: Game) {
+  const g = start ?? newGame(seed); if (gen) g.gen = true; if (!start) startDay(g); const r = rng(seed * 31 + 7);
   const doPlan = () => { if (kind === 'opt') { if (g.today!.phase === 'run') for (const c of TEAM) for (const s of preview(g, c.id)) if (s.late || s.overflow) unassign(g, s.id); plan(g); } else if (kind === 'obvious') planObvious(g); else planRandom(g, r); };
-  while (!g.over) { spy?.(g, 'plan'); doPlan(); launch(g); let guard = 0;
+  do { spy?.(g, 'plan'); doPlan(); launch(g); let guard = 0;
     while (g.today!.phase === 'run' && guard++ < 500) { step(g); const d = g.today!;
       while (d.pending.length) { const p = d.pending[0]; if (p.kind === 'mini') { miniResult(g, kind === 'random' ? (r() < 0.5 ? 1 : 0) : 1, 'a trouvé le compteur'); continue; }
         const n = cardOf(p).choices.length; const i = p.kind === 'safety' ? 0 : kind === 'opt' ? lookahead(g, p.card) : kind === 'obvious' ? 0 : Math.floor(r() * n); spy?.(g, 'card');
         // the obvious player taps the top row of « Qui lâche quoi ? » (the call window sorts the moves, least water lost first)
         const ci = createIndex(cardOf(p)); const top = kind === 'obvious' && p.kind === 'event' && ci === i && ci >= 0 ? dispatchOptions(g, ci)[0] : undefined;
         if (top) { const t = dispatch(g, ci, top); if (t && JOBS[t.job].dig && !t.gas) toggleGas(g, t.id); } else choose(g, i); if (kind === 'opt' || g.today!.pending.length === 0) doPlan(); } }
-    if (g.today!.phase !== 'close') closeDay(g); spy?.(g, 'close'); nextDay(g); }
+    if (g.today!.phase !== 'close') closeDay(g); spy?.(g, 'close'); if (start) break; nextDay(g); } while (!g.over);
   return g;
 }

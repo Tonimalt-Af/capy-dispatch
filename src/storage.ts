@@ -73,6 +73,7 @@ export function game(x: unknown): Game | null {
   if (!Object.entries(g.tickets).every(([id, t]) => ticket(t, id))) return null;
   if (!ids(g.pile, (s) => Object.hasOwn(g.tickets, s)) || !Array.isArray(g.history) || !g.history.every(result) || !ids(g.stickers, (s) => s === 'capydindon')) return null;
   if (!Array.isArray(g.news) || !g.news.every((s) => str(s, 300))) g.news = [];
+  if (g.daily !== undefined && !(typeof g.daily === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(g.daily))) return null;
   if (g.gen !== undefined && typeof g.gen !== 'boolean') delete g.gen;
   if (g.specs !== undefined && !(isObj(g.specs) && Object.entries(g.specs).every(([k, v]) => /^[3-9]$/.test(k) && spec(v)))) delete g.specs; // a broken generated day is generated again
   if (g.moments !== undefined && !(Array.isArray(g.moments) && g.moments.every((s) => s === null || str(s, 400)))) delete g.moments;

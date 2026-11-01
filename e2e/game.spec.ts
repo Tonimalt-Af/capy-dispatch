@@ -146,3 +146,19 @@ test('permanent notebook: own key, survives a new fortnight, three pages', async
   await expect(page.locator('.cn-sea')).toHaveCount(4); await expect(page.locator('.cn.saison.got')).toContainText('Après l’orage');
   expect(e).toEqual([]);
 });
+
+test('Tournée du jour: one ranked attempt, spoiler-free share text, 7 days, the campaign untouched', async ({ page }) => {
+  const e = errors(page); await start(page); const camp = await page.evaluate(() => localStorage.getItem('capy-dispatch-v1'));
+  await page.evaluate(() => (window as unknown as { __capy: { ui: { home: () => void } } }).__capy.ui.home()); await page.click('#h-daily');
+  await expect(page.locator('.d-days .d-day')).toHaveCount(7); await expect(page.locator('.d-objs li')).toHaveCount(3); await expect(page.locator('.d-facts')).toContainText('3 ★ prouvées');
+  expect(await page.locator('.daily').innerText()).not.toMatch(/d’affilée|série de|streak|flamme/i); // no streak, anywhere
+  await page.click('#d-play'); await expect(page.locator('#card')).toContainText('Tournée du'); await page.click('#b-go');
+  await tapAssignAll(page); await page.click('#p-go'); await page.locator('#r-skip').click({ timeout: 3000 }).catch(() => {}); await playToClose(page);
+  await expect(page.locator('#c-next')).toContainText('Retour à la tournée'); await page.click('#c-next');
+  const txt = (await page.locator('#d-txt').textContent())!; expect(txt).toMatch(/^Capy Dispatch · Tournée du .+\n[★☆]{3} · rendement/); expect(txt.split('\n')).toHaveLength(7);
+  await expect(page.locator('.d-rank')).toContainText('Partie classée'); await expect(page.locator('#d-play')).toContainText('essai libre');
+  const st = await page.evaluate(() => JSON.parse(localStorage.getItem('capy-dispatch-v1-daily')!)); expect(Object.keys(st.res)).toHaveLength(1);
+  expect(JSON.parse(await page.evaluate(() => localStorage.getItem('capy-dispatch-v1'))!).game.seed).toBe(JSON.parse(camp!).game.seed); // the campaign was not overwritten
+  await page.click('#d-run'); await expect(page.locator('.t-day')).toContainText('Jour 1/10');
+  expect(e).toEqual([]);
+});
