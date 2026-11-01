@@ -208,7 +208,7 @@ function fitBlocks() { document.querySelectorAll<HTMLElement>('#game .blk').forE
   if (b.scrollWidth > b.clientWidth + 1 || b.scrollHeight > b.clientHeight + 1) { el.classList.add('cut'); el.title = el.getAttribute('aria-label') ?? ''; } }); }
 addEventListener('resize', () => { if (g?.today) fitBlocks(); });
 function topbar() {
-  const d = today(); const card = DAY_CARDS[DAYS_SPEC[d.day].card]; const y = G.yieldLive(g!);
+  const d = today(); const card = DAY_CARDS[DAYS_SPEC[d.day].card]; const y = G.yieldLive(g!); mv?.setDress(DAYS_SPEC[d.day].card);
   const cur = { y: Math.round(y * 1000), m3: Math.round(d.m3), sat: Math.round(g!.sat), day: d.day }; const bump = { y: '', m3: '', sat: '' };
   if (lastKpi && lastKpi.day === cur.day) { if (cur.y !== lastKpi.y) bump.y = cur.y > lastKpi.y ? ' up' : ' down'; if (cur.m3 > lastKpi.m3) bump.m3 = ' down'; if (cur.sat !== lastKpi.sat) bump.sat = cur.sat > lastKpi.sat ? ' up' : ' down'; } lastKpi = cur; const lo = 0.65, hi = 0.9; const f = (v: number) => Math.max(0, Math.min(1, (v - lo) / (hi - lo))) * 100;
   const n = DAYS_SPEC[d.day].objs.length; const met = d.met ? d.met.filter(Boolean).length : 0;
@@ -289,7 +289,7 @@ function briefing() {
   const tick = G.tray(g!); const urg = tick.filter((id) => JOBS[g!.tickets[id].job].urgent).length; const rdv = tick.filter((id) => g!.tickets[id].rdv && G.avail(g!, id)).length;
   openOv(`<div class="brief"><div class="b-left"><div class="bubble">${say(spec.chef)}</div><div class="duo">${who('chef', 'chef')}<div class="pl">${me('plc')}<span class="nt">${NM}</span></div></div></div>
     <div class="b-right"><p class="kicker">Le café de 7 h 30</p><h2>${dayName(d.day)}</h2>
-      <div class="daycard">${icon(card.icon, 'ic big')}<div><b>${card.title}</b><span>${card.text}</span></div></div>
+      <div class="daycard">${icon(card.icon, 'ic big')}<div><b>${card.title}</b><span>${card.brief}</span><span class="dfx">${card.fx.map(([k, t]) => `<i>${icon(k)}${t}</i>`).join('')}</span></div></div>
       ${g!.news.map((n) => `<p class="news">${icon('warn')} ${esc(n)}</p>`).join('')}
       <p class="sub">Aujourd'hui : <b>${tick.length} ticket${tick.length > 1 ? "s" : ""}</b>${urg ? ` · <b class="red">${urg} urgence${urg > 1 ? 's' : ''}</b>` : ''}${rdv ? ` · ${rdv} RDV` : ''}</p>
       <ul class="objs">${spec.objs.map((o) => `<li>${icon('star')}<span>${objText(o)}</span></li>`).join('')}</ul>

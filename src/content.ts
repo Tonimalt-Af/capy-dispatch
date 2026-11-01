@@ -187,14 +187,15 @@ export const VIPS: Record<VipId, Vip> = {
 };
 export const vipOutcome = (v: Vip, delay: number | null): 'fast' | 'mid' | 'late' => (delay === null || delay >= v.lateMin ? 'late' : delay <= v.fastMax ? 'fast' : 'mid');
 
-export interface DayCard { id: string; title: string; text: string; icon: string }
+/** brief: the one-sentence briefing; fx: the two effects of the day, each with its icon (section 14). */
+export interface DayCard { id: string; title: string; text: string; icon: string; brief: string; fx: [string, string][] }
 export const DAY_CARDS: Record<string, DayCard> = {
-  calme: { id: 'calme', title: 'Ciel bleu', text: 'Journée calme annoncée. Profitons-en pour avancer.', icon: 'sun' },
-  mistral: { id: 'mistral', title: 'Mistral fort', text: 'Rafales à 80 km/h. Les chantiers de chaussée peuvent prendre du retard.', icon: 'wind' },
-  marche: { id: 'marche', title: 'Marché aux Halles', text: 'Place Pie et alentours très encombrés : tout trajet vers ce secteur coûte un créneau.', icon: 'basket' },
-  orage: { id: 'orage', title: 'Orage cette nuit', text: 'Les sols ont bougé : deux fuites urgentes au briefing.', icon: 'storm' },
-  festival: { id: 'festival', title: 'Festival d’Avignon', text: 'Intra-muros noir de monde : un trajet de plus de 350 m coûte un créneau. Arrêté municipal : pas de chantier de chaussée non urgent intra-muros, les coupures programmées attendent demain.', icon: 'sun' },
-  pluie: { id: 'pluie', title: 'Pluie fine', text: 'Pas de quoi arrêter un capybara (ils adorent l’eau).', icon: 'rain' },
+  calme: { id: 'calme', title: 'Ciel bleu', text: 'Journée calme annoncée. Profitons-en pour avancer.', icon: 'sun', brief: 'Journée calme annoncée : on avance.', fx: [['sun', 'Rien de spécial'], ['clock', 'Bon jour pour solder la pile']] },
+  mistral: { id: 'mistral', title: 'Mistral fort', text: 'Rafales à 80 km/h. Les chantiers de chaussée peuvent prendre du retard.', icon: 'wind', brief: 'Rafales à 80 km/h : garde de la marge.', fx: [['wind', 'Chantiers de chaussée exposés'], ['phone', 'Le téléphone sonne']], },
+  marche: { id: 'marche', title: 'Marché aux Halles', text: 'Place Pie et alentours très encombrés : tout trajet vers ce secteur coûte un créneau.', icon: 'basket', brief: 'Marché aux Halles : la place Pie est bouchée.', fx: [['basket', 'Trajet vers les Halles +1 créneau'], ['van', 'Évite les allers-retours']] },
+  orage: { id: 'orage', title: 'Orage cette nuit', text: 'Les sols ont bougé : deux fuites urgentes au briefing.', icon: 'storm', brief: 'L’orage a fait bouger les sols cette nuit.', fx: [['storm', 'Deux fuites urgentes'], ['drop', 'Chaque heure coûte des m³']] },
+  festival: { id: 'festival', title: 'Festival d’Avignon', text: 'Intra-muros noir de monde : un trajet de plus de 350 m coûte un créneau. Arrêté municipal : pas de chantier de chaussée non urgent intra-muros, les coupures programmées attendent demain.', icon: 'sun', brief: 'Festival et canicule : intra-muros noir de monde.', fx: [['van', 'Plus de 350 m = +1 créneau'], ['warn', 'Pas de coupure programmée']] },
+  pluie: { id: 'pluie', title: 'Pluie fine', text: 'Pas de quoi arrêter un capybara (ils adorent l’eau).', icon: 'rain', brief: 'Pluie fine : rien qui arrête un capybara.', fx: [['rain', 'Pas d’effet sur les trajets'], ['heart', 'Abonnés à choyer']] },
 };
 
 export type ObjId = 'urgent' | 'rdv' | 'done' | 'm3' | 'backlog' | 'travel' | 'sat' | 'yield';

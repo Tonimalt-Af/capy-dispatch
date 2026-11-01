@@ -1,6 +1,6 @@
 // The Avignon map: OpenStreetMap geometry (baked at build time, see LICENSES.md) drawn in our own sticker style.
 // SVG with pan (one finger / mouse drag) and zoom (pinch, wheel, +/− buttons). Pins keep a constant screen size.
-import { MAP, SITES, DEPOT, nodeXY, path } from './map';
+import { MAP, SITES, DEPOT, nodeXY, path, labelXY } from './map';
 import { ICONS, who, glyph, vanSvg, PALAIS_STICKER, PONT_STICKER } from './art';
 import type { CapyId } from './content';
 
@@ -53,7 +53,7 @@ export class MapView {
       <g class="towers"></g>
       <path d="${MAP.paths.palais}" fill="#F6C76E" stroke="#fff" stroke-width="7" stroke-linejoin="round" paint-order="stroke"/>
       <path d="${MAP.paths.pont}" fill="#E8C793" stroke="#fff" stroke-width="7" stroke-linejoin="round" paint-order="stroke"/>
-      <g class="routes"></g><g class="labels"></g><g class="pins"></g><g class="capys"></g></svg>
+      <g class="dress"></g><g class="routes"></g><g class="labels"></g><g class="pins"></g><g class="capys"></g></svg>
       <div class="map-ui"><button class="mbtn" data-z="in" aria-label="Zoomer">${glyph('plus')}</button><button class="mbtn" data-z="out" aria-label="Dézoomer">${glyph('minus')}</button><button class="mbtn" data-z="home" aria-label="Recentrer sur l’intra-muros">${glyph('target')}</button><button class="mbtn wide" data-z="wide" aria-label="Vue large : toute la ville jusqu’au dépôt"><span>Vue large</span></button></div>
       <a class="osm" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener"><span class="osm-l">© les contributeurs d'OpenStreetMap</span><span class="osm-s">© OpenStreetMap</span></a>`;
     host.appendChild(this.el);
@@ -137,6 +137,21 @@ export class MapView {
     requestAnimationFrame(tick);
   }
   private driving = new Set<string>();
+  private dress = '';
+  /** Special-day dressing (section 14): bunting and a crowd intra-muros for the Festival, a crowd and stalls at the Halles on market day; weather tints are CSS classes on the map. */
+  setDress(card: string) { if (card === this.dress) return; this.dress = card; const g = this.svg.querySelector('.dress')!; const cols = ['#E5507A', '#F5B82E', '#2BA6A0', '#3B7BD9', '#7BB82E', '#F08A3E'];
+    this.el.classList.remove('d-festival', 'd-hot', 'd-storm', 'd-wind', 'd-rain', 'd-marche', 'd-frost');
+    const cls: Record<string, string[]> = { festival: ['d-festival', 'd-hot'], orage: ['d-storm'], mistral: ['d-wind'], pluie: ['d-rain'], marche: ['d-marche'], gel: ['d-frost'] }; this.el.classList.add(...(cls[card] ?? []));
+    let h = ''; let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const crowd = (x: number, y: number, n: number, spread: number) => { for (let i = 0; i < n; i++) { const a = rnd() * 6.283, r = Math.sqrt(rnd()) * spread; h += `<circle cx="${(x + Math.cos(a) * r).toFixed(0)}" cy="${(y + Math.sin(a) * r).toFixed(0)}" r="11" fill="${cols[i % cols.length]}" stroke="#fff" stroke-width="3"/>`; } };
+    const bunting = (x: number, y: number, w: number, tilt: number) => { const x0 = x - w / 2, y0 = y - tilt, x1 = x + w / 2, y1 = y + tilt; h += `<path d="M${x0} ${y0} Q${x} ${y + 30} ${x1} ${y1}" fill="none" stroke="#8A6A45" stroke-width="3"/>`;
+      for (let i = 1; i < 8; i++) { const t = i / 8; const px = (1 - t) ** 2 * x0 + 2 * (1 - t) * t * x + t * t * x1, py = (1 - t) ** 2 * y0 + 2 * (1 - t) * t * (y + 30) + t * t * y1; h += `<path d="M${(px - 11).toFixed(0)} ${py.toFixed(0)} h22 l-11 24z" fill="${cols[i % cols.length]}" stroke="#fff" stroke-width="2.5"/>`; } };
+    if (card === 'festival') { const inside = SITES.filter((st) => inRing(st.x, st.y)); const step = Math.max(1, Math.floor(inside.length / 45));
+      inside.forEach((st, i) => { if (i % step === 0) crowd(st.x, st.y, 4, 34); });
+      for (const k of ['palais', 'place']) { const l = MAP.labels.filter((x) => x.k === k)[0]; if (l) { crowd(l.x, l.y + 60, 30, 95); bunting(l.x, l.y - 40, 260, 10); bunting(l.x + 20, l.y + 150, 230, -8); } }
+      const bs = Math.max(1, Math.floor(inside.length / 8)); inside.forEach((st, i) => { if (i % bs === bs >> 1) bunting(st.x, st.y - 20, 180, (i % 2 ? 8 : -8)); }); }
+    if (card === 'marche') { const l = labelXY('halles'); if (l) { crowd(l.x, l.y + 40, 30, 110); for (let i = 0; i < 5; i++) { const x = l.x - 160 + i * 80, y = l.y + 130; h += `<path d="M${x - 34} ${y} h68 l-8 -24 h-52z" fill="${cols[i % cols.length]}" stroke="#fff" stroke-width="3"/><rect x="${x - 28}" y="${y}" width="56" height="22" fill="#F4E3C3" stroke="#fff" stroke-width="3"/>`; } } }
+    g.innerHTML = h; }
   private drawCapys() { const k = this.k(); const seen = new Map<string, number>();
     this.capys.innerHTML = Object.entries(this.capyPos).map(([id, [x, y]]) => { const key = Math.round(x / 12) + ':' + Math.round(y / 12); const n = seen.get(key) ?? 0; seen.set(key, n + 1);
       return `<g class="mcapy" transform="translate(${x + (n - 1) * 15 * k} ${y - 4 * k}) scale(${k})"><circle r="15" fill="#fff" opacity=".85"/>${who(id as CapyId).replace('<svg ', '<svg x="-15" y="-15" width="30" height="30" ')}${this.driving.has(id) ? `<g class="mvan">${ICONS.van.replace('<svg ', '<svg x="4" y="2" width="22" height="22" ')}</g>` : ''}</g>`; }).join(''); }

@@ -476,3 +476,14 @@ details{font-size:var(--fs-s)}summary{cursor:pointer;font-weight:600;padding:var
 .fx.confetti{width:0;height:0}.fx.confetti i{position:absolute;width:8px;height:12px;border-radius:2px;animation:conf 1.2s ease-out forwards}
 @keyframes conf{from{transform:translate(0,0) rotate(0);opacity:1}to{transform:translate(var(--dx),var(--dy)) rotate(var(--r));opacity:0}}
 .calm .fx,body:has(#ov.show) .fx:not(.confetti){display:none}
+
+/* special days (section 14): one-sentence briefing + two effect chips, weather tints and dressing on the map */
+.daycard .dfx{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:3px}.daycard .dfx i{font-style:normal;display:inline-flex;align-items:center;gap:4px;font-weight:600;font-size:var(--fs-xs,12px)}.daycard .dfx svg{width:18px;height:18px}
+.map::after{content:'';position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .6s}
+.map.d-hot::after{opacity:1;background:radial-gradient(circle at 85% 0%,#FFD24A66,transparent 55%),linear-gradient(#FF9A3C1f,#FF9A3C14)}
+.map.d-storm::after{opacity:1;background:linear-gradient(#3B4A6B30,#3B4A6B18)}
+.map.d-rain::after{opacity:1;background:repeating-linear-gradient(105deg,transparent 0 14px,#9FC6E633 14px 15px)}
+.map.d-wind::after{opacity:1;background:repeating-linear-gradient(170deg,transparent 0 40px,#ffffff55 40px 42px,transparent 42px 90px);background-size:200% 100%;animation:wind 3s linear infinite}
+.map.d-frost::after{opacity:1;background:radial-gradient(circle at 0 0,#E6F4FF99,transparent 35%),radial-gradient(circle at 100% 100%,#E6F4FF99,transparent 35%),linear-gradient(#CFE8FF26,#CFE8FF26)}
+@keyframes wind{to{background-position:-200% 0}}
+.calm .map.d-wind::after{animation:none}
