@@ -21,6 +21,9 @@ describe('Tournée du jour', () => {
       let ok = false; for (let i = 0; i < 48 && !ok; i++) ok = tryDay(r.g, r.g.seed * 7919 + r.g.day * 104729 + i * 31 + 5, i < 3 ? 0 : Math.min(1, (i / 48) * 1.5), i < 3 ? 0.15 * i : 0.35, i < 6 ? 0 : (i % 5) * 0.06, 1, false).today!.stars === 3;
       expect(ok, r.k).toBe(true); }
     expect(mean(stars.random)).toBeLessThan(mean(stars.obvious)); expect(mean(stars.obvious)).toBeLessThan(mean(stars.opt));
+    // no free star in a one-day tournée: nothing is carried from yesterday, so « rien qui traîne » never shows up, and the obvious play stays well short of 3 ★
+    for (const r of runs) expect(r.g.specs![r.g.day].objs.some((o) => o.id === 'backlog'), r.k).toBe(false);
+    expect(mean(stars.obvious)).toBeLessThanOrEqual(2.3); expect(mean(stars.opt) - mean(stars.obvious)).toBeGreaterThanOrEqual(0.4);
     (globalThis as { __daily?: unknown }).__daily = { opt: mean(stars.opt), obvious: mean(stars.obvious), random: mean(stars.random) };
   });
   it('one ranked attempt, then free tries; 7 days to catch up; no streak anywhere', () => {

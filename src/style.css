@@ -118,6 +118,7 @@ a{color:var(--ldr-blue-d)}
 .mapbox{position:relative;width:37%;min-width:0;border-right:3px solid #fff}
 .map{position:absolute;inset:0;overflow:hidden;background:#E4F0D6}
 .map-svg{width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+.map-top{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;touch-action:none}.map-top .pin{pointer-events:auto}
 .map-ui{position:absolute;right:6px;top:6px;display:flex;flex-direction:column;gap:6px}
 .mbtn{width:var(--hit);height:var(--hit);display:grid;place-items:center;border:0;border-radius:var(--r-m);background:#fffffff0;box-shadow:0 3px 0 #0000001f;cursor:pointer;color:var(--ldr-navy)}
 .osm{position:absolute;left:4px;bottom:3px;font-size:var(--fs-xs);background:#fffd;padding:1px 6px;border-radius:6px;color:var(--ink);text-decoration:none}
@@ -575,3 +576,7 @@ button.stickers{border:0;font:inherit;color:inherit;text-align:left;cursor:point
 .d-res .btns{justify-content:flex-start;margin-top:0}.d-share{white-space:pre;overflow-x:auto}
 @media (max-width:700px){.d-share{font-size:10px}}
 @media (max-height:340px){.d-chef{display:none}.d-tabs .btn{min-height:var(--hit)}.d-objs{gap:1px}.daily{gap:5px;padding-top:6px;padding-bottom:6px}}
+/* short landscape phones: « Partager » sits on the title line of the result card, the share text gets a tighter leading (no scroll at 667×325) */
+@media (max-height:400px){.d-res{display:grid;grid-template-columns:1fr auto;column-gap:8px;align-items:center}.d-res h3{grid-area:1/1;margin:0}.d-res .btns{grid-area:1/2}.d-res .d-share{grid-area:2/1/3/3;margin:4px 0 0;line-height:1.2}.d-res .btns .btn{min-height:var(--hit)}}
+@media (max-height:340px){.d-share{line-height:1.12}.d-week p{display:none}}
+.d-day{position:relative}.d-day::after{content:'';position:absolute;left:-3px;right:-3px;top:0;bottom:0} /* 7 days in a narrow column: the tap area spans the gaps (≥ 44 px) */

@@ -53,7 +53,7 @@ test('the character is editable later from the settings, and the save migrates o
 
 for (const [w, h] of [[844, 390], [667, 375], [932, 430], [667, 325], [844, 340]]) {
   test(`touch targets ≥ 44 px and no overlapping layout at ${w}×${h}`, async ({ page }) => {
-    test.skip(test.info().project.name !== 'mobile-landscape', 'phone sizes only');
+    test.skip(!test.info().project.name.endsWith('landscape'), 'phone sizes only');
     await page.setViewportSize({ width: w, height: h });
     await page.goto('./'); await page.evaluate(() => document.fonts.ready);
     expect(await smallTargets(page), 'creator').toEqual([]); expect(await tinyText(page), 'creator').toEqual([]); expect(await overlaps(page, ['.cr-prev', '.cr-form']), 'creator').toEqual([]);
@@ -80,3 +80,16 @@ for (const [w, h] of [[844, 390], [667, 375], [932, 430], [667, 325], [844, 340]
     expect(await tinyText(page), 'settings text').toEqual([]);
   });
 }
+
+test('Tournée du jour fits a short phone without scrolling, even with yesterday’s result card', async ({ page }) => {
+  test.skip(!test.info().project.name.endsWith('landscape'), 'phone sizes only');
+  await page.addInitScript(() => { const y = new Date(Date.now() - 864e5); const k = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`;
+    localStorage.setItem('capy-dispatch-v1', JSON.stringify({ player: { name: 'Camille', sex: 'femme', look: { fur: 'noisette', acc: 'lavande', outfit: 'veste' } } }));
+    localStorage.setItem('capy-dispatch-v1-daily', JSON.stringify({ v: 1, res: { [k]: { stars: 2, met: [true, true, false], dy: 0.8, m3: 120, travel: 4, load: [1, 0.8, 0.6], tries: 2, best: 3 } }, cur: null })); });
+  for (const [w, h] of [[667, 325], [844, 340], [667, 375], [844, 390]]) {
+    await page.setViewportSize({ width: w, height: h }); await page.goto('./'); await page.evaluate(() => document.fonts.ready); await page.click('#h-daily');
+    await expect(page.locator('#d-share')).toBeVisible();
+    const m = await page.locator('.daily').evaluate((d) => ({ sh: d.scrollHeight, ch: d.clientHeight }));
+    expect(m.sh, `${w}×${h}`).toBeLessThanOrEqual(m.ch + 1); expect(await smallTargets(page), `${w}×${h}`).toEqual([]);
+  }
+});

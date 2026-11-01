@@ -9,7 +9,7 @@ export const settle = (page: Page) => page.evaluate(() => Promise.all(document.g
 export const smallTargets = async (page: Page) => { await settle(page); return page.evaluate(() => {
   const out: string[] = [];
   for (const el of document.querySelectorAll<HTMLElement>('button, input, [role=radio], [role=switch], a, summary, .mbtn')) {
-    if (el.matches('.osm')) continue; // OSM attribution link: legal credit, also reachable from Crédits
+    if (el.matches('.osm') || el.closest('[aria-hidden="true"]')) continue; // aria-hidden: the off-screen iOS haptic switch (feel.ts) // OSM attribution link: legal credit, also reachable from Crédits
     const r = el.getBoundingClientRect(); const cs = getComputedStyle(el);
     if (!r.width || !r.height || cs.visibility === 'hidden' || el.closest('[hidden], .view:not(.active)') || (el.closest('.ov') && !el.closest('.ov.show'))) continue;
     let w = r.width, h = r.height; const a = getComputedStyle(el, '::after');

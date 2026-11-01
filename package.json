@@ -10,6 +10,7 @@
     "typecheck": "tsc",
     "test": "vitest run",
     "e2e": "playwright test",
+    "e2e:webkit": "E2E_WEBKIT=1 playwright test --project=webkit-landscape",
     "icons": "node scripts/icons.mjs"
   },
   "keywords": [],

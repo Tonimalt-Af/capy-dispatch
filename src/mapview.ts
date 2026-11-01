@@ -18,7 +18,7 @@ const iconIn = (k: string, s: number) => (ICONS[k] ?? '').replace('<svg ', `<svg
 const ringPath = () => { const r = MAP.ring; let d = `M${r[0]} ${r[1]}`; for (let i = 2; i < r.length; i += 2) d += `L${r[i]} ${r[i + 1]}`; return d + 'Z'; };
 
 export class MapView {
-  el: HTMLDivElement; svg: SVGSVGElement; private pins: SVGGElement; private routes: SVGGElement; private capys: SVGGElement; private labels: SVGGElement;
+  el: HTMLDivElement; svg: SVGSVGElement; private top: SVGSVGElement; private pins: SVGGElement; private routes: SVGGElement; private capys: SVGGElement; private labels: SVGGElement;
   vb: VB = { ...HOME }; onPin: (id: string) => void = () => {};
   private lastPins: Pin[] = []; private lastRoutes: Route[] = []; private capyPos: Record<string, [number, number]> = {};
   private pathCache = new Map<string, [number, number][]>();
@@ -53,12 +53,13 @@ export class MapView {
       <g class="towers"></g>
       <path d="${MAP.paths.palais}" fill="#F6C76E" stroke="#fff" stroke-width="7" stroke-linejoin="round" paint-order="stroke"/>
       <path d="${MAP.paths.pont}" fill="#E8C793" stroke="#fff" stroke-width="7" stroke-linejoin="round" paint-order="stroke"/>
-      <g class="dress"></g><g class="routes"></g><g class="labels"></g><g class="pins"></g><g class="capys"></g></svg>
+      <g class="dress"></g><g class="routes"></g><g class="labels"></g></svg>
+      <svg xmlns="${NS}" class="map-top" aria-hidden="false"><g class="pins"></g><g class="capys"></g></svg>
       <div class="map-ui"><button class="mbtn" data-z="in" aria-label="Zoomer">${glyph('plus')}</button><button class="mbtn" data-z="out" aria-label="Dézoomer">${glyph('minus')}</button><button class="mbtn" data-z="home" aria-label="Recentrer sur l’intra-muros">${glyph('target')}</button><button class="mbtn wide" data-z="wide" aria-label="Vue large : toute la ville jusqu’au dépôt"><span>Vue large</span></button></div>
       <a class="osm" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener"><span class="osm-l">© les contributeurs d'OpenStreetMap</span><span class="osm-s">© OpenStreetMap</span></a>`;
     host.appendChild(this.el);
-    this.svg = this.el.querySelector('svg')!;
-    this.routes = this.svg.querySelector('.routes')!; this.pins = this.svg.querySelector('.pins')!; this.capys = this.svg.querySelector('.capys')!; this.labels = this.svg.querySelector('.labels')!;
+    this.svg = this.el.querySelector('svg')!; this.top = this.el.querySelector<SVGSVGElement>('.map-top')!;
+    this.routes = this.svg.querySelector('.routes')!; this.pins = this.top.querySelector('.pins')!; this.capys = this.top.querySelector('.capys')!; this.labels = this.svg.querySelector('.labels')!;
     this.el.querySelectorAll<HTMLButtonElement>('.mbtn').forEach((b) => b.addEventListener('click', () => { const z = b.dataset.z; if (z === 'home') this.setVB({ ...HOME }); else if (z === 'wide') this.setVB({ ...WIDE }); else this.zoom(z === 'in' ? 0.7 : 1 / 0.7); }));
     this.towers(); this.gestures(); this.applyVB();
     new ResizeObserver((es) => { const r = es[0].contentRect; this.W = r.width; this.H = r.height; this.drawnK = 0; this.applyVB(); }).observe(this.el);
@@ -67,6 +68,8 @@ export class MapView {
   // gesture is shown as a compositor-only CSS transform of the <svg> (one per frame, coalesced in rAF); the real
   // viewBox is committed when the finger lifts or pauses. Overlays (pins, labels, routes, capys) are only rebuilt
   // when the zoom (k) actually changed, and sizes come from the ResizeObserver, never from layout reads mid-gesture.
+  // Pins and capy heads live in a light overlay <svg> that follows the pending viewBox every frame and only re-scales
+  // its own few elements, so they keep their screen size during a pinch instead of growing with the map.
   private W = 0; private H = 0; private cv: VB = { ...HOME }; private drawnK = 0; private raf = 0; private idle = 0;
   /** px of SVG user units per screen pixel */
   private k(v: VB = this.vb) { if (!this.W) { const r = this.el.getBoundingClientRect(); this.W = r.width; this.H = r.height; } return this.W ? Math.max(v.w / this.W, v.h / this.H) : 4; }
@@ -77,9 +80,13 @@ export class MapView {
     if (this.raf) return; this.raf = requestAnimationFrame(() => { this.raf = 0; const c = this.cv, p = this.vb, kc = this.k(c), kp = this.k(p); const a = kc / kp;
       const oc = [(this.W - c.w / kc) / 2, (this.H - c.h / kc) / 2], op = [(this.W - p.w / kp) / 2, (this.H - p.h / kp) / 2];
       const bx = (c.x - p.x) / kp + op[0] - a * oc[0], by = (c.y - p.y) / kp + op[1] - a * oc[1];
-      this.svg.style.transform = `translate(${bx.toFixed(1)}px,${by.toFixed(1)}px) scale(${a.toFixed(4)})`; }); }
+      this.svg.style.transform = `translate(${bx.toFixed(1)}px,${by.toFixed(1)}px) scale(${a.toFixed(4)})`; this.topVB(); }); }
+  /** The overlay shows the pending viewBox itself; on a zoom its pins and capys are re-scaled in place (no rebuild). */
+  private topK = 0;
+  private topVB() { const v = this.vb; this.top.setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`); const k = this.k(v); if (Math.abs(k - this.topK) <= k * 1e-3) return; this.topK = k;
+    this.pins.querySelectorAll<SVGGElement>('[data-pin]').forEach((e) => e.setAttribute('transform', `translate(${e.dataset.x} ${e.dataset.y}) scale(${Number(e.dataset.s) * k})`)); this.drawCapys(); }
   private applyVB() { clearTimeout(this.idle); if (this.raf) { cancelAnimationFrame(this.raf); this.raf = 0; } const v = this.vb; this.cv = { ...v };
-    this.svg.setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`); this.svg.style.transform = '';
+    this.svg.setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`); this.svg.style.transform = ''; this.topVB();
     const k = this.k(); if (Math.abs(k - this.drawnK) <= k * 1e-3) return; this.drawnK = k; // a pure pan: overlays are in map units, nothing to rebuild
     this.drawPins(this.lastPins); this.drawRoutes(this.lastRoutes); this.drawLabels(); this.drawCapys(); }
   zoom(f: number, cx = this.vb.x + this.vb.w / 2, cy = this.vb.y + this.vb.h / 2, live = false) { const w = this.vb.w * f, h = this.vb.h * f; this.setVB({ x: cx - (cx - this.vb.x) * f, y: cy - (cy - this.vb.y) * f, w, h }, live); }
@@ -91,8 +98,8 @@ export class MapView {
   private toUser(cx: number, cy: number) { const r = this.box ?? this.el.getBoundingClientRect(); const k = this.k(); const ox = (r.width * k - this.vb.w) / 2, oy = (r.height * k - this.vb.h) / 2; return [this.vb.x - ox + (cx - r.left) * k, this.vb.y - oy + (cy - r.top) * k]; }
   private gestures() {
     const pts = new Map<number, { x: number; y: number }>(); let moved = false; let start: { vb: VB; d: number; mx: number; my: number } | null = null;
-    const s = this.svg;
-    s.addEventListener('pointerdown', (e) => { if (!pts.size) this.box = this.el.getBoundingClientRect(); pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = false; start = null; });
+    const s = this.el; const ui = (e: Event) => !!(e.target as Element).closest?.('.map-ui, .osm');
+    s.addEventListener('pointerdown', (e) => { if (ui(e)) return; if (!pts.size) this.box = this.el.getBoundingClientRect(); pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = false; start = null; });
     s.addEventListener('pointermove', (e) => {
       const p = pts.get(e.pointerId); if (!p) return; const k = this.k();
       if (pts.size === 1) { const dx = e.clientX - p.x, dy = e.clientY - p.y; if (!moved && Math.hypot(dx, dy) < 7) return; if (!moved) { moved = true; s.setPointerCapture(e.pointerId); }
@@ -125,9 +132,9 @@ export class MapView {
       return `${st}${dot}<text x="${l.x}" y="${l.y + (lm ? 1 * k : 0)}" font-size="${9.5 * k}" text-anchor="middle" class="mlabel${lm ? ' big' : ''}${l.k === 'quartier' ? ' q' : ''}${l.k === 'prefecture' ? ' pf' : ''}${near(l.x, l.y) ? ' dim' : ''}" stroke-width="${3 * k}">${escT(l.t)}</text>`; }).join('')
       + `<g transform="translate(${DX} ${DY}) scale(${k})">${vanSvg('fourgon').replace('<svg ', '<svg x="-26" y="-22" width="52" height="29" ')}<rect x="-24" y="8" width="48" height="16" rx="8" fill="#030F40" stroke="#fff" stroke-width="2.5"/><text x="0" y="20.5" font-size="12" text-anchor="middle" fill="#fff" class="dep">Dépôt</text></g>`; }
   setPins(p: Pin[]) { this.lastPins = p; this.drawPins(p); this.drawLabels(); }
-  private drawPins(list: Pin[]) { const k = this.k(this.cv);
-    this.pins.innerHTML = [...list].sort((a, b) => Number(a.selected) - Number(b.selected)).map((p) => { const s = SITES[p.site]; const sc = (p.selected ? 1.35 : 1) * k;
-      return `<g data-pin="${p.id}" class="pin ${p.state}${p.selected ? ' sel' : ''}${p.urgent ? ' urg' : ''}" transform="translate(${s.x} ${s.y}) scale(${sc})">
+  private drawPins(list: Pin[]) { const k = this.k(this.vb); this.topK = k;
+    this.pins.innerHTML = [...list].sort((a, b) => Number(a.selected) - Number(b.selected)).map((p) => { const s = SITES[p.site]; const f = p.selected ? 1.35 : 1; const sc = f * k;
+      return `<g data-pin="${p.id}" data-x="${s.x}" data-y="${s.y}" data-s="${f}" class="pin ${p.state}${p.selected ? ' sel' : ''}${p.urgent ? ' urg' : ''}" transform="translate(${s.x} ${s.y}) scale(${sc})">
         ${p.urgent && p.state !== 'done' ? '<circle r="15" class="pulse"/>' : ''}<circle r="22" fill="transparent"/>
         <path d="M0 16 L-7 6 A12 12 0 1 1 7 6 Z" transform="translate(0 -14)" fill="${p.state === 'done' ? '#BFD9B0' : p.color}" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
         <g transform="translate(0 -16)">${p.state === 'done' ? '<path d="M-5 0 L-1.5 4 L5.5 -4" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/>' : iconIn(p.icon, 15)}</g>
@@ -169,7 +176,7 @@ export class MapView {
     g.innerHTML = h; }
   private capyEls = new Map<string, SVGGElement>();
   /** Capy heads are built once; a frame of a drive only moves a transform (no innerHTML, no re-parse of the head SVG). */
-  private drawCapys() { const k = this.k(this.cv); const seen = new Map<string, number>();
+  private drawCapys() { const k = this.k(this.vb); const seen = new Map<string, number>();
     for (const [id, [x, y]] of Object.entries(this.capyPos)) { const key = Math.round(x / 12) + ':' + Math.round(y / 12); const n = seen.get(key) ?? 0; seen.set(key, n + 1);
       let el = this.capyEls.get(id); if (!el) { el = document.createElementNS(NS, 'g'); el.setAttribute('class', 'mcapy');
         el.innerHTML = `<circle r="15" fill="#fff" opacity=".85"/>${who(id as CapyId).replace('<svg ', '<svg x="-15" y="-15" width="30" height="30" ')}<g class="mvan">${ICONS.van.replace('<svg ', '<svg x="4" y="2" width="22" height="22" ')}</g>`;

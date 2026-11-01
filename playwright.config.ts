@@ -7,5 +7,7 @@ export default defineConfig({
   projects: [
     { name: 'mobile-landscape', use: { viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3 } },
     { name: 'desktop', use: { viewport: { width: 1440, height: 900 } } },
+    // Safari engine (iPhone): `npm run e2e:webkit` (needs `npx playwright install webkit`)
+    ...(process.env.E2E_WEBKIT ? [{ name: 'webkit-landscape', use: { browserName: 'webkit' as const, launchOptions: {}, viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3 } }] : []),
   ],
 });

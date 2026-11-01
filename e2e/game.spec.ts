@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { withPlayer, errors } from './helpers';
+import { withPlayer, errors, settle } from './helpers';
 
 test.beforeEach(async ({ page }) => { await withPlayer(page); });
 async function start(page: Page) { await page.goto('./'); await page.click('#h-new'); await expect(page.locator('#b-go')).toBeVisible(); await page.click('#b-go'); }
@@ -125,13 +125,21 @@ test('polish: pressed look on tap, Vibrations setting saved, map drag commits th
   await page.locator('label.tg', { hasText: 'Vibrations' }).click(); await expect(page.locator('#s-hap')).not.toBeChecked();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('capy-dispatch-v1')!).settings.haptics)).toBe(false); await page.click('#s-ok');
   if (!(await page.locator('.map-svg').isVisible())) await page.click('#t-map');
-  const m = await page.evaluate(async () => { const s = document.querySelector('.map-svg') as SVGSVGElement; const r = s.getBoundingClientRect(); const x = r.left + r.width / 2, y = r.top + r.height / 2; const vb0 = s.getAttribute('viewBox'); const pins0 = s.querySelector('.pins')!.firstElementChild;
+  await settle(page); await page.waitForTimeout(200); // the drawer has stopped resizing the map (a resize commits the view)
+  const m = await page.evaluate(async () => { const s = document.querySelector('.map-svg') as SVGSVGElement; const r = s.getBoundingClientRect(); const x = r.left + r.width / 2, y = r.top + r.height / 2; const vb0 = s.getAttribute('viewBox'); const pins0 = document.querySelector('.map-top .pins')!.firstElementChild;
     const ev = (t: string, dx: number) => s.dispatchEvent(new PointerEvent(t, { pointerId: 1, clientX: x - dx, clientY: y, bubbles: true, isPrimary: true }));
-    ev('pointerdown', 0); for (let i = 1; i <= 6; i++) { ev('pointermove', i * 10); await new Promise((f) => requestAnimationFrame(f)); }
-    const mid = { vb: s.getAttribute('viewBox'), tf: s.style.transform, samePins: s.querySelector('.pins')!.firstElementChild === pins0 }; ev('pointerup', 60); await new Promise((f) => requestAnimationFrame(f));
-    return { vb0, mid, vb1: s.getAttribute('viewBox'), tf1: s.style.transform, samePins: s.querySelector('.pins')!.firstElementChild === pins0 }; });
+    ev('pointerdown', 0); for (let i = 1; i <= 6; i++) ev('pointermove', i * 10); await new Promise((f) => requestAnimationFrame(f)); // one frame (a slow frame > 140 ms would count as a finger pause and commit)
+    const mid = { vb: s.getAttribute('viewBox'), tf: s.style.transform, samePins: document.querySelector('.map-top .pins')!.firstElementChild === pins0 }; ev('pointerup', 60); await new Promise((f) => requestAnimationFrame(f));
+    return { vb0, mid, vb1: s.getAttribute('viewBox'), tf1: s.style.transform, samePins: document.querySelector('.map-top .pins')!.firstElementChild === pins0 }; });
   expect(m.mid.vb).toBe(m.vb0); expect(m.mid.tf).toContain('translate(-'); expect(m.mid.samePins).toBe(true);
   expect(m.vb1).not.toBe(m.vb0); expect(m.tf1).toBe(''); expect(m.samePins).toBe(true); // a pan keeps the pins (map units), only the viewBox moved
+  // a pinch: the map grows under the fingers, the pins keep their size on screen (they used to swell until the fingers lifted)
+  const z = await page.evaluate(async () => { const s = document.querySelector('.map-svg') as SVGSVGElement; const r = s.getBoundingClientRect(); const x = r.left + r.width / 2, y = r.top + r.height / 2;
+    const pin = () => (document.querySelector('.map-top [data-pin] path') as SVGPathElement).getBoundingClientRect().width; const w0 = pin(); const raf = () => new Promise((f) => requestAnimationFrame(f));
+    const ev = (t: string, id: number, dx: number) => s.dispatchEvent(new PointerEvent(t, { pointerId: id, clientX: x + dx, clientY: y, bubbles: true, isPrimary: id === 1 }));
+    ev('pointerdown', 1, -40); ev('pointerdown', 2, 40); for (let i = 1; i <= 6; i++) { ev('pointermove', 1, -40 - i * 12); ev('pointermove', 2, 40 + i * 12); await raf(); }
+    const mid = { w: pin(), tf: s.style.transform }; ev('pointerup', 1, -112); ev('pointerup', 2, 112); await raf(); return { w0, mid, w1: pin() }; });
+  expect(z.mid.tf).toContain('scale('); expect(Math.abs(z.mid.w - z.w0)).toBeLessThan(z.w0 * 0.05); expect(Math.abs(z.w1 - z.w0)).toBeLessThan(z.w0 * 0.05);
   expect(e).toEqual([]);
 });
 
