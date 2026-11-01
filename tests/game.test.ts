@@ -248,7 +248,7 @@ describe('field notebook', () => {
 describe('expert mode', () => {
   it('travelWhy states exactly the cost travelCost charges', () => {
     for (const day of [0, 5, 6]) { const g = G.newGame(3); g.day = day;
-      for (let i = 0; i < 400; i++) { const a = SITES[(i * 37) % SITES.length].node, b = (i * 101 + 7) % SITES.length; const why = G.travelWhy(g, a, b); const n = Number(why.match(/(\d+) créneaux?$/)?.[1] ?? 0);
+      for (let i = 0; i < 400; i++) { const a = SITES[(i * 37) % SITES.length].node, b = (i * 101 + 7) % SITES.length; const why = G.travelWhy(g, a, b); expect(why).not.toMatch(/undefined|NaN/); const n = Number(why.match(/(\d+) créneaux?$/)?.[1] ?? 0);
         expect(n, why).toBe(G.travelCost(g, a, b)); } }
   });
 });
