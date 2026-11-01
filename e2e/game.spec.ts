@@ -101,3 +101,18 @@ test('coup de pouce: from day 2, only after 90 s of planning, places one ticket 
   await expect(page.locator('.tk')).toHaveCount(n - 1); await expect(page.locator('#p-nudge')).toHaveCount(0);
   await page.clock.fastForward(91_000); await expect(page.locator('#p-nudge')).toHaveCount(0);
 });
+
+test('end-of-day film: plays after the day, skippable, replayable, and the close card says what to rewind', async ({ page }) => {
+  test.slow(); const e = errors(page); await start(page); await tapAssignAll(page); await page.click('#p-go');
+  // play until the film starts (it runs before the close card)
+  for (let i = 0; i < 120 && !(await page.locator('.rp-ban').isVisible()); i++) {
+    if (await page.locator('.choice').first().isVisible()) await page.locator('.choice').first().click();
+    else if (await page.locator('#mg-auto').isVisible()) await page.click('#mg-auto');
+    else { const sk = page.locator('#r-skip'); if (await sk.isVisible() && (await sk.getAttribute('aria-pressed')) !== 'true') await sk.click({ timeout: 1500 }).catch(() => {}); }
+    await page.waitForTimeout(200); }
+  await expect(page.locator('.rp-ban')).toBeVisible(); await expect(page.locator('.rp-sw').first()).toBeAttached();
+  await page.click('#rp-skip'); await expect(page.locator('#card')).toContainText('On range les fourgons'); await expect(page.locator('.rp-sw')).toHaveCount(0);
+  await expect(page.locator('#c-fix')).toContainText(/Journée parfaite|Si c’était à refaire|pas mieux/);
+  await page.click('#c-film'); await expect(page.locator('.rp-ban')).toBeVisible(); await page.click('#rp-skip'); await expect(page.locator('#c-next')).toBeVisible();
+  expect(e).toEqual([]);
+});

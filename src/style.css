@@ -515,3 +515,32 @@ button.stickers{border:0;font:inherit;color:inherit;text-align:left;cursor:point
 /* coup de pouce tile at the head of the tray */
 .nudge{flex:none;width:150px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:6px 9px;border-radius:var(--r-m);border:2.5px dashed #E6B53A;background:#FFF6D6;font:inherit;color:inherit;text-align:left;cursor:pointer;font-size:var(--fs-xs)}
 .nudge b{font-size:var(--fs-s)}.nudge .ic{width:22px;height:22px}
+
+/* ---------- end-of-day film (replay) + « Si c'était à refaire » */
+.tl.rp{overflow:clip}
+.rp-sw{position:absolute;inset:-3px 0;z-index:6;pointer-events:none;animation:rpsw linear forwards;will-change:transform}
+.rp-sw::before{content:'';position:absolute;left:-2px;top:0;bottom:0;width:4px;border-radius:2px;background:#F5B82E;box-shadow:0 0 8px #F5B82E99}
+.rp-sw::after{content:'';position:absolute;left:2px;top:0;bottom:0;width:100%;background:linear-gradient(90deg,#ffffffd9,#fffffff2 30px)}
+@keyframes rpsw{from{transform:translateX(0)}to{transform:translateX(100%)}}
+.rp-trip{position:absolute;top:50%;height:6px;margin-top:-3px;z-index:3;border-radius:3px;background:repeating-linear-gradient(90deg,#3B7BD9 0 6px,transparent 6px 10px);opacity:0;animation:rpin .3s ease-out forwards}
+.rp-mk{position:absolute;top:-1px;z-index:7;transform:translateX(-30%) scale(0);display:inline-flex;align-items:center;gap:3px;min-height:26px;padding:2px 8px 2px 4px;border:2px solid #fff;border-radius:var(--r-pill);background:#E8344E;color:#fff;font:700 var(--fs-xs)/1 Fredoka,sans-serif;white-space:nowrap;box-shadow:0 2px 6px #0004;cursor:pointer;animation:rpmk .45s cubic-bezier(.3,1.6,.6,1) forwards}
+.rp-mk .ic{width:16px;height:16px}.rp-mk:active{filter:brightness(.9);scale:.94}
+.rp-mk.flat{position:static;transform:scale(0);background:#E8344E}
+@keyframes rpmk{to{transform:translateX(-30%) scale(1)}}.rp-mk.flat{animation-name:rpmk2}@keyframes rpmk2{to{transform:scale(1)}}
+@keyframes rpin{to{opacity:.9}}
+.blk.rp-pop{animation:rppop .4s ease-out}@keyframes rppop{40%{transform:scale(1.08);box-shadow:0 0 0 4px #7BB82E66}}
+.panel.rp-on .bottom{opacity:.2;pointer-events:none}
+.rp-ban{position:absolute;left:50%;bottom:8px;z-index:20;transform:translateX(-50%);display:flex;align-items:center;gap:var(--sp-2);max-width:calc(100% - 16px);padding:4px 4px 4px 10px;border-radius:var(--r-pill);background:var(--ldr-navy,#0B2A5B);color:#fff;box-shadow:var(--sh-pop);animation:rpban .3s ease-out}@keyframes rpban{from{opacity:0;translate:0 -8px}}
+.rp-ban>b{font:700 var(--fs-s)/1.1 Fredoka,sans-serif;white-space:nowrap}.rp-chips{display:flex;gap:4px;flex-wrap:wrap}.rp-ban .btn{min-height:36px;color:var(--ldr-navy);flex:none}.rp-ban .btn .gl{width:16px;height:16px}
+.hs{margin-top:4px}.hs:empty{display:none}
+.hs-lead{margin:0 0 4px;font-size:var(--fs-xs);color:var(--ink-2)}.hs-lead b{color:var(--ink)}
+.hs-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.hs-it{display:flex;align-items:center;gap:6px;width:100%;min-height:36px;padding:3px 8px;border:2px solid #F5B82E66;border-radius:var(--r-s);background:#FFF7E0;color:var(--ink);font:500 var(--fs-xs)/1.25 Fredoka,sans-serif;text-align:left;cursor:pointer}
+.hs-it>span:not(.ic){flex:1}.hs-it>.ic{flex:none;width:22px;height:22px}.hs-it i .gl{width:16px;height:16px;opacity:.6}.hs-it:active{background:#FFE9B0;scale:.98}
+.hs-perfect{display:flex;align-items:center;gap:6px;margin:0;padding:6px 10px;border-radius:var(--r-s);background:var(--ok-l);color:var(--ok);font-size:var(--fs-s)}
+.hs-wait,.hs-none{margin:0;font-size:var(--fs-s);color:var(--ink-2);display:flex;align-items:center;gap:6px}
+.hs-spin{width:14px;height:14px;border-radius:50%;border:2.5px solid #F5B82E;border-right-color:transparent;animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+.hs-ghost{position:absolute;top:2px;bottom:2px;z-index:5;display:flex;align-items:center;gap:3px;padding:0 6px;border:2.5px dashed var(--c);border-radius:var(--r-s);background:#ffffffcc;font-size:var(--fs-xs);white-space:nowrap;overflow:hidden;animation:ghostin 1.2s ease-in-out 2}
+@keyframes ghostin{50%{box-shadow:0 0 0 5px #F5B82E88}}
+.row.hs-row{box-shadow:0 0 0 3px #F5B82E}
+.hs-bar{position:absolute;left:8px;right:8px;bottom:8px;z-index:20;display:flex;align-items:center;gap:var(--sp-2);padding:6px 6px 6px 12px;border-radius:var(--r-m);background:#fff;box-shadow:var(--sh-pop);font-size:var(--fs-s)}.hs-bar span{flex:1}

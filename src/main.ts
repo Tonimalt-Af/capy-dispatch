@@ -1,7 +1,7 @@
 import '@fontsource/fredoka/latin-400.css'; import '@fontsource/fredoka/latin-600.css'; import '@fontsource/fredoka/latin-700.css';
 import './style.css';
 import { JOBS, TEAM, CAPY, RISKS, DAY_CARDS, DAYS_SPEC, WEEKDAYS, SKILL_SHORT, slotsFor, objText, VIPS, GLOSSARY, CAPY_LINE, QUOTES, type CapyId, type Skill, type JobId } from './content';
-import { SITES, QUARTERS, quarterOf, qTravel } from './map';
+import { SITES, QUARTERS, DEPOT, quarterOf, qTravel } from './map';
 import { SLOTS, LUNCH_AFTER, DAYS, SAFETY_RULE, YIELD_TARGET, START_YIELD, URGENT_TARGET, slotLabel, slotShort, slotEnd, LUNCH_LABEL, DAY_END } from './rules';
 import * as G from './game';
 import type { Game, Ticket } from './game';
@@ -12,6 +12,7 @@ import { who, icon, ICONS, logoLDR, glyph, vanSvg, playerSvg, outfitThumb, headT
 import { cleanName, validName, setSex, agree, gx, NAME_MAX, ACCS, ACC_LABEL, FUR_LABEL, OUTFIT_LABEL, OUTFIT_SHORT, HEAD_LABEL, type Sex } from './player';
 import { facade, wrongText, foundText, miniScore, meterSvg } from './facade';
 import { Sound } from './audio';
+import * as H from './hindsight';
 
 // ---------------------------------------------------------------- boot guard
 let booted = false;
@@ -160,7 +161,7 @@ function creator(after: () => void, first: boolean) {
   $('#cr-cancel')?.addEventListener('click', after);
   upd(); if (first) setTimeout(() => { if (!matchMedia('(pointer:coarse)').matches) input.focus(); }, 60);
 }
-function newRun() { if (!S.player) { creator(newRun, true); return; } g = G.newGame(1 + Math.floor(Math.random() * 1e6)); if (!S.best.runs && !S.seenTuto) g.seed = 2026; G.startDay(g); save(); enterGame(); }
+function newRun() { if (!S.player) { creator(newRun, true); return; } forgetMorning(); g = G.newGame(1 + Math.floor(Math.random() * 1e6)); if (!S.best.runs && !S.seenTuto) g.seed = 2026; G.startDay(g); save(); enterGame(); }
 function confirmBox(title: string, text: string, ok: string, fn: () => void) {
   openOv(`<h2>${title}</h2><p>${text}</p><div class="btns"><button class="btn" id="c-no">Annuler</button><button class="btn danger" id="c-yes">${ok}</button></div>`, 'small');
   $('#c-no').onclick = closeOv; $('#c-yes').onclick = () => { closeOv(); fn(); };
@@ -586,7 +587,7 @@ function launchDay() {
   const w = G.warnings(g!); if (w.some((x) => x.level === 'red') || !G.canLaunch(g!)) { showWarnings(true); return; }
   doLaunch();
 }
-function doLaunch() { autoSkip = true; G.launch(g!); save(); snd.play('horn'); snd.music(1); play(); }
+function doLaunch() { keepMorning(); autoSkip = true; G.launch(g!); save(); snd.play('horn'); snd.music(1); play(); }
 
 // ---------------------------------------------------------------- resolution loop
 function stop() { running = false; skipping = false; clearTimeout(timer); }
@@ -603,7 +604,7 @@ function afterStep(before: { slot: number; done: number }) {
   for (const c of TEAM) { const cr = d.capys[c.id]; const tgt = cr.job ?? cr.target; if (tgt && (cr.job || cr.travel === 0 || d.sub === 'mid')) mv?.moveCapy(c.id, SITES[g!.tickets[tgt].site].node, ms); }
   const fresh = d.done.slice(before.done); if (fresh.length) snd.play('match');
   if (before.slot === LUNCH_AFTER - 1 && d.slot === LUNCH_AFTER && !skipping) toast(LUNCH_LABEL, 1400);
-  if (d.phase === 'close') { stop(); render(); celebrate(fresh); setTimeout(closeScreen, 500); return; }
+  if (d.phase === 'close') { stop(); render(); celebrate(fresh); setTimeout(() => replayDay(), 600); return; }
   render(); celebrate(fresh);
   if (d.pending.length) { stop(); showPending(); return; }
   schedule();
@@ -727,7 +728,7 @@ function mapUpdate() {
 const ptText = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1).replace('.', ',')}\u202Fpt`;
 let closeReplay = false; const reopenClose = () => { closeReplay = true; closeScreen(); };
 function closeScreen() {
-  const d = today(); const spec = DAYS_SPEC[d.day]; snd.music(0); if (!closeReplay) snd.play(d.stars ? 'win' : 'lose');
+  stopReplay(); startHindsight(); const d = today(); const spec = DAYS_SPEC[d.day]; snd.music(0); if (!closeReplay) snd.play(d.stars ? 'win' : 'lose');
   const dsat = Math.round(g!.sat - d.satStart); const yw = G.yieldWhy(g!); const dy = (yw.y1 - yw.y0) * 100; const lost = Math.round(d.m3 + d.night);
   const last = d.day + 1 >= DAYS; const next = last ? 'Le pot du vendredi' : `Au lit ! ${WEEKDAYS[(d.day + 1) % 5]}`;
   const tile = (id: string, v: string, l: string, cls = '') => `<button class="ctile ${cls}" id="${id}"><b>${v}</b><span>${l}</span></button>`;
@@ -740,16 +741,95 @@ function closeScreen() {
       ${tuto() && G.tray(g!).length ? '<p class="tuto">Ce qui reste dans le bac attend demain : chaque soir d’attente coûte 1 point d’abonnés (pastille orange J+1).</p>' : ''}
       ${d.incidents ? '<p class="red"><b>On a creusé sans appeler le gaz</b> : pas plus d’une étoile aujourd’hui.</p>' : ''}
       <div class="ctiles">${tile('c-y', ptText(dy), 'rendement de réseau', dy >= 0 ? 'up' : 'down')}${tile('c-m3', `${lost} m³`, d.night ? 'perdus (avec la nuit)' : 'perdus aujourd’hui', 'm3')}</div>
+      <div class="hs" id="c-fix" aria-live="polite">${fixHtml()}</div>
       </div>
       <div class="c-more" id="c-det" hidden><div class="kpis">${row('van', String(d.done.length), 'tickets traités')}${row('clock', `${d.rdvKept.length}/${d.rdvToday.length}`, 'RDV tenus')}
         ${row('heart', `${Math.round(g!.sat)} (${dsat >= 0 ? '+' : ''}${dsat})`, 'abonnés')}${row('lane', `${d.travel} h`, 'de route')}</div>
         <div class="log">${d.log.map((l) => `<p>${esc(nb(l))}</p>`).join('')}</div></div>
-      <div class="btns"><button class="btn" id="c-more" aria-expanded="false" aria-controls="c-det"><span>Détails</span><i class="arr">${glyph('right')}</i></button><button class="btn primary" id="c-next">${next} ${glyph('right')}</button></div></div></div>`, 'wide close-ov');
+      <div class="btns">${calmNow() ? '' : `<button class="btn" id="c-film" title="Revoir le film de la journée">${icon('van', 'ic s')}<span>Le film</span></button>`}<button class="btn" id="c-more" aria-expanded="false" aria-controls="c-det"><span>Détails</span><i class="arr">${glyph('right')}</i></button><button class="btn primary" id="c-next">${next} ${glyph('right')}</button></div></div></div>`, 'wide close-ov');
   fillNames($('#card'));
   if (closeReplay) { $('#card').classList.add('noanim'); closeReplay = false; }
+  bindFix(); $('#c-film')?.addEventListener('click', () => replayDay(true));
   $('#c-y').onclick = () => explain('y', reopenClose); $('#c-m3').onclick = () => explain('m3', reopenClose);
   $('#c-more').onclick = () => { const det = $('#c-det'); const open = det.hidden; det.hidden = !open; $('#c-more').setAttribute('aria-expanded', String(open)); if (open) det.scrollIntoView({ block: 'nearest' }); };
-  $('#c-next').onclick = () => { if (!S.seenTuto) { S.seenTuto = true; } G.nextDay(g!); sel = null; save(); closeOv(); if (g!.over) bilan(); else { mv?.resetCapys(); for (const c of TEAM) mv?.moveCapy(c.id, today().capys[c.id].pos); render(); briefing(); } };
+  $('#c-next').onclick = () => { clearGhost(); if (!S.seenTuto) { S.seenTuto = true; } G.nextDay(g!); sel = null; save(); closeOv(); if (g!.over) bilan(); else { mv?.resetCapys(); for (const c of TEAM) mv?.moveCapy(c.id, today().capys[c.id].pos); render(); briefing(); } };
+}
+// ---------------------------------------------------------------- « Le film de la journée » + « Si c'était à refaire » (end-of-day replay)
+// At launch the morning is kept (memory + one localStorage write, not in the main save). At closing, a 3–4 s sweep replays the day
+// on the planning (blocks, trips, what went wrong, tappable), the vans move on the map, then the close card lists at most 3 moves
+// taken from a better day that the real rules played from the same morning (src/hindsight.ts), searched in small chunks meanwhile.
+const M0 = KEY + '-m0'; const dkey = () => `${g!.seed}:${today().day}`;
+let morning: { key: string; g: Game } | null = null;
+function keepMorning() { morning = { key: dkey(), g: structuredClone(g!) }; try { localStorage.setItem(M0, JSON.stringify(morning)); } catch { /* storage full: the film still plays, without the lesson */ } }
+function forgetMorning() { morning = null; hs = null; try { localStorage.removeItem(M0); } catch { /* ignore */ } }
+function morningOf(): Game | null { const k = dkey(); if (morning?.key === k) return morning.g;
+  try { const m = JSON.parse(localStorage.getItem(M0) ?? 'null'); if (m?.key === k && m.g?.today && m.g.today.day === today().day && m.g.today.phase !== 'close') { morning = m; return m.g; } } catch { /* ignore */ } return null; }
+let hs: { key: string; res: H.Hindsight | null; busy: boolean } | null = null;
+function startHindsight() { const k = dkey(); if (hs?.key === k) return; const d = today(); if (d.phase !== 'close') return;
+  if (d.stars === 3) { hs = { key: k, res: { stars: 3, fixes: [], best: null }, busy: false }; return; }
+  const m0 = morningOf(); if (!m0) { hs = { key: k, res: null, busy: false }; return; }
+  const end = structuredClone(g!); const it = H.searchDay(m0, 48); const job: NonNullable<typeof hs> = { key: k, res: null, busy: true }; hs = job;
+  const run = () => { if (hs !== job) return; const t = performance.now(); let r = it.next(); while (!r.done && performance.now() - t < 10) r = it.next();
+    if (!r.done) { setTimeout(run, 20); return; } job.busy = false; job.res = H.explain(end, r.value); refreshFix(); };
+  setTimeout(run, 40); }
+const FIX_IC: Record<H.FixKind, string> = { rdv: 'clock', urgent: 'warn', left: 'basket', travel: 'van', leak: 'drop', yield: 'drop', sat: 'heart', gas: 'phone', vip: 'star', card: 'sticker' };
+function fixHtml() { const d = today();
+  if (d.stars === 3) return `<p class="hs-perfect">${icon('star', 'ic s')}<span><b>Journée parfaite !</b> Rien à rembobiner.</span></p>`;
+  if (!hs || (!hs.busy && !hs.res)) return '';
+  if (hs.busy) return `<p class="hs-wait"><i class="hs-spin"></i>Le chef rembobine la journée…</p>`;
+  const r = hs.res!; if (!r.fixes.length) return `<p class="hs-none">On a rejoué la journée 48 fois : pas mieux. Elle était coriace !</p>`;
+  return `<p class="hs-lead"><b>Si c’était à refaire</b> · une journée à ${r.stars}\u202F★ était possible :</p><ul class="hs-list">${r.fixes.map((f, i) => `<li><button class="hs-it${f.capy ? ' go' : ''}" data-fix="${i}">${icon(FIX_IC[f.kind], 'ic s')}<span>${esc(nb(f.text)).replace(/(\d+) h (\d+)/g, '$1\u00A0h\u00A0$2')}</span>${f.capy ? `<i>${glyph('right')}</i>` : ''}</button></li>`).join('')}</ul>`; }
+function refreshFix() { const el = document.querySelector('#c-fix'); if (!el || !$('#ov').classList.contains('show')) return; el.innerHTML = fixHtml(); bindFix(); }
+function bindFix() { document.querySelectorAll<HTMLElement>('[data-fix]').forEach((b) => b.addEventListener('click', () => { const f = hs?.res?.fixes[Number(b.dataset.fix)]; if (!f) return; snd.play('click');
+  if (!f.capy || !hs?.res?.best) { toast(f.text, 4200); return; } closeOv(); showGhost(f, hs.res.best); })); }
+/** Show where the better day put the job (dashed ghost on the planning), with a way back to the close card. */
+function showGhost(f: H.Fix, best: Game) { clearGhost(); const tl = document.querySelector<HTMLElement>(`#game .tl[data-capy="${f.capy}"]`); if (!tl) return;
+  const B = best.today!; const list = f.ticket ? [[f.ticket, f.at!, f.end!] as [string, number, number]] : B.hist[f.capy!];
+  for (const [id, s0, e0] of list) { const J = JOBS[(best.tickets[id] ?? g!.tickets[id]).job];
+    tl.insertAdjacentHTML('beforeend', `<div class="hs-ghost" style="left:${xs(s0)}%;width:${xe(e0) - xs(s0)}%;--c:${SK_COL[J.skill]}">${icon(J.icon, 'ic s')}<b>${TAG[J.id]}</b></div>`); }
+  tl.closest('.row')?.classList.add('hs-row'); tl.scrollIntoView({ block: 'nearest' });
+  $('#game .panel').insertAdjacentHTML('beforeend', `<div class="hs-bar"><span>${esc(nb(f.text))}</span><button class="btn small primary" id="hs-back">Retour au bilan</button></div>`);
+  $('#hs-back').onclick = () => { snd.play('click'); clearGhost(); reopenClose(); }; }
+function clearGhost() { document.querySelectorAll('.hs-ghost,.hs-bar').forEach((x) => x.remove()); document.querySelectorAll('.hs-row').forEach((x) => x.classList.remove('hs-row')); }
+interface Mark { capy: CapyId | null; at: number; label: string; text: string; ic: string }
+function marks(): Mark[] { const d = today(); const out: Mark[] = []; const T = (id: string) => g!.tickets[id]; const whoT = (t: Ticket) => t.who.split(' (')[0].split(' · ')[0];
+  const where = (id: string) => { for (const c of TEAM) { const h = d.hist[c.id].find((x) => x[0] === id); if (h) return { capy: c.id, at: h[1] }; } return null; };
+  for (const id of new Set([...d.rdvMissed, ...d.rdvToday.filter((x) => !d.rdvKept.includes(x) && !d.absentOk.includes(x))])) { const t = T(id); const w = where(id); if (!t.rdv) continue;
+    out.push({ capy: w?.capy ?? null, at: w?.at ?? t.rdv[0], label: 'RDV raté', ic: 'clock', text: w ? `RDV de ${whoT(t)} (${rdvText(t.rdv)}) : ${CAPY[w.capy].name} n’y était qu’à ${slotLabel(w.at)}.` : `RDV de ${whoT(t)} (${rdvText(t.rdv)}) : personne n’y est allé.` }); }
+  for (const [id, h] of Object.entries(d.urgent)) if (h > URGENT_TARGET) { const w = where(id); out.push({ capy: w?.capy ?? null, at: w?.at ?? 0, label: 'Urgence en retard', ic: 'warn', text: `${JOBS[T(id).job].short} ${G.rue(T(id).site)} : commencée ${h} h après l’appel (le but : ${URGENT_TARGET} h).` }); }
+  for (const id of g!.pile) if (JOBS[T(id).job].urgent && G.avail(g!, id) && d.urgent[id] === undefined) out.push({ capy: null, at: SLOTS, label: 'Urgence pas commencée', ic: 'warn', text: `${JOBS[T(id).job].short} ${G.rue(T(id).site)} : personne n’a commencé.` });
+  for (const c of TEAM) for (const [id, s0] of d.hist[c.id]) { const t = T(id); if (JOBS[t.job].dig && !t.gas) out.push({ capy: c.id, at: s0, label: 'Sans le gaz !', ic: 'phoneX', text: `${CAPY[c.id].name} a creusé ${G.rue(t.site)} sans appeler le gaz : une étoile maximum.` }); }
+  for (const [id, k] of Object.entries(d.vip ?? {})) { const v = T(id).vip; if (!v || !VIPS[v][k].star) continue; const w = where(id); out.push({ capy: w?.capy ?? null, at: w?.at ?? SLOTS, label: `${VIPS[v].tag} fâché`, ic: 'star', text: VIPS[v][k].log }); }
+  const missTravel = DAYS_SPEC[d.day].objs.some((o, j) => o.id === 'travel' && !d.met![j]);
+  for (const [c, s0, n, id] of d.trips ?? []) if (n >= 2 || (missTravel && n >= 1)) out.push({ capy: c, at: s0, label: `${n} h de route`, ic: 'van', text: `${CAPY[c].name} : ${n} h de route jusqu’à ${G.rue(T(id).site)}.` });
+  const left = g!.pile.filter((id) => G.avail(g!, id) && G.waitCosts(T(id)) && !JOBS[T(id).job].urgent).length;
+  if (left) out.push({ capy: null, at: SLOTS, label: `${left} attend${left > 1 ? 'ent' : ''} demain`, ic: 'basket', text: `${left} ticket${left > 1 ? 's' : ''} dans le bac : chaque soir d’attente coûte 1 point d’abonnés.` });
+  return out; }
+let rp: { timers: number[] } | null = null;
+function stopReplay() { if (!rp) return; rp.timers.forEach(clearTimeout); rp = null; document.querySelectorAll('.rp-ban,.rp-sw,.rp-trip,.rp-mk').forEach((x) => x.remove()); document.querySelectorAll('#game .tl.rp').forEach((x) => x.classList.remove('rp')); document.querySelector('#game .panel')?.classList.remove('rp-on'); }
+function replayDay(again = false) {
+  const d = g?.today; if (!d || d.phase !== 'close') return; startHindsight(); clearGhost();
+  if (calmNow() || !$('#game .panel')) { if (again) reopenClose(); else closeScreen(); return; }
+  closeOv(); stopReplay(); render(); const perfect = d.stars === 3; const T = perfect ? 2600 : 3800; const at = (s: number) => Math.round((xs(Math.min(s, SLOTS)) / 100) * T);
+  const ms = marks(); const timers: number[] = []; rp = { timers }; const later = (fn: () => void, t: number) => timers.push(window.setTimeout(fn, t));
+  const p = $('#game .panel'); p.classList.add('rp-on');
+  p.insertAdjacentHTML('beforeend', `<div class="rp-ban" role="status">${icon('van', 'ic s')}<b>${perfect ? 'Le film d’une journée parfaite' : 'Le film de la journée'}</b><span class="rp-chips"></span><button class="btn small" id="rp-skip">Passer ${glyph('right')}</button></div>`);
+  document.querySelectorAll<HTMLElement>('#game .tl[data-capy]').forEach((tl) => { const c = tl.dataset.capy as CapyId; let h = '';
+    for (const [cc, s0, n] of d.trips ?? []) if (cc === c && s0 < SLOTS) h += `<div class="rp-trip" style="left:${xs(s0)}%;width:${xe(Math.min(s0 + n, SLOTS)) - xs(s0)}%;animation-delay:${at(s0)}ms"></div>`;
+    h += `<div class="rp-sw" style="animation-duration:${T}ms"></div>`;
+    ms.forEach((m, i) => { if (m.capy === c) h += `<button class="rp-mk" data-mk="${i}" style="left:${xs(Math.min(m.at, SLOTS - 1))}%;animation-delay:${at(m.at)}ms">${icon(m.ic, 'ic xs')}<span>${esc(m.label)}</span></button>`; });
+    tl.classList.add('rp'); tl.insertAdjacentHTML('beforeend', h); });
+  const chips = $('.rp-chips', p); ms.forEach((m, i) => { if (!m.capy) chips.insertAdjacentHTML('beforeend', `<button class="rp-mk flat" data-mk="${i}" style="animation-delay:${T}ms">${icon(m.ic, 'ic xs')}<span>${esc(m.label)}</span></button>`); });
+  p.querySelectorAll<HTMLElement>('[data-mk]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); snd.play('click'); toast(ms[Number(b.dataset.mk)].text, 3600); }));
+  // the vans drive the day again, marks ping as the sweep reaches them, finished jobs pop
+  mv?.resetCapys(); for (const c of TEAM) mv?.moveCapy(c.id, DEPOT);
+  for (const c of TEAM) for (const [id, s0, e0] of d.hist[c.id]) { later(() => mv?.moveCapy(c.id, SITES[g!.tickets[id].site].node, 320), at(s0));
+    later(() => document.querySelector(`#game .blk[data-d="${id}"]`)?.classList.add('rp-pop'), at(e0)); }
+  ms.forEach((m) => { if (m.capy) later(() => snd.play('drip'), at(m.at)); });
+  const finish = () => { stopReplay(); if (again) reopenClose(); else closeScreen(); };
+  $('#rp-skip').onclick = () => { snd.play('click'); finish(); };
+  later(() => { if (perfect) { fxAt(p, 'stamp', 'Journée parfaite !', 1800); party(p); snd.play('star'); } else if (chips.children.length) snd.play('card'); }, T + 100);
+  later(finish, T + (perfect ? 1900 : ms.length ? 2600 : 1200));
 }
 function bilan() {
   const tot = G.totalStars(g!); const y = g!.history.length ? g!.history[g!.history.length - 1].yield : G.yieldNow(g!); const inc = g!.history.reduce((s, h) => s + h.incidents, 0);
@@ -798,7 +878,7 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) addEventListener('load
 addEventListener('resize', () => { if (view() === 'game' && g?.today) render(); });
 // test hook (read-only snapshot + controls used by the Playwright suite)
 (window as unknown as { __capy: object }).__capy = { state: () => g, render: () => render(), mini: (id: string, c: CapyId) => miniGame(id, c), defaults, speed: (s: 1 | 2) => { speed = s; },
-  ui: { creator: () => creator(home, false), briefing, closeScreen, bilan, detail, showPending, showWarnings, menu, settings, objectives, enterGame, home, stop, blockMenu: (id: string) => { const el = document.querySelector<HTMLElement>(`.blk[data-b="${id}"]`); if (el) blockMenu(id, el); } } };
+  ui: { creator: () => creator(home, false), briefing, closeScreen, replayDay, hindsight: () => hs, bilan, detail, showPending, showWarnings, menu, settings, objectives, enterGame, home, stop, blockMenu: (id: string) => { const el = document.querySelector<HTMLElement>(`.blk[data-b="${id}"]`); if (el) blockMenu(id, el); } } };
 
 if (!S.player) creator(home, true); else { home(); if (g && !g.over && g.today && location.hash === '#jouer') enterGame(); }
 booted = true;
