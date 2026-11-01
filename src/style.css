@@ -183,7 +183,7 @@ a{color:var(--ldr-blue-d)}
 .tk-r{display:flex;flex-wrap:nowrap;gap:4px;align-items:center;margin-top:auto}
 .rk{display:flex}
 .chip{position:relative;display:inline-flex;align-items:center;gap:3px;font-size:var(--fs-xs);font-weight:600;border-radius:7px;padding:1px 6px;background:var(--ldr-blue-l);color:#2D5BB8;white-space:nowrap;border:0;line-height:16px}
-.chip.red{background:var(--bad-l);color:var(--bad)}.chip.green{background:var(--ok-l);color:#22804A}
+.chip.red{background:var(--bad-l);color:var(--bad)}.chip.vip{background:#FFF1C7;color:#8A5A00}.vipr{background:#FFF8E1;border-radius:10px;padding:6px 10px}.chip.green{background:var(--ok-l);color:#22804A}
 .chip.act{min-height:26px;padding:0 7px;cursor:pointer;margin-left:auto;box-shadow:0 2px 0 #0000001a}.chip.act+.chip.act{margin-left:0}
 .chip.act.blue{background:var(--ldr-blue-d);color:#fff}.chip.act.red{background:#E8344E;color:#fff}
 .chip.act::after{content:'';position:absolute;inset:-9px -4px}

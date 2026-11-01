@@ -5,7 +5,7 @@ import { SLOTS } from '../src/rules';
 
 export function plan(g: Game, gas = true) {
   for (const id of tray(g)) { const t = g.tickets[id]; if (JOBS[t.job].coupure && t.avis === null) sendAvis(g, id); if (gas && JOBS[t.job].dig && !t.gas) toggleGas(g, id); }
-  const pri = (id: string) => { const t = g.tickets[id]; return (JOBS[t.job].urgent ? 0 : t.rdv ? 10 + t.rdv[0] : 30) + t.risks.length; };
+  const pri = (id: string) => { const t = g.tickets[id]; return (JOBS[t.job].urgent ? 0 : t.vip ? 5 : t.rdv ? 10 + t.rdv[0] : 30) + t.risks.length; };
   const ids = tray(g).filter((id) => avail(g, id)).sort((a, b) => pri(a) - pri(b));
   for (const id of ids) {
     let best: { c: typeof TEAM[number]['id']; i: number; cost: number } | null = null;

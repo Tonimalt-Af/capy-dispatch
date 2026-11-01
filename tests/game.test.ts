@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as G from '../src/game';
-import { JOBS, TEAM, DAYS_SPEC, RISK_CARDS, EVENTS, type JobId } from '../src/content';
+import { JOBS, TEAM, DAYS_SPEC, RISK_CARDS, EVENTS, VIPS, vipOutcome, type JobId } from '../src/content';
 import { SLOTS, LUNCH_AFTER, slotLabel, SAFETY_RULE } from '../src/rules';
 import { SITES, DEPOT, PREFET_SITE } from '../src/map';
 
@@ -125,5 +125,34 @@ describe('real addresses overnight', () => {
     G.launch(g); let k = 0; while (g.today!.phase === 'run' && k++ < 200) { G.step(g); while (g.today!.pending.length) G.choose(g, 0); }
     G.nextDay(g); const n = Object.values(g.tickets).find((x) => x.job === 'fuite_bt' && x.site === site)!;
     expect(n).toBeTruthy(); expect(n.num).toBe(SITES[site].num); expect(n.risks.includes('ruelle')).toBe(SITES[site].narrow);
+  });
+});
+describe('VIP surprises', () => {
+  const callVip = (g: G.Game, card: string) => { g.today!.phase = 'run'; g.today!.pending.push({ card, kind: 'event', capy: null, ticket: null }); return G.choose(g, EVENTS[card].choices.findIndex((c) => c.fx.vip))!; };
+  it('event slots are unique within a day (an event is keyed by its slot) and every VIP card is scheduled once', () => {
+    for (const d of DAYS_SPEC) expect(new Set(d.events.map((e) => e[0])).size).toBe(d.events.length);
+    for (const v of ['vip_patron', 'vip_rival', 'vip_maire', 'vip_agglo']) expect(DAYS_SPEC.flatMap((d) => d.events).filter((e) => e[1] === v).length, v).toBe(1);
+  });
+  it('outcome by start delay: the boss wants it fast, the rival has a sweet spot inside the contract delay, the agglo wants no favour', () => {
+    expect([0, 1, 2, 3, 4, null].map((x) => vipOutcome(VIPS.patron, x))).toEqual(['fast', 'fast', 'mid', 'mid', 'late', 'late']);
+    expect([0, 1, 2, 4, 5, null].map((x) => vipOutcome(VIPS.rival, x))).toEqual(['fast', 'fast', 'mid', 'mid', 'late', 'late']);
+    expect(VIPS.rival.mid.sat).toBeGreaterThan(VIPS.rival.fast.sat); expect(VIPS.rival.late.sat).toBeLessThan(0);
+    expect(VIPS.agglo.mid.sat).toBeGreaterThan(VIPS.agglo.fast.sat); expect(VIPS.patron.late.star).toBe(true);
+  });
+  it("the boss's leak: VIP ticket at a real address, judged when the job starts, then he gives advice", () => {
+    const g = fresh(); const t = callVip(g, 'vip_patron');
+    expect(t.vip).toBe('patron'); expect(t.risks).toEqual([]); expect(t.who).toContain('Lyonnaise des Robinets'); expect(t.num).toBe(SITES[t.site].num);
+    const d = g.today!; d.plan.momo = [t.id]; const sat = g.sat; G.step(g);
+    expect(d.vip![t.id]).toBe('fast'); expect(g.sat).toBe(sat + VIPS.patron.fast.sat); expect(d.pending.some((p) => p.card === 'vip_conseils' && p.ticket === t.id)).toBe(true);
+  });
+  it('a VIP never started on the day of the call is judged late at the close (boss: one star less)', () => {
+    const g = fresh(); const t = callVip(g, 'vip_patron'); const d = g.today!; d.pending = [];
+    for (const c of TEAM) d.plan[c.id] = []; d.slot = SLOTS; G.closeDay(g);
+    expect(d.vip![t.id]).toBe('late'); expect(d.stars).toBe(Math.max(0, d.met!.filter(Boolean).length - 1));
+  });
+  it('the rival: starting 2 to 4 h after the call is the sweet spot; the mairie card goes to the real hôtel de ville', () => {
+    const g = fresh(); const t = callVip(g, 'vip_rival'); const d = g.today!; d.slot = 3; d.plan.momo = [t.id]; d.capys.momo.pos = SITES[t.site].node; const sat = g.sat; G.step(g);
+    expect(d.vip![t.id]).toBe('mid'); expect(g.sat).toBe(sat + 2);
+    const m = callVip(fresh(), 'vip_maire'); expect(`${m.num} ${SITES[m.site].street}`).toBe("15 Place de l'Horloge"); expect(m.who).not.toMatch(/Monsieur|Madame/);
   });
 });

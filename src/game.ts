@@ -1,6 +1,6 @@
 // Game state and rules: tickets, planning preview, slot-by-slot resolution, cards, day close and scoring.
 // Pure TypeScript (no DOM): everything here is covered by the Vitest suite.
-import { JOBS, TEAM, CAPY, slotsFor, RISK_CARDS, EVENTS, DAYS_SPEC, ABONNES, objText, type JobId, type Risk, type CapyId, type Card, type Effect, type Obj, PREFET } from './content';
+import { JOBS, TEAM, CAPY, slotsFor, RISK_CARDS, EVENTS, DAYS_SPEC, ABONNES, objText, type JobId, type Risk, type CapyId, type Card, type Effect, type Obj, PREFET, VIPS, vipOutcome, type VipId } from './content';
 import { SITES, SITE_GROUPS, PREFET_SITE, dist, DEPOT, labelXY } from './map';
 import { SLOTS, TRAVEL_M, URGENT_TARGET, NIGHT_SLOTS, SECTOR_M3, START_YIELD, SAFETY_RULE, DAYS, type SafetyRule } from './rules';
 
@@ -11,7 +11,7 @@ export interface Ticket {
   /** RDV window: the job must START in [a, b] (slot indexes) */ rdv: [number, number] | null;
   day: number; /** slot the call came in (urgent delay counts from here); 0 = at the briefing */ slot: number;
   /** day the 48 h cut notice was sent */ avis: number | null; /** first day it can be planned (null = waiting for the notice) */ avail: number | null;
-  deadline: number | null; gas: boolean; tries: number; prefet?: boolean;
+  deadline: number | null; gas: boolean; tries: number; prefet?: boolean; vip?: VipId;
   /** phase 2 hooks, data only */ side: 'avant' | 'apres' | 'na'; habilitation: string | null;
 }
 export interface CapyRun { pos: number; job: string | null; left: number; travel: number; target: string | null; started: number; extra: number }
@@ -24,6 +24,7 @@ export interface DayState {
   urgent: Record<string, number>; rdvToday: string[]; rdvKept: string[]; rdvMissed: string[];
   satStart: number; fired: number[]; log: string[]; replan: boolean; stars?: number; met?: boolean[];
   /** finished work per capy, for the timeline: [ticket, start slot, end slot] */ hist: Record<CapyId, [string, number, number][]>;
+  /** VIP tickets of the day already judged: outcome by ticket */ vip?: Record<string, 'fast' | 'mid' | 'late'>;
 }
 export interface DayResult { day: number; stars: number; met: boolean[]; m3: number; yield: number; done: number; incidents: number; sat: number; rdvKept: number; rdvTotal: number }
 export interface Game { v: 1; seed: number; day: number; tickets: Record<string, Ticket>; pile: string[]; sat: number; bg: number; history: DayResult[]; today: DayState | null; stickers: string[]; next: number; over: boolean; /** overnight news shown at the next briefing */ news: string[] }
@@ -159,6 +160,7 @@ export function beginSlot(g: Game) {
       if (J.urgent) d.urgent[id] = s - (t.day === d.day ? t.slot : 0);
       if (t.rdv) { if (s > t.rdv[1]) { d.rdvMissed.push(id); g.sat = clampSat(g.sat - 4); log(d, `${c.name} arrive en retard au RDV de ${t.who}`); } else if (!d.rdvToday.includes(id)) d.rdvToday.push(id); }
       log(d, `${c.name} commence : ${J.short}, ${t.num} ${SITES[t.site].street}`);
+      if (t.vip && t.day === d.day && !d.vip?.[id]) { judgeVip(g, id, s - t.slot); const w = VIPS[t.vip].watch; if (w) d.pending.push({ card: w, kind: 'event', capy: c.id, ticket: id }); }
       if (J.dig && !t.gas) d.pending.push({ card: 'safety', kind: 'safety', capy: c.id, ticket: id });
       for (const r of t.risks) d.pending.push({ card: r, kind: 'risk', capy: c.id, ticket: id });
       if (J.minigame) d.pending.push({ card: 'compteur', kind: 'mini', capy: c.id, ticket: id });
@@ -203,6 +205,8 @@ export function choose(g: Game, i: number): Ticket | null {
     const r = rng(g.seed * 31 + d.day * 101 + d.slot * 7 + g.next);
     const t = makeTicket(g, fx.addTicket, r, { slot: d.slot, rdv: fx.addRdvSoon ? [Math.min(d.slot + 1, SLOTS - 1), Math.min(d.slot + 2, SLOTS - 1)] : null });
     if (p.card === 'prefet') { t.prefet = true; t.who = PREFET; t.risks = []; t.site = PREFET_SITE; t.num = SITES[PREFET_SITE].num; } // Hôtel Forbin de Sainte-Croix; the butler is always home
+    if (fx.vip) { const V = VIPS[fx.vip]; t.vip = fx.vip; t.who = V.who; t.risks = [];
+      if (V.site) { const i = SITES.findIndex((s) => s.num === V.site![0] && s.street === V.site![1]); if (i >= 0) { t.site = i; t.num = SITES[i].num; } } }
     if (t.rdv) d.rdvToday.push(t.id);
     d.replan = true; return t;
   }
@@ -250,13 +254,21 @@ export function evalObj(g: Game, o: Obj): boolean {
     case 'sat': return g.sat > d.satStart;
   }
 }
+/** VIP rule: the delay between the call and the start of the job (null = not started on the day of the call). */
+function judgeVip(g: Game, id: string, delay: number | null) {
+  const d = g.today!; const t = g.tickets[id]; const V = VIPS[t.vip!]; const k = vipOutcome(V, delay); const o = V[k];
+  (d.vip ??= {})[id] = k; g.sat = clampSat(g.sat + o.sat); log(d, o.log);
+}
 export function closeDay(g: Game) {
   const d = g.today!; d.phase = 'close';
+  for (const [id, t] of Object.entries(g.tickets)) if (t.vip && t.day === d.day && !d.vip?.[id]) judgeVip(g, id, null);
   for (const c of TEAM) { const cr = d.capys[c.id]; if (cr.job) log(d, `${c.name} n'a pas fini : ${JOBS[g.tickets[cr.job].job].short} revient demain`); cr.job = null; cr.travel = 0; d.plan[c.id] = []; }
   // missed RDVs: planned too late or not planned at all
   for (const id of d.rdvToday) if (!d.rdvKept.includes(id) && !d.absentOk.includes(id) && !d.rdvMissed.includes(id)) { d.rdvMissed.push(id); g.sat = clampSat(g.sat - 3); const t = g.tickets[id]; if (g.pile.includes(id)) t.rdv = RDV_WINDOWS[(t.num + t.tries + 1) % RDV_WINDOWS.length]; }
   const spec = DAYS_SPEC[d.day]; d.met = spec.objs.map((o) => evalObj(g, o));
-  let stars = d.met.filter(Boolean).length; if (d.incidents > 0) stars = Math.min(stars, 1);
+  let stars = d.met.filter(Boolean).length;
+  if (Object.entries(d.vip ?? {}).some(([id, k]) => { const v = g.tickets[id]?.vip; return !!v && !!VIPS[v][k].star; })) stars = Math.max(0, stars - 1); // the boss waited
+  if (d.incidents > 0) stars = Math.min(stars, 1);
   d.stars = stars;
   d.night = g.pile.reduce((s, id) => s + (JOBS[g.tickets[id].job].leak ?? 0), 0) * NIGHT_SLOTS;
   const lost = g.bg + d.m3 + d.night; const y = SECTOR_M3 / (SECTOR_M3 + lost);

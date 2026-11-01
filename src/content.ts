@@ -53,6 +53,7 @@ export interface Effect {
   postpone?: boolean; /** the ticket goes back to the pile with an "avis de passage" */
   addTicket?: JobId; addRdvSoon?: boolean; /** new ticket for today (urgent ones start losing water now) */
   log: string; bonus?: 'capydindon';
+  /** the new ticket is a VIP one (rules in VIPS) */ vip?: VipId;
 }
 export interface Choice { label: string; hint: string; fx: Effect }
 export interface Card { id: string; title: string; who: string; text: string; choices: Choice[]; /** what the card needs to be playable */ needs: 'job' | 'dig' | 'none' | 'travel' }
@@ -105,9 +106,52 @@ export const EVENTS: Record<string, Card> = {
   avis_rate: { id: 'avis_rate', title: '« Je n’ai jamais eu d’avis ! »', who: 'kevin', needs: 'none', text: 'Un riverain de la coupure programmée affirme ne pas avoir reçu l’avis. Il prend une douche dans une heure.', choices: [
     { label: 'Lui livrer un pack d’eau', hint: 'Satisfaction +1', fx: { sat: 1, log: "Pack d'eau livré au riverain de la coupure" } },
     { label: 'Rappeler que l’avis était affiché', hint: 'Satisfaction −2', fx: { sat: -2, log: "Riverain mécontent (l'avis était bien affiché)" } }] },
+  // VIP / political surprises (fictional roles, never real people). Private homes: a random real address; public buildings: their real address.
+  vip_patron: { id: 'vip_patron', title: 'Fuite chez le patron !', who: 'kevin', needs: 'none', text: "« Allô Kevin ? Le directeur régional de la Lyonnaise des Robinets. J'ai une fuite au compteur, chez moi. Je ne demande aucun traitement de faveur. Mais vite. » Il a raccroché. Heureusement, son adresse est dans le SIG.", choices: [
+    { label: 'Créer le ticket VIP', hint: 'Fuite compteur · commencer en 1 h : +3 · après 4 h : −4 et une étoile de moins', fx: { addTicket: 'fuite_pc', vip: 'patron', log: 'Ticket VIP : fuite chez le directeur régional' } },
+    { label: 'Lui conseiller une serpillière', hint: 'Satisfaction −6 · on en reparlera', fx: { sat: -6, log: 'A conseillé une serpillière au directeur régional. Courageux.' } }] },
+  vip_conseils: { id: 'vip_conseils', title: 'Le directeur regarde', who: 'capy', needs: 'job', text: "Le directeur régional est en chaussons, les bras croisés, à 30 cm du regard. « Moi, à votre place, je serrerais d'abord à gauche. J'ai fait ce métier en 1987, vous savez. »", choices: [
+    { label: 'Écouter ses conseils', hint: '+1 créneau · satisfaction +1', fx: { slots: 1, sat: 1, log: 'a écouté le directeur raconter 1987 (et a serré à gauche)' } },
+    { label: '« Merci, on s’en occupe ! »', hint: 'Satisfaction −1', fx: { sat: -1, log: 'a rendu poliment la clé à molette au directeur' } }] },
+  vip_rival: { id: 'vip_rival', title: 'Le concurrent appelle… chez nous', who: 'kevin', needs: 'none', text: "« Bonjour, ici le directeur régional de la Générale des Flots. À la maison, l'eau, c'est vous. Mon compteur fuit, et je connais les délais du contrat par cœur. » Kevin a un tout petit sourire.", choices: [
+    { label: 'Créer le ticket (délai du contrat : 4 h)', hint: 'Commencer entre 2 h et 4 h : +2 · après 4 h : plainte en mairie, −5', fx: { addTicket: 'fuite_pc', vip: 'rival', log: 'Ticket VIP : le directeur de la Générale des Flots est notre abonné' } }] },
+  vip_maire: { id: 'vip_maire', title: 'Branle-bas à l’hôtel de ville', who: 'kevin', needs: 'none', text: "Le cabinet du maire appelle : l'eau des carafes de la salle du conseil sort couleur thé. Conseil municipal à 15 h, hôtel de ville, 15 place de l'Horloge.", choices: [
+    { label: 'Envoyer une purge', hint: 'Commencer en 2 h : +3 · à partir de 4 h : −4', fx: { addTicket: 'purge', vip: 'maire', log: "Ticket VIP : purge à l'hôtel de ville avant le conseil municipal" } },
+    { label: 'Proposer des bouteilles d’eau', hint: 'Satisfaction −2', fx: { sat: -2, log: "Le conseil municipal se tiendra à l'eau en bouteille" } }] },
+  vip_agglo: { id: 'vip_agglo', title: 'Le président de l’agglo a une fuite', who: 'kevin', needs: 'none', text: "Demain, l'agglo vote l'appel d'offres de l'eau. Ce matin, son président a une fuite au compteur. Tout le monde va regarder si on le traite « comme les autres ».", choices: [
+    { label: 'Le traiter comme tout le monde', hint: 'Commencer entre 2 h et 3 h : +3 · en 1 h : soupçon de passe-droit · après 4 h : −3', fx: { addTicket: 'fuite_pc', vip: 'agglo', log: "Ticket VIP : fuite chez le président de l'agglo" } }] },
   capydindon: { id: 'capydindon', title: 'Le capydindon doré !', who: 'capydindon', needs: 'none', text: "Un capydindon doré se baigne dans la fontaine de la place. C'est rarissime. Toute l'équipe a le sourire.", choices: [
     { label: 'Prendre une photo', hint: 'Satisfaction +5 · autocollant rare', fx: { sat: 5, bonus: 'capydindon', log: 'Le capydindon doré a été aperçu !' } }] },
 };
+
+/** VIP tickets: the delay between the call and the START of the job decides how it goes (fast / mid / late).
+ * Not started on the day of the call = late. Fictional roles only; who lives where is never a real person's home. */
+export type VipId = 'patron' | 'rival' | 'maire' | 'agglo';
+export interface VipOutcome { sat: number; log: string; /** one star less for the day */ star?: boolean }
+export interface Vip { who: string; tag: string; fastMax: number; lateMin: number; fast: VipOutcome; mid: VipOutcome; late: VipOutcome; rule: string; /** real public address (number, street) */ site?: [number, string]; /** card played when the job starts */ watch?: string }
+export const VIPS: Record<VipId, Vip> = {
+  patron: { who: 'Directeur régional de la Lyonnaise des Robinets (notre patron)', tag: 'Patron', fastMax: 1, lateMin: 4, watch: 'vip_conseils',
+    fast: { sat: 3, log: 'Le directeur régional est bluffé : « Voilà une agence qui tourne ! »' },
+    mid: { sat: 0, log: "Le directeur régional a noté l'heure d'arrivée dans son carnet. Sans commentaire." },
+    late: { sat: -4, star: true, log: 'Le directeur régional a attendu. Il en parlera à la réunion de lundi (une étoile de moins).' },
+    rule: "Commencer en 1 h ou moins : satisfaction +3. À partir de 4 h, ou pas commencé aujourd'hui : satisfaction −4 et une étoile de moins. Il donnera des conseils pendant le chantier." },
+  rival: { who: 'Directeur régional de la Générale des Flots (le concurrent)', tag: 'Concurrent', fastMax: 1, lateMin: 5,
+    fast: { sat: 0, log: "Le directeur de la Générale des Flots n'a même pas eu le temps de regarder sa montre. Dommage." },
+    mid: { sat: 2, log: "Le directeur de la Générale des Flots a attendu juste ce qu'il faut, dans les délais du contrat. À l'agence, on sourit." },
+    late: { sat: -5, log: 'Délai du contrat dépassé : le directeur de la Générale des Flots a écrit à la mairie. Ça fait mauvais genre.' },
+    rule: "Délai du contrat : commencer dans les 4 h. Entre 2 h et 4 h : satisfaction +2 (et l'équipe sourit). En 1 h : rien de spécial. Au-delà, ou pas commencé aujourd'hui : plainte en mairie, satisfaction −5." },
+  maire: { who: 'Cabinet du maire (conseil municipal à 15 h)', tag: 'Mairie', fastMax: 2, lateMin: 4, site: [15, "Place de l'Horloge"],
+    fast: { sat: 3, log: "L'eau des carafes est limpide : le conseil municipal commence à l'heure." },
+    mid: { sat: 0, log: "Purge finie de justesse, les carafes sont remplies pendant l'appel des élus." },
+    late: { sat: -4, log: "Le conseil municipal s'est ouvert avec des bouteilles d'eau. Un élu a posé une question sur le service de l'eau." },
+    rule: "Commencer en 2 h ou moins : satisfaction +3. À partir de 4 h, ou pas commencé aujourd'hui : satisfaction −4." },
+  agglo: { who: "Président de l'agglo (vote de l'appel d'offres demain)", tag: 'Agglo', fastMax: 1, lateMin: 4,
+    fast: { sat: -1, log: "Arrivés en un clin d'œil : la presse locale parle de passe-droit. Le chef soupire." },
+    mid: { sat: 3, log: "Délai normal, travail impeccable : « Comme tout le monde, et bien fait. » Le président a pris des notes." },
+    late: { sat: -3, log: "Le président de l'agglo a attendu. Il citera le délai pendant le vote." },
+    rule: "Le traiter comme tout le monde : commencer entre 2 h et 3 h après l'appel, satisfaction +3. En 1 h : soupçon de passe-droit, −1. À partir de 4 h, ou pas commencé aujourd'hui : −3." },
+};
+export const vipOutcome = (v: Vip, delay: number | null): 'fast' | 'mid' | 'late' => (delay === null || delay >= v.lateMin ? 'late' : delay <= v.fastMax ? 'fast' : 'mid');
 
 export interface DayCard { id: string; title: string; text: string; icon: string }
 export const DAY_CARDS: Record<string, DayCard> = {
@@ -142,17 +186,17 @@ export const DAYS_SPEC: DaySpec[] = [
     chef: "Première urgence ! On ouvre la chaussée : pense à l'appel à l'exploitant gaz avant de creuser. Et il y a une coupure à annoncer 48 h avant." },
   { card: 'mistral', jobs: [['prc'], ['introuvable', 'chien'], ['debit_nuit'], ['fuite_pc'], ['resilie'], ['prc']], rdv: 2, events: [[1, 'riverain'], [5, 'mistral']], objs: [{ id: 'urgent' }, { id: 'm3', n: 30 }, { id: 'done', n: 5 }],
     chef: "Mistral fort, {nom}. Garde de la place dans le planning : en général, le téléphone sonne." },
-  { card: 'calme', jobs: [['prc', 'absent'], ['prc'], ['debit_nuit'], ['introuvable', 'cave'], ['resilie'], ['fuite_pc', 'ruelle']], rdv: 2, events: [[2, 'avis_rate'], [5, 'eau_the']], objs: [{ id: 'rdv' }, { id: 'backlog' }, { id: 'done', n: 5 }],
+  { card: 'calme', jobs: [['prc', 'absent'], ['prc'], ['debit_nuit'], ['introuvable', 'cave'], ['resilie'], ['fuite_pc', 'ruelle']], rdv: 2, events: [[1, 'vip_patron'], [2, 'avis_rate'], [5, 'eau_the']], objs: [{ id: 'rdv' }, { id: 'backlog' }, { id: 'done', n: 5 }],
     chef: "Vendredi ! Si l'avis a été envoyé mercredi, la coupure programmée est possible aujourd'hui. On solde ce qui traîne avant le week-end." },
   { card: 'marche', jobs: [['prc'], ['prc', 'cafe'], ['debit_nuit'], ['introuvable'], ['resilie', 'chien'], ['fuite_pc'], ['coupure']], rdv: 2, events: [[2, 'prefet']], objs: [{ id: 'rdv' }, { id: 'done', n: 6 }, { id: 'travel', n: 3 }],
     chef: "Jour de marché aux Halles : évite les allers-retours vers la place Pie. Nouvelle coupure à annoncer." },
-  { card: 'calme', jobs: [['fuite_bt', 'ruelle'], ['prc', 'absent'], ['debit_nuit'], ['debit_nuit'], ['introuvable'], ['resilie'], ['fuite_pc']], rdv: 1, events: [[2, 'vestiges'], [3, 'hydrocureur']], objs: [{ id: 'urgent' }, { id: 'm3', n: 25 }, { id: 'done', n: 6 }],
+  { card: 'calme', jobs: [['fuite_bt', 'ruelle'], ['prc', 'absent'], ['debit_nuit'], ['debit_nuit'], ['introuvable'], ['resilie'], ['fuite_pc']], rdv: 1, events: [[1, 'vip_rival'], [2, 'vestiges'], [3, 'hydrocureur']], objs: [{ id: 'urgent' }, { id: 'm3', n: 25 }, { id: 'done', n: 6 }],
     chef: "Intra-muros, on creuse rarement sans surprise. Et Générale des Flots cure les égouts dans le quartier : ça va bouchonner." },
   { card: 'orage', jobs: [['fuite_bt'], ['fuite_bt', 'ruelle'], ['prc'], ['debit_nuit'], ['resilie'], ['fuite_pc'], ['introuvable']], rdv: 1, events: [[4, 'poteau']], objs: [{ id: 'urgent' }, { id: 'done', n: 6 }, { id: 'backlog' }],
     chef: "L'orage a secoué le réseau : deux fuites urgentes. Chaque heure, ce sont des mètres cubes perdus. Priorité aux urgences." },
-  { card: 'pluie', jobs: [['prc', 'cafe'], ['prc', 'absent'], ['prc'], ['debit_nuit'], ['debit_nuit'], ['introuvable', 'chien'], ['resilie'], ['fuite_pc']], rdv: 3, events: [[1, 'directeur'], [3, 'capydindon']], objs: [{ id: 'rdv' }, { id: 'done', n: 7 }, { id: 'sat' }],
+  { card: 'pluie', jobs: [['prc', 'cafe'], ['prc', 'absent'], ['prc'], ['debit_nuit'], ['debit_nuit'], ['introuvable', 'chien'], ['resilie'], ['fuite_pc']], rdv: 3, events: [[1, 'directeur'], [2, 'vip_maire'], [3, 'capydindon']], objs: [{ id: 'rdv' }, { id: 'done', n: 7 }, { id: 'sat' }],
     chef: "Le directeur régional passe. Trois RDV, des abonnés à choyer. On montre ce que l'équipe sait faire. Tu es {prêt|prête} ?" },
-  { card: 'mistral', jobs: [['fuite_bt'], ['prc', 'absent'], ['prc'], ['debit_nuit'], ['introuvable', 'cave'], ['resilie'], ['fuite_pc', 'cafe'], ['purge']], rdv: 2, events: [[1, 'avis_rate'], [4, 'riverain']], objs: [{ id: 'urgent' }, { id: 'rdv' }, { id: 'done', n: 7 }],
+  { card: 'mistral', jobs: [['fuite_bt'], ['prc', 'absent'], ['prc'], ['debit_nuit'], ['introuvable', 'cave'], ['resilie'], ['fuite_pc', 'cafe'], ['purge']], rdv: 2, events: [[1, 'avis_rate'], [2, 'vip_agglo'], [4, 'riverain']], objs: [{ id: 'urgent' }, { id: 'rdv' }, { id: 'done', n: 7 }],
     chef: "Dernière journée de la quinzaine, {nom}. Après, bilan avec moi : rendement, RDV, sécurité. Tout compte !" },
 ];
 

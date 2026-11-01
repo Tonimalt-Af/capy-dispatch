@@ -1,6 +1,6 @@
 // Local save. Every key is prefixed 'capy-dispatch-': the github.io origin is shared with Maxime's other games
 // (Mahjong Capybaras uses 'capy-mahjong-'), and the two games share nothing on purpose.
-import { JOBS, RISKS, TEAM, EVENTS, type CapyId } from './content';
+import { JOBS, RISKS, TEAM, EVENTS, VIPS, type CapyId } from './content';
 import { SITES, NODE_COUNT, PREFET_SITE } from './map';
 import { DAYS, SLOTS } from './rules';
 import type { Game, Ticket, DayState, DayResult } from './game';
@@ -27,6 +27,7 @@ function ticket(t: unknown, id: string): t is Ticket {
   if (t.rdv !== null && !(Array.isArray(t.rdv) && t.rdv.length === 2 && t.rdv.every((v) => int(v, 0, SLOTS - 1)))) return false;
   if (!int(t.day, 0, DAYS) || !int(t.slot, 0, SLOTS) || typeof t.gas !== 'boolean' || !int(t.tries, 0, 99)) return false;
   for (const k of ['avis', 'avail', 'deadline'] as const) if (t[k] !== null && !int(t[k], 0, DAYS + 9)) return false;
+  if (t.vip !== undefined && !(typeof t.vip === 'string' && Object.hasOwn(VIPS, t.vip))) return false;
   return ['avant', 'apres', 'na'].includes(t.side as string) && (t.habilitation === null || str(t.habilitation, 40));
 }
 function today(d: unknown, g: Game): d is DayState {
@@ -41,6 +42,7 @@ function today(d: unknown, g: Game): d is DayState {
   for (const k of ['done', 'postponed', 'absentOk', 'rdvToday', 'rdvKept', 'rdvMissed'] as const) if (!ids(d[k], () => true)) return false;
   if (!Array.isArray(d.log) || !d.log.every((s) => str(s, 300)) || !Array.isArray(d.fired) || !d.fired.every((v) => int(v, 0, SLOTS))) return false;
   if (!isObj(d.hist) || !CAPYS.every((c) => Array.isArray((d.hist as Record<string, unknown>)[c]))) d.hist = { josette: [], momo: [], lulu: [] };
+  if (d.vip !== undefined && !(isObj(d.vip) && Object.entries(d.vip).every(([id, k]) => known(id) && ['fast', 'mid', 'late'].includes(k as string)))) return false;
   return num(d.m3, 0, 1e6) && num(d.night, 0, 1e6) && int(d.travel, 0, 99) && int(d.incidents, 0, 99) && isObj(d.urgent) && num(d.satStart, 0, 100);
 }
 const result = (h: unknown): h is DayResult => isObj(h) && int(h.day, 0, DAYS - 1) && int(h.stars, 0, 3) && Array.isArray(h.met) && num(h.m3, 0, 1e7) && num(h.yield, 0, 1) && int(h.done, 0, 99) && int(h.incidents, 0, 99) && num(h.sat, 0, 100);
