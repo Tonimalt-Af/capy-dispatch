@@ -74,6 +74,8 @@ export function makeTicket(g: Game, job: JobId, r: () => number, opts: { slot?: 
 }
 const RDV_WINDOWS: [number, number][] = [[0, 1], [1, 2], [2, 3], [4, 5], [5, 6], [3, 4]];
 /** Briefing: create the scripted tickets of the day (deterministic per seed + day). */
+/** Tickets on the tray at most each morning (urgent ones always come): with the day's calls, about 14 to handle. */
+export const MORNING_CAP = 12;
 export function startDay(g: Game) {
   const spec = DAYS_SPEC[g.day]; const r = rng(g.seed * 1000 + g.day * 977 + 13);
   // two centres a day: one inside the walls, and from day 2 one in a quartier outside (about a third of the tickets go there)
@@ -81,7 +83,16 @@ export function startDay(g: Game) {
   const outQ = GROUPS_BY_Q.map((gs, q) => (q && gs.length ? q : -1)).filter((q) => q > 0);
   const centers = [anyIn(0), g.day >= 1 && outQ.length ? anyIn(outQ[Math.floor(r() * outQ.length)]) : anyIn(0)];
   let rdvLeft = spec.rdv; let w = Math.floor(r() * RDV_WINDOWS.length);
-  for (const j of spec.jobs) {
+  // 5-minute sessions: the morning tray is capped (carried tickets + new ones ≈ MORNING_CAP); the central keeps the non-urgent extras
+  const carried = g.pile.filter((id) => avail(g, id)).length; let room = Math.max(0, MORNING_CAP - carried); let kept = 0;
+  // what goes first: urgent leaks, then anything that loses water or raises the yield, then the rest in the spec order
+  const jid = (j: (typeof spec.jobs)[number]) => (Array.isArray(j) ? j[0] : j) as JobId;
+  const rank = (j: (typeof spec.jobs)[number]) => { const J = JOBS[jid(j)]; return J.urgent ? 0 : J.leak || J.fix ? 1 : 2; };
+  const order = spec.jobs.map((j, i) => i).sort((a, b) => rank(spec.jobs[a]) - rank(spec.jobs[b]) || a - b); const keep = new Set<number>();
+  for (const i of order) { if (rank(spec.jobs[i]) === 0 || room > 0) { keep.add(i); room--; } else kept++; }
+  const jobs = spec.jobs.filter((_, i) => keep.has(i));
+  if (kept) g.news.push(`Le central garde ${kept} ticket${kept > 1 ? 's' : ''} pour plus tard : la pile est déjà bien remplie.`);
+  for (const j of jobs) {
     const [job, ...risks] = (Array.isArray(j) ? j : [j]) as [JobId, ...Risk[]];
     const wantsRdv = (job === 'prc' && rdvLeft > 0) || risks.includes('absent');
     const rdv = wantsRdv ? RDV_WINDOWS[w++ % RDV_WINDOWS.length] : null; if (wantsRdv) rdvLeft--;

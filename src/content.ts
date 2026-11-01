@@ -252,7 +252,7 @@ export const DAYS_SPEC: DaySpec[] = [
     chef: "L'orage a secoué le réseau : deux fuites urgentes. Chaque heure, ce sont des mètres cubes perdus. Priorité aux urgences." },
   { card: 'pluie', jobs: [['prc', 'cafe'], ['prc', 'absent'], ['prc'], ['debit_nuit'], ['debit_nuit'], ['introuvable', 'chien'], ['resilie'], ['fuite_pc'], ['purge'], ['prc'], ['resilie'], ['fontaine'], ['coupure'], ['prc']], rdv: 3, events: [[1, 'directeur'], [2, 'vip_maire'], [3, 'capydindon']], objs: [{ id: 'rdv' }, { id: 'sat', n: 3 }, { id: 'yield', n: 0.5 }],
     chef: "Le directeur régional passe. Trois RDV, des abonnés à choyer. On montre ce que l'équipe sait faire. Tu es {prêt|prête} ?" },
-  { card: 'mistral', jobs: [['fuite_bt'], ['prc', 'absent'], ['prc'], ['debit_nuit'], ['introuvable', 'cave'], ['resilie'], ['fuite_pc', 'cafe'], ['purge'], ['prc'], ['debit_nuit'], ['resilie'], ['fontaine'], ['prc'], ['purge'], ['resilie']], rdv: 2, events: [[1, 'avis_rate'], [2, 'vip_agglo'], [4, 'riverain']], objs: [{ id: 'urgent' }, { id: 'rdv' }, { id: 'yield', n: 1 }],
+  { card: 'mistral', jobs: [['fuite_bt'], ['prc', 'absent'], ['prc'], ['debit_nuit'], ['introuvable', 'cave'], ['resilie'], ['fuite_pc', 'cafe'], ['purge'], ['prc'], ['debit_nuit'], ['resilie'], ['fontaine'], ['prc'], ['purge'], ['resilie']], rdv: 1, events: [[1, 'avis_rate'], [2, 'vip_agglo'], [4, 'riverain']], objs: [{ id: 'urgent' }, { id: 'rdv' }, { id: 'yield', n: 1 }],
     chef: "Dernière journée de la quinzaine, {nom}. Après, bilan avec moi : rendement, RDV, sécurité. Tout compte !" },
 ];
 

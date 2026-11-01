@@ -31,7 +31,7 @@ const S: Save = load();
 let g: Game | null = S.game;
 const snd = new Sound(); snd.sfxOn = S.settings.sfx; snd.musicOn = S.settings.music;
 const calm = () => document.documentElement.classList.toggle('calm', !!S.settings.calm); calm();
-let sel: string | null = null; let running = false; let timer = 0; let skipping = false; let speed: 1 | 2 = S.settings.speed;
+let sel: string | null = null; let running = false; let timer = 0; let skipping = false; /** « Prochaine décision » is the default way to play (5-minute sessions), except on the first day; x1/x2 switch to watching */ let autoSkip = true; let speed: 1 | 2 = S.settings.speed;
 const save = () => { S.game = g; persist(S); };
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -368,7 +368,7 @@ function panel() {
       <button class="btn primary go" id="p-go">${glyph('play')}<span>${d.phase === 'plan' ? 'Lancer la journée' : 'Reprendre'}</span></button></div>`;
   } else {
     bottom = `<div class="feed">${d.log.slice(-3).map((l) => `<p>${esc(l)}</p>`).join('') || '<p class="muted">La tournée commence…</p>'}</div>
-      <div class="ctrl"><button class="cbtn" id="r-pause" aria-label="Pause et modifier">${glyph('pause')}</button><button class="cbtn ${speed === 1 ? 'on' : ''}" id="r-x1" aria-pressed="${speed === 1}">x1</button><button class="cbtn ${speed === 2 ? 'on' : ''}" id="r-x2" aria-pressed="${speed === 2}">x2</button><button class="cbtn wide" id="r-skip">${glyph('skip')}<span>Prochaine décision</span></button></div>`;
+      <div class="ctrl"><button class="cbtn" id="r-pause" aria-label="Pause et modifier">${glyph('pause')}</button><button class="cbtn ${!skipping && speed === 1 ? 'on' : ''}" id="r-x1" aria-pressed="${!skipping && speed === 1}">x1</button><button class="cbtn ${!skipping && speed === 2 ? 'on' : ''}" id="r-x2" aria-pressed="${!skipping && speed === 2}">x2</button><button class="cbtn wide ${skipping ? 'on' : ''}" id="r-skip" aria-pressed="${skipping}">${glyph('skip')}<span>Prochaine décision</span></button></div>`;
   }
   const main = $('#game .main'); const wasRun = main.classList.contains('run'); main.classList.toggle('run', !planning); if (wasRun !== !planning) { setMap(mapOpen); if (!planning && DRAWER.matches && !mapOpen) requestAnimationFrame(() => mv?.home()); }
   const co = coach() || (d.phase === 'plan' && edit && !sel ? planBand() : '');
@@ -431,8 +431,8 @@ function bindPanel() {
   $('#p-go', p)?.addEventListener('click', launchDay);
   $('#p-warn', p)?.addEventListener('click', () => showWarnings(false));
   $('#r-pause', p)?.addEventListener('click', () => { stop(); render(); toast('Pause : tu peux modifier le planning des tickets pas encore commencés.'); });
-  $('#r-x1', p)?.addEventListener('click', () => { speed = 1; S.settings.speed = 1; save(); render(); });
-  $('#r-x2', p)?.addEventListener('click', () => { speed = 2; S.settings.speed = 2; save(); render(); });
+  $('#r-x1', p)?.addEventListener('click', () => { speed = 1; S.settings.speed = 1; autoSkip = skipping = false; save(); render(); schedule(); });
+  $('#r-x2', p)?.addEventListener('click', () => { speed = 2; S.settings.speed = 2; autoSkip = skipping = false; save(); render(); schedule(); });
   $('#r-skip', p)?.addEventListener('click', skipToDecision);
   p.querySelectorAll<HTMLElement>('[data-avis]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); if (G.sendAvis(g!, b.dataset.avis!)) { snd.play('place'); toast(`Avis de coupure envoyé : chantier possible ${WEEKDAYS[(g!.day + 2) % 5].toLowerCase()}.`); save(); render(); } }));
   p.querySelectorAll<HTMLElement>('[data-gas]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); G.toggleGas(g!, b.dataset.gas!); snd.play(g!.tickets[b.dataset.gas!].gas ? 'place' : 'click'); save(); render(); }));
@@ -561,7 +561,7 @@ function doLaunch() { G.launch(g!); save(); snd.play('horn'); snd.music(1); play
 
 // ---------------------------------------------------------------- resolution loop
 function stop() { running = false; skipping = false; clearTimeout(timer); }
-function play() { const d = g?.today; if (!d || d.phase !== 'run') return; running = true; render(); schedule(); }
+function play() { const d = g?.today; if (!d || d.phase !== 'run') return; running = true; skipping = autoSkip && g!.day > 0; render(); schedule(); }
 function schedule() { clearTimeout(timer); if (!running) return; timer = window.setTimeout(tick, skipping ? 160 : speed === 2 ? 620 : 1300); }
 function tick() {
   if (!g?.today || !running) return; const d = today(); if (d.phase !== 'run') return;
@@ -579,7 +579,7 @@ function afterStep(before: { slot: number; done: number }) {
   if (d.pending.length) { stop(); showPending(); return; }
   schedule();
 }
-function skipToDecision() { skipping = true; running = true; render(); schedule(); }
+function skipToDecision() { autoSkip = true; skipping = true; running = true; render(); schedule(); }
 
 // ---------------------------------------------------------------- cards
 function showPending() {

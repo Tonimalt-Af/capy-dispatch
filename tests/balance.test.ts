@@ -26,7 +26,13 @@ it('every objective is reachable: the optimiser misses each at most about one ti
   for (let d = 0; d < 10; d++) DAYS_SPEC[d].objs.forEach((o, j) => { const miss = res.opt.filter((g) => !g.history[d].met[j]).length; expect(miss / seeds.length, `day ${d + 1} ${o.id}`).toBeLessThanOrEqual(0.26); });
 });
 it('demand grows from about half the team capacity to more than it (nobody finishes everything at the end)', () => {
-  const pile = res.opt.map((g) => g.pile.length); expect(Math.min(...pile)).toBeGreaterThan(3);
+  const pile = res.opt.map((g) => g.pile.length); expect(Math.min(...pile)).toBeGreaterThanOrEqual(3); // the morning cap (MORNING_CAP) keeps the pile from exploding, but some work is always left
   expect(res.opt.every((g) => g.history[0].done >= DAYS_SPEC[0].jobs.length + 1)).toBe(true);
 });
 it('the network yield improves when you work well', () => { for (const g of res.opt) expect(g.history.at(-1)!.yield).toBeGreaterThan(0.8); });
+it('5-minute sessions: at most MORNING_CAP tickets on the tray each morning (urgent ones aside), about 14 to handle in a day', async () => {
+  const G = await import('../src/game'); const JOBS = (await import('../src/content')).JOBS;
+  for (const s of seeds) { let n0 = 0, t0 = 0; playKind(s, 'opt', (g, at) => {
+    if (at === 'plan') { const av = G.tray(g).filter((id) => G.avail(g, id)); n0 = g.next; t0 = av.length; expect(av.filter((id) => !JOBS[g.tickets[id].job].urgent).length).toBeLessThanOrEqual(G.MORNING_CAP); }
+    else if (at === 'close') expect(t0 + g.next - n0, `day ${g.day + 1}`).toBeLessThanOrEqual(17); }); }
+});
