@@ -31,11 +31,11 @@ test('day 1: briefing with 3 objectives, tap-to-assign, launch, x2, skip, close 
   const e = errors(page); await page.goto('./'); await page.click('#h-new');
   await expect(page.locator('.objs li')).toHaveCount(3); await page.click('#b-go');
   await expect(page.locator('.osm')).toContainText("les contributeurs d'OpenStreetMap");
-  await expect(page.locator('.tk')).toHaveCount(3);
+  await expect(page.locator('.tk')).toHaveCount(7);
   await page.click('#t-y'); await expect(page.locator('.explain')).toContainText('Sur 100 litres'); await expect(page.locator('.explain')).toContainText('Le contrat demande 80'); await page.click('#x-ok');
   await page.click('#t-sat'); await expect(page.locator('.explain')).toContainText('Le but : finir la journée'); await page.click('#x-ok');
-  await page.locator('.tk').first().click(); await expect(page.locator('.row.can').first()).toBeVisible(); await page.locator('.row.can .tl').first().click(); await expect(page.locator('.tk')).toHaveCount(2);
-  await tapAssignAll(page); await expect(page.locator('.tk')).toHaveCount(0); await expect(page.locator('.blk.q')).toHaveCount(3);
+  await page.locator('.tk').first().click(); await expect(page.locator('.row.can').first()).toBeVisible(); await page.locator('.row.can .tl').first().click(); await expect(page.locator('.tk')).toHaveCount(6);
+  await tapAssignAll(page); await expect(page.locator('.tk')).toHaveCount(0); await expect(page.locator('.blk.q')).toHaveCount(7);
   await page.click('#p-go'); await expect(page.locator('#r-x2')).toBeVisible();
   await page.click('#r-x2'); await expect(page.locator('#r-x2')).toHaveClass(/on/);
   await page.click('#r-skip'); await playToClose(page);
@@ -69,7 +69,7 @@ test('the save survives a reload and keys are namespaced', async ({ page }) => {
   await start(page); await tapAssignAll(page); await page.waitForTimeout(300); await page.reload();
   await expect(page.locator('#h-cont')).toBeVisible(); const keys = await page.evaluate(() => Object.keys(localStorage));
   expect(keys.length).toBeGreaterThan(0); for (const k of keys) expect(k.startsWith('capy-dispatch-')).toBe(true);
-  await page.click('#h-cont'); await expect(page.locator('.blk.q')).toHaveCount(3);
+  await page.click('#h-cont'); await expect(page.locator('.blk.q')).toHaveCount(7);
 });
 
 test('CSP meta is present and the service worker caches are namespaced', async ({ page }) => {

@@ -32,7 +32,7 @@ describe('planning preview', () => {
   });
   it('day 1 is a calm tutorial: no hidden risk, every ticket fits', () => {
     const g = fresh(); const ids = G.tray(g);
-    expect(ids.length).toBe(3); for (const id of ids) expect(g.tickets[id].risks).toEqual([]);
+    expect(ids.length).toBe(DAYS_SPEC[0].jobs.length); for (const id of ids) expect(g.tickets[id].risks).toEqual([]);
   });
   it('preview shows start, end and the worst case endMax (risk = +1 slot each, no hidden randomness)', () => {
     const g = fresh(); const t = addTicket(g, 'resilie', { risks: ['chien', 'cave'] }); g.pile.push(t.id);
@@ -69,7 +69,7 @@ describe('resolution and cards', () => {
     const g = fresh(); const ids = G.tray(g);
     for (const id of ids) { const c = TEAM.find((k) => G.canDo(k.id, id, g))!; G.assign(g, c.id, id); }
     G.launch(g); let k = 0; while (g.today!.phase === 'run' && k++ < 200) { G.step(g); while (g.today!.pending.length) G.choose(g, 0); }
-    const d = g.today!; expect(d.phase).toBe('close'); expect(d.done.length).toBe(3); expect(d.stars).toBeGreaterThanOrEqual(2); expect(g.history.length).toBe(1);
+    const d = g.today!; expect(d.phase).toBe('close'); expect(d.done.length).toBe(DAYS_SPEC[0].jobs.length); expect(d.stars).toBeGreaterThanOrEqual(2); expect(g.history.length).toBe(1);
   });
   it('risk cards: always a +1 slot option and a no-slot option; the avis de passage postpones to tomorrow', () => {
     for (const card of Object.values(RISK_CARDS)) { expect(card.choices.length).toBeGreaterThanOrEqual(2); expect(card.choices.some((c) => !c.fx.slots)).toBe(true); expect(card.choices.some((c) => (c.fx.slots ?? 0) === 1)).toBe(true); }

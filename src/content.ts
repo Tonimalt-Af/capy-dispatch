@@ -197,7 +197,7 @@ export const DAY_CARDS: Record<string, DayCard> = {
   pluie: { id: 'pluie', title: 'Pluie fine', text: 'Pas de quoi arrêter un capybara (ils adorent l’eau).', icon: 'rain' },
 };
 
-export type ObjId = 'urgent' | 'rdv' | 'done' | 'm3' | 'backlog' | 'travel' | 'sat';
+export type ObjId = 'urgent' | 'rdv' | 'done' | 'm3' | 'backlog' | 'travel' | 'sat' | 'yield';
 export interface Obj { id: ObjId; n?: number }
 export const objText = (o: Obj): string => ({
   urgent: 'Urgences prises en moins de 2 h',
@@ -206,7 +206,8 @@ export const objText = (o: Obj): string => ({
   m3: `${o.n} m³ perdus au maximum`,
   backlog: 'Rien qui traîne depuis plus de 2 jours',
   travel: `${o.n} h de route au maximum`,
-  sat: "Des abonnés plus contents qu'au matin",
+  sat: o.n ? `Abonnés : +${o.n} dans la journée` : "Des abonnés plus contents qu'au matin",
+  yield: `Rendement : +${String(o.n).replace('.', ',')} pt dans la journée`,
 }[o.id]);
 /** Acronyms and trade words, defined on tap (the tickets keep the real jargon as titles). */
 export const GLOSSARY: Record<string, string> = {
@@ -233,25 +234,25 @@ export const CAPY_LINE: Record<CapyId, string> = {
 export interface DaySpec { card: string; jobs: (JobId | [JobId, ...Risk[]])[]; rdv: number; events: [number, string][]; objs: Obj[]; chef: string }
 export const WEEKDAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
 export const DAYS_SPEC: DaySpec[] = [
-  { card: 'calme', jobs: [['prc'], ['fuite_pc'], ['debit_nuit']], rdv: 1, events: [], objs: [{ id: 'done', n: 3 }, { id: 'rdv' }, { id: 'travel', n: 2 }],
+  { card: 'calme', jobs: [['prc'], ['fuite_pc'], ['debit_nuit'], ['resilie'], ['purge'], ['prc'], ['fontaine']], rdv: 1, events: [], objs: [{ id: 'done', n: 6 }, { id: 'rdv' }, { id: 'travel', n: 4 }],
     chef: "{Bienvenu|Bienvenue} à l'agence, {nom} ! Trois tickets pour commencer. Chaque capy a son métier : touche un ticket, puis la ligne du bon capy." },
-  { card: 'pluie', jobs: [['prc', 'cafe'], ['prc'], ['introuvable'], ['resilie'], ['fuite_pc'], ['debit_nuit']], rdv: 2, events: [], objs: [{ id: 'done', n: 5 }, { id: 'rdv' }, { id: 'm3', n: 12 }],
+  { card: 'pluie', jobs: [['prc', 'cafe'], ['prc'], ['introuvable'], ['resilie'], ['fuite_pc'], ['debit_nuit'], ['purge'], ['fontaine'], ['prc']], rdv: 2, events: [], objs: [{ id: 'done', n: 8 }, { id: 'rdv' }, { id: 'm3', n: 12 }],
     chef: "Deux RDV aujourd'hui, et un compteur que personne ne trouve. Regarde les icônes de risque : elles disent ce qui peut déborder." },
-  { card: 'calme', jobs: [['fuite_bt'], ['coupure'], ['prc', 'absent'], ['debit_nuit'], ['resilie'], ['fuite_pc']], rdv: 1, events: [[3, 'voiture']], objs: [{ id: 'urgent' }, { id: 'rdv' }, { id: 'done', n: 4 }],
+  { card: 'calme', jobs: [['fuite_bt'], ['coupure'], ['prc', 'absent'], ['debit_nuit'], ['resilie'], ['fuite_pc'], ['prc'], ['purge'], ['fontaine'], ['introuvable']], rdv: 2, events: [[3, 'voiture']], objs: [{ id: 'urgent' }, { id: 'rdv' }, { id: 'yield', n: 1 }],
     chef: "Première urgence ! On ouvre la chaussée : pense à l'appel à l'exploitant gaz avant de creuser. Et il y a une coupure à annoncer 48 h avant." },
-  { card: 'mistral', jobs: [['prc'], ['introuvable', 'chien'], ['debit_nuit'], ['fuite_pc'], ['resilie'], ['prc']], rdv: 2, events: [[1, 'riverain'], [3, 'vip_rival'], [5, 'mistral']], objs: [{ id: 'urgent' }, { id: 'm3', n: 30 }, { id: 'done', n: 5 }],
+  { card: 'mistral', jobs: [['prc'], ['introuvable', 'chien'], ['debit_nuit'], ['fuite_pc'], ['resilie'], ['prc'], ['purge'], ['prc', 'cafe'], ['fontaine'], ['resilie']], rdv: 2, events: [[1, 'riverain'], [3, 'vip_rival'], [5, 'mistral']], objs: [{ id: 'urgent' }, { id: 'sat', n: 3 }, { id: 'yield', n: 0.5 }],
     chef: "Mistral fort, {nom}. Garde de la place dans le planning : en général, le téléphone sonne." },
-  { card: 'calme', jobs: [['prc', 'absent'], ['prc'], ['debit_nuit'], ['introuvable', 'cave'], ['resilie'], ['fuite_pc', 'ruelle']], rdv: 2, events: [[1, 'vip_patron'], [2, 'avis_rate'], [5, 'eau_the']], objs: [{ id: 'rdv' }, { id: 'backlog' }, { id: 'done', n: 5 }],
+  { card: 'calme', jobs: [['prc', 'absent'], ['prc'], ['debit_nuit'], ['introuvable', 'cave'], ['resilie'], ['fuite_pc', 'ruelle'], ['purge'], ['fontaine'], ['prc'], ['resilie'], ['debit_nuit']], rdv: 2, events: [[1, 'vip_patron'], [2, 'avis_rate'], [5, 'eau_the']], objs: [{ id: 'rdv' }, { id: 'backlog' }, { id: 'yield', n: 1 }],
     chef: "Vendredi ! Si l'avis a été envoyé mercredi, la coupure programmée est possible aujourd'hui. On solde ce qui traîne avant le week-end." },
-  { card: 'marche', jobs: [['prc'], ['prc', 'cafe'], ['debit_nuit'], ['introuvable'], ['resilie', 'chien'], ['fuite_pc'], ['coupure']], rdv: 2, events: [[2, 'prefet'], [4, 'hydrocureur']], objs: [{ id: 'rdv' }, { id: 'done', n: 6 }, { id: 'travel', n: 3 }],
+  { card: 'marche', jobs: [['prc'], ['prc', 'cafe'], ['debit_nuit'], ['introuvable'], ['resilie', 'chien'], ['fuite_pc'], ['coupure'], ['purge'], ['prc'], ['fontaine'], ['resilie'], ['prc']], rdv: 2, events: [[2, 'prefet'], [4, 'hydrocureur']], objs: [{ id: 'rdv' }, { id: 'sat', n: 2 }, { id: 'travel', n: 6 }],
     chef: "Jour de marché aux Halles : évite les allers-retours vers la place Pie. Nouvelle coupure à annoncer." },
-  { card: 'festival', jobs: [['fuite_bt', 'ruelle'], ['prc', 'absent'], ['debit_nuit'], ['introuvable'], ['resilie']], rdv: 1, events: [[1, 'fest_cour'], [2, 'fest_artiste'], [3, 'fest_fontaine'], [4, 'fest_off']], objs: [{ id: 'urgent' }, { id: 'done', n: 6 }, { id: 'sat' }],
+  { card: 'festival', jobs: [['fuite_bt', 'ruelle'], ['prc', 'absent'], ['debit_nuit'], ['introuvable'], ['resilie'], ['prc'], ['fuite_pc'], ['prc', 'cafe'], ['resilie'], ['debit_nuit'], ['fontaine']], rdv: 2, events: [[1, 'fest_cour'], [2, 'fest_artiste'], [3, 'fest_fontaine'], [4, 'fest_off']], objs: [{ id: 'urgent' }, { id: 'sat' }, { id: 'yield', n: 1 }],
     chef: "Le Festival commence, {nom} ! Intra-muros, ça grouille : les trajets sont plus longs, et l'arrêté interdit les chantiers de chaussée non urgents. Le téléphone va sonner : régie, théâtres, canicule…" },
-  { card: 'orage', jobs: [['fuite_bt'], ['fuite_bt', 'ruelle'], ['prc'], ['debit_nuit'], ['resilie'], ['fuite_pc'], ['introuvable']], rdv: 1, events: [[2, 'vestiges'], [4, 'poteau']], objs: [{ id: 'urgent' }, { id: 'done', n: 6 }, { id: 'backlog' }],
+  { card: 'orage', jobs: [['fuite_bt'], ['fuite_bt', 'ruelle'], ['prc'], ['debit_nuit'], ['resilie'], ['fuite_pc'], ['introuvable'], ['prc', 'absent'], ['purge'], ['debit_nuit'], ['prc'], ['fontaine'], ['resilie']], rdv: 2, events: [[2, 'vestiges'], [4, 'poteau']], objs: [{ id: 'urgent' }, { id: 'yield', n: 1.5 }, { id: 'rdv' }],
     chef: "L'orage a secoué le réseau : deux fuites urgentes. Chaque heure, ce sont des mètres cubes perdus. Priorité aux urgences." },
-  { card: 'pluie', jobs: [['prc', 'cafe'], ['prc', 'absent'], ['prc'], ['debit_nuit'], ['debit_nuit'], ['introuvable', 'chien'], ['resilie'], ['fuite_pc']], rdv: 3, events: [[1, 'directeur'], [2, 'vip_maire'], [3, 'capydindon']], objs: [{ id: 'rdv' }, { id: 'done', n: 7 }, { id: 'sat' }],
+  { card: 'pluie', jobs: [['prc', 'cafe'], ['prc', 'absent'], ['prc'], ['debit_nuit'], ['debit_nuit'], ['introuvable', 'chien'], ['resilie'], ['fuite_pc'], ['purge'], ['prc'], ['resilie'], ['fontaine'], ['coupure'], ['prc']], rdv: 3, events: [[1, 'directeur'], [2, 'vip_maire'], [3, 'capydindon']], objs: [{ id: 'rdv' }, { id: 'sat', n: 3 }, { id: 'yield', n: 0.5 }],
     chef: "Le directeur régional passe. Trois RDV, des abonnés à choyer. On montre ce que l'équipe sait faire. Tu es {prêt|prête} ?" },
-  { card: 'mistral', jobs: [['fuite_bt'], ['prc', 'absent'], ['prc'], ['debit_nuit'], ['introuvable', 'cave'], ['resilie'], ['fuite_pc', 'cafe'], ['purge']], rdv: 2, events: [[1, 'avis_rate'], [2, 'vip_agglo'], [4, 'riverain']], objs: [{ id: 'urgent' }, { id: 'rdv' }, { id: 'done', n: 7 }],
+  { card: 'mistral', jobs: [['fuite_bt'], ['prc', 'absent'], ['prc'], ['debit_nuit'], ['introuvable', 'cave'], ['resilie'], ['fuite_pc', 'cafe'], ['purge'], ['prc'], ['debit_nuit'], ['resilie'], ['fontaine'], ['prc'], ['purge'], ['resilie']], rdv: 2, events: [[1, 'avis_rate'], [2, 'vip_agglo'], [4, 'riverain']], objs: [{ id: 'urgent' }, { id: 'rdv' }, { id: 'yield', n: 1 }],
     chef: "Dernière journée de la quinzaine, {nom}. Après, bilan avec moi : rendement, RDV, sécurité. Tout compte !" },
 ];
 

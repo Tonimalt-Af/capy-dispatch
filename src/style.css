@@ -453,3 +453,4 @@ details{font-size:var(--fs-s)}summary{cursor:pointer;font-weight:600;padding:var
 .pdr{background:#E6F0FF;color:#1F4E9A;border-radius:6px;padding:0 5px;font-weight:700}.pdr i{font-style:normal;font-weight:600}
 @media (max-height:380px){ .planband>b{display:none} .pdr:nth-of-type(n+3){display:none} }
 .tk:has([data-gas]) .cfs .cf:not(:first-child){display:none}
+.chip.warn{background:#FFE9D6;color:#B3541E;font-weight:800}

@@ -281,7 +281,8 @@ export function evalObj(g: Game, o: Obj): boolean {
     case 'm3': return d.m3 < (o.n ?? 0);
     case 'backlog': return !g.pile.some((id) => avail(g, id) && g.day - g.tickets[id].day > 2);
     case 'travel': return d.travel <= (o.n ?? 0);
-    case 'sat': return g.sat > d.satStart;
+    case 'sat': return o.n ? g.sat - d.satStart >= o.n : g.sat > d.satStart;
+    case 'yield': return (closeYield(g) - (d.y0 ?? START_YIELD)) * 100 >= (o.n ?? 0) - 1e-9;
   }
 }
 /** VIP rule: the delay between the call and the start of the job (null = not started on the day of the call). */
@@ -289,12 +290,23 @@ function judgeVip(g: Game, id: string, delay: number | null) {
   const d = g.today!; const t = g.tickets[id]; const V = VIPS[t.vip!]; const k = vipOutcome(V, delay); const o = V[k];
   (d.vip ??= {})[id] = k; mood(g, o.sat, o.log); log(d, o.log); (d.story ??= []).push(o.log);
 }
+/** Network jobs: no subscriber waits behind them (their cost is the yield). */
+const NETWORK_JOBS: JobId[] = ['debit_nuit', 'coupure'];
+/** A client waits behind this ticket: leaving it another day costs a point of subscribers. */
+export const waitCosts = (t: Ticket) => !JOBS[t.job].urgent && !NETWORK_JOBS.includes(t.job);
+const closeYield = (g: Game) => SECTOR_M3 / (SECTOR_M3 + g.bg + g.today!.m3 + g.pile.reduce((s, id) => s + (JOBS[g.tickets[id].job].leak ?? 0), 0) * NIGHT_SLOTS);
+/** Where the subscribers' mood drifts back to overnight. */
+export const SAT_HOME = 70;
 export function closeDay(g: Game) {
   const d = g.today!; d.phase = 'close';
   for (const [id, t] of Object.entries(g.tickets)) if (t.vip && t.day === d.day && !d.vip?.[id]) judgeVip(g, id, null);
   for (const c of TEAM) { const cr = d.capys[c.id]; if (cr.job) log(d, `${c.name} n'a pas fini (${JOBS[g.tickets[cr.job].job].short} ${rue(g.tickets[cr.job].site)}) : on y retourne demain`); cr.job = null; cr.travel = 0; d.plan[c.id] = []; }
   // missed RDVs: planned too late or not planned at all
   for (const id of d.rdvToday) if (!d.rdvKept.includes(id) && !d.absentOk.includes(id) && !d.rdvMissed.includes(id)) { const t = g.tickets[id]; d.rdvMissed.push(id); mood(g, -3, `Personne n'est passé chez ${whoOf(t)} (RDV)`); if (g.pile.includes(id)) t.rdv = RDV_WINDOWS[(t.num + t.tries + 1) % RDV_WINDOWS.length]; }
+  // the cost of postponing: clients who already waited a day call back unhappy (−1 each, −4 at most)
+  const waiting = g.pile.filter((id) => { const t = g.tickets[id]; return avail(g, id) && waitCosts(t) && g.day - t.day >= 1; });
+  waiting.slice(0, 4).forEach((id) => mood(g, -1, `${whoOf(g.tickets[id])} attend depuis ${g.day - g.tickets[id].day + 1} jours`));
+  d.night = g.pile.reduce((s, id) => s + (JOBS[g.tickets[id].job].leak ?? 0), 0) * NIGHT_SLOTS;
   const spec = DAYS_SPEC[d.day]; d.met = spec.objs.map((o) => evalObj(g, o));
   let stars = d.met.filter(Boolean).length;
   if (Object.entries(d.vip ?? {}).some(([id, k]) => { const v = g.tickets[id]?.vip; return !!v && !!VIPS[v][k].star; })) stars = Math.max(0, stars - 1); // the boss waited
@@ -309,6 +321,8 @@ export function closeDay(g: Game) {
 export function nextDay(g: Game) {
   const d = g.today!; if (d.phase !== 'close') return;
   g.day++; g.today = null; g.news = [];
+  // overnight the subscribers' mood drifts back a quarter of the way to 70: a good day must be earned again, a bad one is not a death spiral
+  const drift = Math.round((g.sat - SAT_HOME) * 0.25); if (drift) { g.sat = clampSat(g.sat - drift); g.news.push(drift > 0 ? `Les abonnés oublient vite : ${drift} point${drift > 1 ? 's' : ''} d'abonnés en moins ce matin.` : `Une nuit de sommeil, et les abonnés se calment : +${-drift} point${-drift > 1 ? 's' : ''} ce matin.`); }
   for (const id of [...g.pile]) { const t = g.tickets[id];
     if (JOBS[t.job].coupure && t.deadline !== null && g.day > t.deadline) { // the tired valve gave up: it is now an urgent leak
       g.pile = g.pile.filter((x) => x !== id); delete g.tickets[id];
@@ -352,7 +366,7 @@ export const avgYield = (g: Game) => (g.history.length ? g.history.reduce((s, h)
 export const objLabels = (day: number) => DAYS_SPEC[day].objs.map(objText);
 /** The measured value of an objective, shown next to a missed one (« 30 m³ perdus au maximum (34) »). */
 export function objValue(g: Game, o: Obj): string | null {
-  const d = g.today!; switch (o.id) { case 'm3': return `${Math.round(d.m3)}`; case 'done': return `${d.done.length}`; case 'travel': return `${d.travel} h`; case 'rdv': return `${d.rdvKept.length}/${d.rdvToday.length}`; default: return null; }
+  const d = g.today!; switch (o.id) { case 'm3': return `${Math.round(d.m3)}`; case 'done': return `${d.done.length}`; case 'travel': return `${d.travel} h`; case 'rdv': return `${d.rdvKept.length}/${d.rdvToday.length}`; case 'sat': return `${g.sat - d.satStart >= 0 ? '+' : ''}${g.sat - d.satStart}`; case 'yield': return `${((closeYield(g) - (d.y0 ?? START_YIELD)) * 100 >= 0 ? '+' : '−')}${Math.abs((closeYield(g) - (d.y0 ?? START_YIELD)) * 100).toFixed(1).replace('.', ',')} pt`; default: return null; }
 }
 
 // ---------- « Qui lâche quoi ? »: concrete dispatch options for a mid-day call that creates a ticket

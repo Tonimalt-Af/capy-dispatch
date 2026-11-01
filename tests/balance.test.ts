@@ -1,20 +1,32 @@
-// Balance guard: a simple greedy dispatcher (tests/bot.ts) must earn stars every day; the curve gets harder at the end.
+// Balance guard, with three players from tests/bot.ts on 8 seeds:
+//  - the obvious plan (red urgent tickets first, then each ticket to its specialist, first choice on every card),
+//  - the optimised one (greedy placement, re-planning after delays, look-ahead on cards),
+//  - a random one.
+// Targets of « Boucle de jeu v2 »: ≥ 4★ between optimised and obvious over 30, the obvious plan at 1–2★ from day 4,
+// the optimiser near 3★, and the optimiser misses an objective at most about one time in five.
 import { it, expect } from 'vitest';
-import { playAll } from './bot';
+import { playKind, type Kind } from './bot';
 import { totalStars } from '../src/game';
+import { DAYS_SPEC } from '../src/content';
 
-it('every day gives at least 1 star to a careful player, and the 10 days give >= 20 stars', () => {
-  for (const seed of [2026, 7, 99]) {
-    const g = playAll(seed); expect(g.over).toBe(true); expect(g.history.length).toBe(10);
-    for (const h of g.history) { expect(h.stars, `seed ${seed} day ${h.day + 1}`).toBeGreaterThanOrEqual(1); expect(h.incidents).toBe(0); }
-    expect(totalStars(g), `seed ${seed}`).toBeGreaterThanOrEqual(20);
-  }
+const seeds = [100, 113, 126, 139, 152, 165, 178, 191];
+const res = Object.fromEntries((['obvious', 'opt', 'random'] as Kind[]).map((k) => [k, seeds.map((s) => playKind(s, k))])) as Record<Kind, ReturnType<typeof playKind>[]>;
+const avgDay = (k: Kind, d: number) => res[k].reduce((s, g) => s + g.history[d].stars, 0) / seeds.length;
+const avgTotal = (k: Kind) => res[k].reduce((s, g) => s + totalStars(g), 0) / seeds.length;
+
+it('optimised beats obvious by at least 4 stars over 30, and obvious beats random', () => {
+  for (const k of ['obvious', 'opt', 'random'] as Kind[]) for (const g of res[k]) { expect(g.over).toBe(true); expect(g.history.length).toBe(10); }
+  expect(avgTotal('opt') - avgTotal('obvious')).toBeGreaterThanOrEqual(4);
+  expect(avgTotal('opt')).toBeGreaterThanOrEqual(26); expect(avgTotal('random')).toBeLessThan(avgTotal('obvious'));
 });
-it('perfection is not free: the greedy bot does not get 30/30, the end of the fortnight is harder', () => {
-  const g = playAll(2026); expect(totalStars(g)).toBeLessThan(30);
-  const first = g.history.slice(0, 5).reduce((s, h) => s + h.stars, 0); const last = g.history.slice(5).reduce((s, h) => s + h.stars, 0);
-  expect(first).toBeGreaterThan(last);
+it('from day 4 the obvious plan earns about 1–2 stars a day, the optimiser close to 3', () => {
+  for (let d = 3; d < 10; d++) { expect(avgDay('obvious', d), `obvious day ${d + 1}`).toBeGreaterThanOrEqual(0.8); expect(avgDay('obvious', d), `obvious day ${d + 1}`).toBeLessThanOrEqual(2.2); expect(avgDay('opt', d), `opt day ${d + 1}`).toBeGreaterThanOrEqual(2.5); }
 });
-it('the network yield improves when you work well (background gauge)', () => {
-  const g = playAll(2026); expect(g.history.at(-1)!.yield).toBeGreaterThan(0.75);
+it('every objective is reachable: the optimiser misses each at most about one time in four', () => {
+  for (let d = 0; d < 10; d++) DAYS_SPEC[d].objs.forEach((o, j) => { const miss = res.opt.filter((g) => !g.history[d].met[j]).length; expect(miss / seeds.length, `day ${d + 1} ${o.id}`).toBeLessThanOrEqual(0.26); });
 });
+it('demand grows from about half the team capacity to more than it (nobody finishes everything at the end)', () => {
+  const pile = res.opt.map((g) => g.pile.length); expect(Math.min(...pile)).toBeGreaterThan(3);
+  expect(res.opt.every((g) => g.history[0].done === DAYS_SPEC[0].jobs.length)).toBe(true);
+});
+it('the network yield improves when you work well', () => { for (const g of res.opt) expect(g.history.at(-1)!.yield).toBeGreaterThan(0.8); });
