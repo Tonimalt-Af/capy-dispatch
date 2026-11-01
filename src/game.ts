@@ -29,6 +29,7 @@ export interface DayState {
   /** m³ lost today, by ticket */ leaks?: Record<string, number>;
   /** why the subscribers' mood moved today */ satWhy?: { text: string; v: number }[];
   /** the day's funny moments (card choices, VIP outcomes), for the end-of-day line */ story?: string[];
+  /** end-of-day replay: trips [capy, start slot, slots, ticket] and card answers [card id, choice] */ trips?: [CapyId, number, number, string][]; picks?: [string, number][];
 }
 export interface DayResult { day: number; stars: number; met: boolean[]; m3: number; yield: number; done: number; incidents: number; sat: number; rdvKept: number; rdvTotal: number }
 export interface Game { v: 1; /** map layout version (graph node numbers) */ map?: number; seed: number; day: number; tickets: Record<string, Ticket>; pile: string[]; sat: number; bg: number; history: DayResult[]; today: DayState | null; stickers: string[]; next: number; over: boolean; /** overnight news shown at the next briefing */ news: string[]; /** one line per finished day (the « pot du vendredi » picks a funny one) */ moments?: string[] }
@@ -209,7 +210,7 @@ export function beginSlot(g: Game) {
       const id = d.plan[c.id][0]; const t = g.tickets[id];
       if (!avail(g, id) || d.done.includes(id)) { d.plan[c.id].shift(); continue; }
       const tr = cr.target === id ? 0 : travelCost(g, cr.pos, t.site);
-      if (tr) { cr.travel = tr; cr.target = id; d.travel += tr; break; }
+      if (tr) { cr.travel = tr; cr.target = id; d.travel += tr; (d.trips ??= []).push([c.id, s, tr, id]); break; }
       if (t.rdv && s < t.rdv[0]) { cr.target = id; break; }
       d.plan[c.id].shift(); cr.job = id; cr.target = null; cr.pos = SITES[t.site].node; cr.left = slotsFor(c, JOBS[t.job])!; cr.started = s; cr.extra = 0; t.tries++;
       const J = JOBS[t.job];
@@ -245,7 +246,7 @@ export function cardOf(p: Pending): Card { return p.kind === 'safety' ? SAFETY_C
 /** Apply the player's choice on the first pending card. Returns the ticket created, if any (the UI then opens the replanning). */
 export function choose(g: Game, i: number): Ticket | null {
   const d = g.today!; const p = d.pending.shift(); if (!p) return null; const card = cardOf(p); const fx: Effect = (card.choices[i] ?? card.choices[0]).fx;
-  const who = p.capy ? CAPY[p.capy].name + ' ' : '';
+  const who = p.capy ? CAPY[p.capy].name + ' ' : ''; (d.picks ??= []).push([p.card, card.choices[i] ? i : 0]);
   if (p.kind === 'safety') { d.incidents++; g.tickets[p.ticket!].gas = true; }
   if (p.kind === 'risk' && p.card === 'absent' && fx.postpone) d.absentOk.push(p.ticket!);
   if (p.kind === 'risk' && p.card === 'absent' && !fx.postpone && p.ticket && !d.rdvMissed.includes(p.ticket)) { /* RDV kept after a call */ }
@@ -255,7 +256,7 @@ export function choose(g: Game, i: number): Ticket | null {
     if (fx.postpone) {
       if (cr.job === p.ticket) { cr.job = null; cr.left = 0; }
       d.pending = d.pending.filter((x) => x.ticket !== p.ticket); postpone(g, p.ticket);
-    } else if (fx.slots) { if (card.needs === 'travel') { cr.travel += fx.slots; d.travel += fx.slots; } else { cr.left += fx.slots; cr.extra += fx.slots; } }
+    } else if (fx.slots) { if (card.needs === 'travel') { cr.travel += fx.slots; d.travel += fx.slots; const tp = [...(d.trips ?? [])].reverse().find((x) => x[0] === p.capy); if (tp) tp[2] += fx.slots; } else { cr.left += fx.slots; cr.extra += fx.slots; } }
   }
   log(d, (p.capy ? who : '') + fx.log); if (fx.log && !fx.addTicket) (d.story ??= []).push((p.capy ? who : '') + fx.log);
   if (fx.addTicket) {
