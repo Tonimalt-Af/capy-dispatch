@@ -2,7 +2,7 @@
 
 | Élément | Source | Licence |
 |---|---|---|
-| Données de la carte d'Avignon intra-muros (`src/data/map.json`, `data/osm-*.json`) | © les contributeurs d'OpenStreetMap, extraites via l'API Overpass (`scripts/fetch-osm.mjs`, adresses postales réelles des tickets : `scripts/fetch-osm-addr.mjs`), simplifiées par `scripts/build-map.mjs` | [ODbL 1.0](https://opendatacommons.org/licenses/odbl/) — attribution affichée en permanence sur la carte, lien vers https://www.openstreetmap.org/copyright |
+| Données de la carte d'Avignon, intra-muros et quartiers extra-muros (`src/data/map.json`, `data/osm-*.json`) | © les contributeurs d'OpenStreetMap ; intra-muros extrait via l'API Overpass (`scripts/fetch-osm.mjs`, adresses postales réelles des tickets : `scripts/fetch-osm-addr.mjs`), extra-muros extrait de l'export Geofabrik Provence-Alpes-Côte d'Azur du 31/10/2026 (`scripts/extract-osm-ext.py`, pyosmium), simplifiées par `scripts/build-map.mjs` | [ODbL 1.0](https://opendatacommons.org/licenses/odbl/) — attribution affichée en permanence sur la carte, lien vers https://www.openstreetmap.org/copyright |
 | Style de la carte (couleurs, rendu SVG) | Dessiné pour ce jeu (`src/mapview.ts`) | Propriété du projet |
 | Capybaras, chef, chat, ours, capydindon, icônes, logos parodiques, façades | Dessinés en code SVG (`src/art.ts`, `src/facade.ts`) — création originale. Aucun logo réel n'est utilisé. | Propriété du projet |
 | Musique (2 boucles) et bruitages | Synthétisés en temps réel via Web Audio (`src/audio.ts`) — aucun sample | Propriété du projet |

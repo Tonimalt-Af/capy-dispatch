@@ -1,7 +1,7 @@
 // Game state and rules: tickets, planning preview, slot-by-slot resolution, cards, day close and scoring.
 // Pure TypeScript (no DOM): everything here is covered by the Vitest suite.
 import { JOBS, TEAM, CAPY, slotsFor, ignoresRisk, RISK_CARDS, EVENTS, DAYS_SPEC, ABONNES, objText, type JobId, type Risk, type CapyId, type Card, type Effect, type Obj, PREFET, VIPS, vipOutcome, type VipId } from './content';
-import { SITES, SITE_GROUPS, PREFET_SITE, dist, DEPOT, labelXY } from './map';
+import { SITES, PREFET_SITE, dist, DEPOT, labelXY, quarterOf, quarterOfNode, qTravel, GROUPS_BY_Q, MAP_V } from './map';
 import { SLOTS, TRAVEL_M, FESTIVAL_TRAVEL_M, URGENT_TARGET, NIGHT_SLOTS, SECTOR_M3, START_YIELD, SAFETY_RULE, DAYS, slotLabel, DAY_END, type SafetyRule } from './rules';
 
 export const rng = (seed: number) => () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -31,10 +31,10 @@ export interface DayState {
   /** the day's funny moments (card choices, VIP outcomes), for the end-of-day line */ story?: string[];
 }
 export interface DayResult { day: number; stars: number; met: boolean[]; m3: number; yield: number; done: number; incidents: number; sat: number; rdvKept: number; rdvTotal: number }
-export interface Game { v: 1; seed: number; day: number; tickets: Record<string, Ticket>; pile: string[]; sat: number; bg: number; history: DayResult[]; today: DayState | null; stickers: string[]; next: number; over: boolean; /** overnight news shown at the next briefing */ news: string[]; /** one line per finished day (the « pot du vendredi » picks a funny one) */ moments?: string[] }
+export interface Game { v: 1; /** map layout version (graph node numbers) */ map?: number; seed: number; day: number; tickets: Record<string, Ticket>; pile: string[]; sat: number; bg: number; history: DayResult[]; today: DayState | null; stickers: string[]; next: number; over: boolean; /** overnight news shown at the next briefing */ news: string[]; /** one line per finished day (the « pot du vendredi » picks a funny one) */ moments?: string[] }
 
 export const BG0 = Math.round(SECTOR_M3 * (1 / START_YIELD - 1)); // background losses giving the real starting yield
-export const newGame = (seed = 2026): Game => ({ v: 1, seed, day: 0, tickets: {}, pile: [], sat: 60, bg: BG0, history: [], today: null, stickers: [], next: 1, over: false, news: [] });
+export const newGame = (seed = 2026): Game => ({ v: 1, map: MAP_V, seed, day: 0, tickets: {}, pile: [], sat: 60, bg: BG0, history: [], today: null, stickers: [], next: 1, over: false, news: [] });
 const clampSat = (s: number) => Math.max(0, Math.min(100, s));
 /** Change the subscribers' mood and remember why (for the « Abonnés » sheet). */
 function mood(g: Game, v: number, text: string) { if (!v) return; const before = g.sat; g.sat = clampSat(g.sat + v); const dv = g.sat - before; if (dv && g.today) (g.today.satWhy ??= []).push({ text, v: dv }); }
@@ -49,13 +49,14 @@ const nearHalles = (site: number) => !!HALLES && Math.hypot(SITES[site].x - HALL
 
 // ---------------------------------------------------------------- tickets
 function pickSite(g: Game, r: () => number, near: number | null): number {
-  // one open ticket per street node (pins never stack) and 25 m between open tickets
-  const used = g.pile.map((id) => SITES[g.tickets[id].site]);
-  const pick = () => { const grp = SITE_GROUPS[Math.floor(r() * SITE_GROUPS.length)]; return grp[Math.floor(r() * grp.length)]; };
+  // one open ticket per street node (pins never stack) and 25 m between open tickets; tickets "near" a centre stay in its
+  // quartier (and within 380 m of it intra-muros); the others are drawn inside the walls
+  const used = g.pile.map((id) => SITES[g.tickets[id].site]); const q = near === null ? 0 : quarterOf(near); const groups = GROUPS_BY_Q[q]?.length ? GROUPS_BY_Q[q] : GROUPS_BY_Q[0];
+  const pick = () => { const grp = groups[Math.floor(r() * groups.length)]; return grp[Math.floor(r() * grp.length)]; };
   for (let k = 0; k < 200; k++) {
     const s = pick(); const S = SITES[s];
     if (used.some((u) => u.node === S.node || Math.hypot(u.x - S.x, u.y - S.y) < 25)) continue;
-    if (near !== null && Math.hypot(S.x - SITES[near].x, S.y - SITES[near].y) > 380 && k < 150) continue;
+    if (near !== null && q === 0 && Math.hypot(S.x - SITES[near].x, S.y - SITES[near].y) > 380 && k < 150) continue;
     return s;
   }
   return pick();
@@ -72,13 +73,16 @@ const RDV_WINDOWS: [number, number][] = [[0, 1], [1, 2], [2, 3], [4, 5], [5, 6],
 /** Briefing: create the scripted tickets of the day (deterministic per seed + day). */
 export function startDay(g: Game) {
   const spec = DAYS_SPEC[g.day]; const r = rng(g.seed * 1000 + g.day * 977 + 13);
-  const centers = [Math.floor(r() * SITES.length), Math.floor(r() * SITES.length)];
+  // two centres a day: one inside the walls, and from day 2 one in a quartier outside (about a third of the tickets go there)
+  const anyIn = (q: number) => { const gs = GROUPS_BY_Q[q]; const grp = gs[Math.floor(r() * gs.length)]; return grp[Math.floor(r() * grp.length)]; };
+  const outQ = GROUPS_BY_Q.map((gs, q) => (q && gs.length ? q : -1)).filter((q) => q > 0);
+  const centers = [anyIn(0), g.day >= 1 && outQ.length ? anyIn(outQ[Math.floor(r() * outQ.length)]) : anyIn(0)];
   let rdvLeft = spec.rdv; let w = Math.floor(r() * RDV_WINDOWS.length);
   for (const j of spec.jobs) {
     const [job, ...risks] = (Array.isArray(j) ? j : [j]) as [JobId, ...Risk[]];
     const wantsRdv = (job === 'prc' && rdvLeft > 0) || risks.includes('absent');
     const rdv = wantsRdv ? RDV_WINDOWS[w++ % RDV_WINDOWS.length] : null; if (wantsRdv) rdvLeft--;
-    makeTicket(g, job, r, { risks, rdv, near: r() < 0.65 ? centers[Math.floor(r() * 2)] : null });
+    const nr = r() < 0.65 ? centers[r() < 0.4 && !rdv && !JOBS[job].urgent ? 1 : 0] : null; makeTicket(g, job, r, { risks, rdv, near: nr }); // about a quarter of the tickets outside the walls, never the RDV or urgent ones
   }
   if (spec.card === 'orage') { /* the two storm leaks are in the spec */ }
   const plan = { josette: [], momo: [], lulu: [] } as Record<CapyId, string[]>;
@@ -104,6 +108,8 @@ export function toggleGas(g: Game, id: string) { const t = g.tickets[id]; if (!J
 export interface Slot { id: string; travel: number; start: number; end: number; endMax: number; late: boolean; early: boolean; overflow: boolean; noGas: boolean; cannot: boolean }
 export const travelCost = (g: Game, from: number, site: number) => {
   if (from === DEPOT) return 0; // prise de poste: the drive to the first job is part of the 7h30 start
+  const qa = quarterOfNode(from), qb = quarterOf(site); if (qa !== qb) return qTravel(qa, qb); // between quartiers: 1 h near, 2 h far
+  if (qa !== 0) return 0; // inside one quartier outside the walls
   const card = DAYS_SPEC[g.day]?.card; const m = dist(from, SITES[site].node);
   if (card === 'marche' && nearHalles(site) && !(from !== DEPOT && SITES.some((s, i) => s.node === from && nearHalles(i)))) return 1;
   return m > (card === 'festival' ? FESTIVAL_TRAVEL_M : TRAVEL_M) ? 1 : 0;

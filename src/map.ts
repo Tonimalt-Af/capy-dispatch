@@ -3,7 +3,7 @@ import M from './data/map.json';
 
 /** A real postal address (OSM addr:housenumber + addr:street), snapped to a street-graph node. */
 export interface Site { node: number; street: string; num: number; x: number; y: number; narrow: boolean }
-export const MAP = M as unknown as { w: number; h: number; ring: number[]; paths: Record<string, string>; labels: { t: string; x: number; y: number; k: string }[]; bbox: number[]; depot: number; graph: { nodes: number[]; edges: number[] }; names: string[]; sites: number[]; prefet: number; retired: number[] };
+export const MAP = M as unknown as { v?: number; quarters?: { t: string; x: number; y: number }[]; qn?: string; qt?: number[]; w: number; h: number; ring: number[]; paths: Record<string, string>; labels: { t: string; x: number; y: number; k: string }[]; bbox: number[]; depot: number; graph: { nodes: number[]; edges: number[] }; names: string[]; sites: number[]; prefet: number; retired: number[] };
 export const SITES: Site[] = [];
 for (let i = 0; i < MAP.sites.length; i += 4) { const n = MAP.sites[i]; SITES.push({ node: n, street: MAP.names[MAP.sites[i + 1]], num: MAP.sites[i + 2], x: MAP.graph.nodes[n * 2], y: MAP.graph.nodes[n * 2 + 1], narrow: MAP.sites[i + 3] === 1 }); }
 /** Site of the préfet surprise card: 2, place de la Préfecture (Hôtel Forbin de Sainte-Croix); never drawn at random. */
@@ -39,3 +39,13 @@ export function path(a: number, b: number): [number, number][] {
 }
 export const NODE_COUNT = N;
 export const labelXY = (k: string) => MAP.labels.find((l) => l.k === k);
+/** Map layout version, stored in saves: graph node numbers change between versions (site indices never do). */
+export const MAP_V = MAP.v ?? 1;
+/** Quartiers (map v2): 0 = intra-muros, then the real OSM places around the walls; each graph node belongs to one. */
+export const QUARTERS = MAP.quarters ?? [{ t: 'Intra-muros', x: 0, y: 0 }];
+export const quarterOfNode = (n: number) => (MAP.qn ? MAP.qn.charCodeAt(n) - 97 : 0);
+export const quarterOf = (site: number) => quarterOfNode(SITES[site].node);
+/** Hours on the road between two quartiers: 0 inside one, 1 to a near one, 2 to a far one. */
+export const qTravel = (a: number, b: number) => (a === b || !MAP.qt ? 0 : MAP.qt[a * QUARTERS.length + b]);
+/** Random-ticket groups per quartier (same groups as SITE_GROUPS). */
+export const GROUPS_BY_Q: number[][][] = QUARTERS.map((_, q) => SITE_GROUPS.filter((g) => quarterOf(g[0]) === q));

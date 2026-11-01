@@ -4,10 +4,15 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 const raw = JSON.parse(readFileSync('data/osm-raw.json', 'utf8'));
 const extra = existsSync('data/osm-buildings.json') ? JSON.parse(readFileSync('data/osm-buildings.json', 'utf8')) : { elements: [] };
-const LON0 = 4.7955, LAT0 = 43.9568, LON1 = 4.8195, LAT1 = 43.9412;
+// extra-muros (map v2): main streets, water, parks, places and addresses of the ~2-3 km around the walls (scripts/extract-osm-ext.py)
+const ext = JSON.parse(readFileSync('data/osm-ext.json', 'utf8'));
+const V1 = JSON.parse(readFileSync('data/sites-v1.json', 'utf8')); // frozen order of the intra-muros sites (saves store site indices)
+const LON0 = 4.782, LAT0 = 43.9575, LON1 = 4.836, LAT1 = 43.914;
 const KX = Math.cos((43.949 * Math.PI) / 180) * 111320, KY = 110574;
 const W = Math.round((LON1 - LON0) * KX), H = Math.round((LAT0 - LAT1) * KY);
 const pr = (g) => [Math.round((g.lon - LON0) * KX), Math.round((LAT0 - g.lat) * KY)];
+// the v1 (intra-muros) box in v2 coordinates: full detail inside it, main streets only outside
+const IB = [pr({ lon: 4.7955, lat: 43.9568 }), pr({ lon: 4.8195, lat: 43.9412 })]; const inIB = (p) => p[0] >= IB[0][0] && p[0] <= IB[1][0] && p[1] >= IB[0][1] && p[1] <= IB[1][1];
 function simplify(pts, eps) {
   if (pts.length < 3) return pts;
   const [fx, fy] = pts[0], [lx, ly] = pts[pts.length - 1];
@@ -46,23 +51,24 @@ function rings(members) { // join member ways end to end into rings
     out.push(ring); }
   return out;
 }
-const seen = new Set(); const all = [...raw.elements, ...extra.elements].filter((e) => { const k = e.type + e.id; if (seen.has(k)) return false; seen.add(k); return true; });
-const CLS = { primary: 0, secondary: 0, tertiary: 1, unclassified: 1, residential: 1, living_street: 2, pedestrian: 2, service: 3, footway: 4, path: 4, steps: 4 };
+const seen = new Set(); const all = [...raw.elements, ...extra.elements, ...ext.elements].filter((e) => { const k = e.type + e.id; if (seen.has(k)) return false; seen.add(k); return true; });
+const CLS = { trunk: 0, primary_link: 0, secondary_link: 0, tertiary_link: 1, primary: 0, secondary: 0, tertiary: 1, unclassified: 1, residential: 1, living_street: 2, pedestrian: 2, service: 3, footway: 4, path: 4, steps: 4 };
 const names = []; const nameIdx = (n) => { if (!n) return -1; let i = names.indexOf(n); if (i < 0) { i = names.length; names.push(n); } return i; };
-const landmarks = [], streets = [], walls = [], water = [], parks = [], bldg = [], squares = [], gates = [];
+const landmarks = [], streets = [], walls = [], water = [], parks = [], bldg = [], squares = [], gates = [], rail = [];
 const nodePos = new Map(), adj = new Map(), nodeName = new Map(), nodeCls = new Map();
 for (const e of all) {
   const t = e.tags ?? {};
   if (e.type === 'way' && t.highway && CLS[t.highway] !== undefined) {
     const pts = e.geometry.map(pr); if (!pts.some((p) => inBox(p, 50))) continue;
     if (t.area === 'yes') { squares.push(flat(simplify(pts, 1.5))); continue; }
-    streets.push({ c: CLS[t.highway], p: flat(simplify(pts, 1.2)) });
+    const detail = pts.some(inIB); streets.push({ c: CLS[t.highway], p: flat(simplify(pts, detail ? 1.2 : 3)), x: !detail });
     if (t.highway === 'steps') continue; // vans and trolleys don't take stairs
     const w = t.highway === 'footway' || t.highway === 'path' ? 1.6 : 1; // footways: on foot with the gear, slower
     e.nodes.forEach((id, i) => { nodePos.set(id, pts[i]); if (t.name && ['residential', 'living_street', 'pedestrian', 'tertiary', 'secondary', 'unclassified'].includes(t.highway)) { nodeName.set(id, t.name); nodeCls.set(id, CLS[t.highway]); } });
     for (let i = 1; i < e.nodes.length; i++) { const a = e.nodes[i - 1], b = e.nodes[i]; const dd = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]) * w;
       if (!adj.has(a)) adj.set(a, new Map()); if (!adj.has(b)) adj.set(b, new Map()); adj.get(a).set(b, dd); adj.get(b).set(a, dd); }
-  } else if (t.barrier === 'city_wall' && e.type === 'way') walls.push(flat(simplify(e.geometry.map(pr), 1)));
+  } else if (t.railway === 'rail' && e.type === 'way') { const pts = e.geometry.map(pr); if (pts.some((p) => inBox(p))) rail.push(flat(simplify(pts, 4))); }
+  else if (t.barrier === 'city_wall' && e.type === 'way') walls.push(flat(simplify(e.geometry.map(pr), 1)));
   else if (t.natural === 'water' && !t.amenity) {
     const rs = e.type === 'relation' ? rings(e.members.filter((m) => m.role === 'outer' && m.geometry)) : [e.geometry.map(pr)];
     for (const r of rs) { const c = clip(simplify(r, 2)); if (c.length > 2) water.push(flat(c)); }
@@ -102,17 +108,49 @@ for (const e of addrRaw.elements) { const t = e.tags; if (!t['addr:housenumber']
   const key = norm(street) + '|' + +m[1]; if (seenAddr.has(key)) { stat.dup++; continue; } seenAddr.add(key);
   const s = snap(p, norm(street)); if (s.d > 40 && !s.same) { stat.far++; continue; } if (!inside(nodePos.get(s.id))) { stat.outside++; continue; } if (s.same) stat.sameStreet++;
   const cls = clsByName.get(norm(street)); sites.push({ i: idx.get(s.id), n: nameIdx(street), num: +m[1], r: cls === 2 ? 1 : 0, bad }); if (bad) stat.retired = (stat.retired ?? 0) + 1; }
-sites.sort((a, b) => a.i - b.i || a.n - b.n || a.num - b.num);
 // the préfet card: Hôtel Forbin de Sainte-Croix (hôtel préfectoral de Vaucluse). OSM: way 83783907 "Préfecture (site historique)",
 // wikidata Q22916641, no addr:* tags; its address "2, place de la Préfecture" comes from that Wikidata item (P6375, CC0).
 const forbin = addrRaw.elements.find((e) => e.t === 'w' && e.id === 83783907); // centre of the building way
 if (!forbin) throw new Error('Hôtel Forbin de Sainte-Croix (OSM way 83783907) not found');
 const FP = pr(forbin); const fs = snap(FP, norm('Rue Viala'));
-const prefet = sites.length; sites.push({ i: idx.get(fs.id), n: nameIdx('place de la Préfecture'), num: 2, r: 0 });
+// v1 order first (saves store site indices): every frozen intra-muros address is found again and re-snapped on the v2 graph
+const byKey = new Map(sites.map((x) => [norm(names[x.n]) + '|' + x.num, x]));
+const v1 = V1.sites.map(([street, num, r], k) => { if (k === V1.prefet) return { i: idx.get(fs.id), n: nameIdx('place de la Préfecture'), num: 2, r: 0 };
+  const x = byKey.get(norm(street) + '|' + num); if (!x) throw new Error('v1 site lost: ' + num + ' ' + street); return { ...x, r, bad: V1.retired.includes(k) }; });
+console.log('addresses', stat, 'v1 slots', v1.length, 'of', sites.length);
+const prefet = V1.prefet; sites.length = 0; sites.push(...v1);
+// extra-muros sites (map v2): real OSM addresses outside the walls, snapped to the main-street graph, appended after the v1 slots
+const extAddr = ext.elements.filter((e) => e.tags?.['addr:housenumber'] && e.tags?.['addr:street']).map((e) => ({ lat: e.lat ?? e.center?.lat, lon: e.lon ?? e.center?.lon, tags: e.tags }));
+const stat2 = { osm: extAddr.length, inside: 0, oddNumber: 0, dup: 0, far: 0, kept: 0 }; const cand = [];
+for (const e of extAddr) { const t = e.tags; const p = pr(e); if (!inBox(p, -40)) { stat2.far++; continue; } if (inside(p) || wallD(p) < 25) { stat2.inside++; continue; }
+  const m = /^\s*(\d{1,3})\s*$/.exec(t['addr:housenumber']); if (!m || +m[1] < 1) { stat2.oddNumber++; continue; }
+  const street = t['addr:street'].trim(); if (!/\p{L}{3}/u.test(street)) { stat2.oddNumber++; continue; }
+  const key = norm(street) + '|' + +m[1]; if (seenAddr.has(key)) { stat2.dup++; continue; } seenAddr.add(key);
+  cand.push({ p, street, num: +m[1] }); }
+// at most EXT_MAX addresses, evenly spread (one in k after sorting by position), so the map stays well under 1 MB
+const EXT_MAX = 1800; cand.sort((a, b) => a.p[1] - b.p[1] || a.p[0] - b.p[0]); const stepK = Math.max(1, cand.length / EXT_MAX);
+for (let k = 0; k < cand.length; k += stepK) { const c = cand[Math.floor(k)]; const sn = snap(c.p, norm(c.street)); if (sn.d > 60 && !sn.same) { stat2.far++; continue; } if (inside(nodePos.get(sn.id))) { stat2.inside++; continue; }
+  sites.push({ i: idx.get(sn.id), n: nameIdx(c.street), num: c.num, r: 0 }); stat2.kept++; }
 const retired = sites.flatMap((s, i) => (s.bad ? [i] : []));
-console.log('addresses', stat, 'pool', sites.length - 1 - retired.length);
-// depot (fictional agency): the graph node nearest to a point just outside Porte Saint-Michel (south)
-const DEP = pr({ lon: 4.8085, lat: 43.9415 }); let depot = 0, dd0 = 1e9; keep.forEach((id, i) => { const p = nodePos.get(id); const q = Math.hypot(p[0] - DEP[0], p[1] - DEP[1]); if (q < dd0) { dd0 = q; depot = i; } });
+console.log('extra-muros addresses', stat2);
+// quartiers (map v2): intra-muros + the real OSM place=suburb/quarter/neighbourhood nodes chosen below; every graph node
+// outside the walls belongs to the nearest chosen place. Travel between quartiers: 0 h inside one, 1 h to a near one, 2 h far.
+// Each centre is a real OSM feature: a place node (by name), or, for Les Sources (no place node in OSM), the centroid of the
+// OSM features named after it (Avenue des Sources, Pharmacie des Sources, Centre … Les Sources, Sources Sud …).
+const QDEF = [['Les Sources', /\bSources\b/], ['Champfleury', 'Champfleury Palais Omnisports'], ['Monclar', /^Avenue (de )?Monclar$/], ['Courtine', 'place:Courtine'],
+  ['Saint-Michel', 'place:Saint-Michel'], ['Croix-des-Oiseaux', 'place:Croix-des-Oiseaux'], ['Saint-Jean', 'place:Saint-Jean'], ['Île Piot', 'place:Île Piot'], ['Barthelasse', 'place:Barthelasse Sud']];
+const ptsOf = (e) => (e.geometry ? e.geometry.map(pr) : e.lat != null ? [pr(e)] : []);
+const centreOf = ([t, how]) => { const els = ext.elements.filter((e) => { const n = e.tags?.name ?? '';
+    return typeof how === 'string' ? (how.startsWith('place:') ? e.tags?.place && n === how.slice(6) : n === how) : how.test(n); });
+  const ps = els.flatMap(ptsOf); if (!ps.length) throw new Error('quartier centre not found: ' + t);
+  return { t, p: [Math.round(ps.reduce((s, q) => s + q[0], 0) / ps.length), Math.round(ps.reduce((s, q) => s + q[1], 0) / ps.length)] }; };
+const QS = [{ t: 'Intra-muros', p: [Math.round(cx), Math.round(cy)] }, ...QDEF.map(centreOf)];
+console.log('quartiers', QS.map((q) => `${q.t} ${q.p}`).join(' | '));
+const qOf = (p) => { if (inside(p)) return 0; let b = 1, bd = 1e12; for (let i = 1; i < QS.length; i++) { const d2 = (QS[i].p[0] - p[0]) ** 2 + (QS[i].p[1] - p[1]) ** 2; if (d2 < bd) { bd = d2; b = i; } } return b; };
+const qn = keep.map((id) => String.fromCharCode(97 + qOf(nodePos.get(id)))).join('');
+const NEAR_Q = 1900; const qt = QS.flatMap((a, i) => QS.map((b, j) => (i === j ? 0 : Math.hypot(a.p[0] - b.p[0], a.p[1] - b.p[1]) < NEAR_Q ? 1 : 2)));
+// depot (fictional agency): in the Courtine business park, far south (graph node nearest to the chosen point)
+const DEP = pr({ lon: 4.789, lat: 43.9235 }); const iCourt = QS.findIndex((q) => q.t === 'Courtine'); let depot = 0, dd0 = 1e9; keep.forEach((id, i) => { if (qn.charCodeAt(i) - 97 !== iCourt) return; const p = nodePos.get(id); const q = Math.hypot(p[0] - DEP[0], p[1] - DEP[1]); if (q < dd0) { dd0 = q; depot = i; } });
 // labels: real place names, positioned from OSM (centroid of the feature)
 const cen = (a) => { let x = 0, y = 0; for (let i = 0; i < a.length; i += 2) { x += a[i]; y += a[i + 1]; } return [Math.round((x * 2) / a.length), Math.round((y * 2) / a.length)]; };
 const labels = []; const lm = (t, arr, k) => { if (arr) { const [x, y] = cen(arr); labels.push({ t, x, y, k }); } };
@@ -125,9 +163,10 @@ lm('Place Pie', geo('Place Pie'), 'place');
 lm("Place de l'Horloge", geo("Place de l'Horloge"), 'place');
 lm('Gare', geo('Avignon-Centre'), 'gare');
 labels.push({ t: 'Hôtel Forbin', x: FP[0], y: FP[1], k: 'prefecture' });
+for (const q of QS.slice(1)) labels.push({ t: q.t, x: q.p[0], y: q.p[1], k: 'quartier' });
 const usedNames = [...new Set(sites.map((s) => s.n))]; const remap = new Map(usedNames.map((n, i) => [n, i]));
-const S = (c) => d(streets.filter((s) => s.c === c).map((s) => s.p), false);
-const paths = { water: d(water, true), parks: d(parks, true), squares: d(squares, true), bldg: d(bldg.map((b) => b.p), true), palais: d(landmarks.filter((l) => l.n === 'Palais des Papes').map((l) => l.p), true), pont: d(landmarks.filter((l) => l.n !== 'Palais des Papes').map((l) => l.p), true), walls: d(walls, false), s0: S(0), s1: S(1), s2: S(2), s3: S(3), s4: S(4) };
-const out = { w: W, h: H, bbox: [LON0, LAT1, LON1, LAT0], ring: flat(ring), paths, labels, depot, graph: { nodes, edges }, names: usedNames.map((n) => names[n]), sites: sites.flatMap((s) => [s.i, remap.get(s.n), s.num, s.r]), prefet, retired, source: 'OpenStreetMap (ODbL 1.0), extrait du ' + (raw.fetched ?? '').slice(0, 10) + ', adresses du ' + (addrRaw.fetched ?? '').slice(0, 10) };
+const S = (c, x = false) => d(streets.filter((s) => s.c === c && !!s.x === x).map((s) => s.p), false);
+const paths = { water: d(water, true), parks: d(parks, true), squares: d(squares, true), bldg: d(bldg.map((b) => b.p), true), palais: d(landmarks.filter((l) => l.n === 'Palais des Papes').map((l) => l.p), true), pont: d(landmarks.filter((l) => l.n !== 'Palais des Papes').map((l) => l.p), true), walls: d(walls, false), s0: S(0), s1: S(1), s2: S(2), s3: S(3), s4: S(4), x0: S(0, true), x1: S(1, true), x2: S(2, true), rail: d(rail, false) };
+const out = { w: W, h: H, bbox: [LON0, LAT1, LON1, LAT0], ring: flat(ring), paths, labels, depot, graph: { nodes, edges }, names: usedNames.map((n) => names[n]), sites: sites.flatMap((s) => [s.i, remap.get(s.n), s.num, s.r]), prefet, retired, quarters: QS.map((q) => ({ t: q.t, x: q.p[0], y: q.p[1] })), qn, qt, v: 2, source: 'OpenStreetMap (ODbL 1.0), extrait du ' + (raw.fetched ?? '').slice(0, 10) + ', extra-muros du ' + (ext.fetched ?? '').slice(0, 10) + ', adresses du ' + (addrRaw.fetched ?? '').slice(0, 10) };
 writeFileSync('src/data/map.json', JSON.stringify(out));
 console.log({ W, H, bldg: bldg.length, nodes: keep.length, sites: sites.length, depot, labels: labels.map((l) => l.t).join(' | '), kb: Math.round(JSON.stringify(out).length / 1024) });

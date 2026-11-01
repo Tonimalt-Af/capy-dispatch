@@ -42,3 +42,14 @@ it('old afternoon log times (13 h-17 h) read as the new 13 h 30-17 h 30 clock, o
   const s = defaults(); s.game = g; save(s); const l1 = load().game!.today!.log.slice(-4); expect(l1).toEqual(['9 h · a', '13 h 30 · b', '17 h 30 · c', '13 h 30 · d']);
   save({ ...s, game: load().game }); expect(load().game!.today!.log.slice(-4)).toEqual(l1);
 });
+it('a mid-day save from the v1 map (no map field, old node numbers) still loads: capys are put back on real nodes', async () => {
+  const { MAP_V, NODE_COUNT, DEPOT, SITES } = await import('../src/map');
+  const g = G.newGame(7); G.startDay(g); const old = JSON.parse(JSON.stringify(g)); delete old.map;
+  const ids = Object.keys(old.today.capys); old.today.capys[ids[0]].pos = 2; old.today.capys[ids[1]].pos = 3;
+  const tk = Object.keys(old.tickets)[0]; old.today.capys[ids[0]].job = tk;
+  const s = defaults(); s.game = old; mem[KEY] = JSON.stringify(s);
+  const back = load().game!; expect(back).not.toBeNull(); expect(back.map).toBe(MAP_V);
+  for (const r of Object.values(back.today!.capys)) expect(r.pos >= 0 && r.pos < NODE_COUNT).toBe(true);
+  expect((back.today!.capys as Record<string, { pos: number }>)[ids[0]].pos).toBe(SITES[old.tickets[tk].site].node);
+  expect((back.today!.capys as Record<string, { pos: number }>)[ids[1]].pos).toBe(DEPOT);
+});

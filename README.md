@@ -1,7 +1,7 @@
 # Capy Dispatch (titre de travail)
 
 Jeu de dispatch au tour par tour : tu planifies la journée d'une équipe de capybaras techniciens de l'eau potable
-dans les vraies rues d'Avignon intra-muros (données OpenStreetMap). Mobile d'abord, à l'horizontale, en français,
+dans les vraies rues d'Avignon, intra-muros et quartiers alentour (données OpenStreetMap). Mobile d'abord, à l'horizontale, en français,
 gratuit et sans pub. Projet séparé de Mahjong Capybaras (code, sauvegarde et caches distincts).
 
 **Jouer :** https://tonimalt-af.github.io/capy-dispatch/

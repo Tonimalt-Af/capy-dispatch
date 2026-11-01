@@ -1,7 +1,7 @@
 // Local save. Every key is prefixed 'capy-dispatch-': the github.io origin is shared with Maxime's other games
 // (Mahjong Capybaras uses 'capy-mahjong-'), and the two games share nothing on purpose.
 import { JOBS, RISKS, TEAM, EVENTS, VIPS, type CapyId } from './content';
-import { SITES, NODE_COUNT, PREFET_SITE, RETIRED_SITES } from './map';
+import { SITES, NODE_COUNT, PREFET_SITE, RETIRED_SITES, DEPOT, MAP_V } from './map';
 import { DAYS, SLOTS } from './rules';
 import type { Game, Ticket, DayState, DayResult } from './game';
 import { cleanPlayer, type Player } from './player';
@@ -67,6 +67,11 @@ export function game(x: unknown): Game | null {
   if (!ids(g.pile, (s) => Object.hasOwn(g.tickets, s)) || !Array.isArray(g.history) || !g.history.every(result) || !ids(g.stickers, (s) => s === 'capydindon')) return null;
   if (!Array.isArray(g.news) || !g.news.every((s) => str(s, 300))) g.news = [];
   if (g.moments !== undefined && !(Array.isArray(g.moments) && g.moments.every((s) => s === null || str(s, 400)))) delete g.moments;
+  // the map changed (v1 intra-muros → v2 with the quartiers outside): graph node numbers moved, site indices did not;
+  // each capy is put back at the site of its current ticket (or of the trip under way), else at the depot
+  if ((g.map ?? 1) !== MAP_V) { const T = g.tickets as Record<string, Ticket | undefined>; const at = (id: unknown) => (typeof id === 'string' && T[id] && int(T[id]!.site, 0, SITES.length - 1) ? SITES[T[id]!.site].node : null);
+    if (isObj(g.today) && isObj(g.today.capys)) for (const r of Object.values(g.today.capys as unknown as Record<string, Record<string, unknown>>)) if (isObj(r)) r.pos = at(r.job) ?? at(r.target) ?? DEPOT;
+    g.map = MAP_V; }
   if (g.today !== null && !today(g.today, g)) return null;
   // ticket numbers always come from the real address of their site (older saves had invented numbers)
   for (const t of Object.values(g.tickets)) { if (t.prefet) t.site = PREFET_SITE; else if (RETIRED_SITES.has(t.site)) t.site = liveSite(t.site); t.num = SITES[t.site].num; }

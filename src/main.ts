@@ -1,7 +1,7 @@
 import '@fontsource/fredoka/latin-400.css'; import '@fontsource/fredoka/latin-600.css'; import '@fontsource/fredoka/latin-700.css';
 import './style.css';
-import { JOBS, TEAM, CAPY, RISKS, DAY_CARDS, DAYS_SPEC, WEEKDAYS, SKILL_SHORT, slotsFor, objText, VIPS, GLOSSARY, CAPY_LINE, QUOTES, type CapyId, type Skill } from './content';
-import { SITES } from './map';
+import { JOBS, TEAM, CAPY, RISKS, DAY_CARDS, DAYS_SPEC, WEEKDAYS, SKILL_SHORT, slotsFor, objText, VIPS, GLOSSARY, CAPY_LINE, QUOTES, type CapyId, type Skill, type JobId } from './content';
+import { SITES, QUARTERS, quarterOf, qTravel } from './map';
 import { SLOTS, LUNCH_AFTER, DAYS, SAFETY_RULE, YIELD_TARGET, START_YIELD, URGENT_TARGET, slotLabel, slotShort, slotEnd, LUNCH_LABEL, DAY_END } from './rules';
 import * as G from './game';
 import type { Game, Ticket } from './game';
@@ -38,7 +38,9 @@ const SK_COL: Record<Skill, string> = { icc: '#F39A2B', reseau: '#2FA4A9', fuite
 const pct = (v: number) => (v * 100).toFixed(1).replace('.', ',') + '\u202F%';
 const today = () => g!.today!;
 const dayName = (d: number) => `${WEEKDAYS[d % 5]} · Jour ${d + 1}/${DAYS}`;
-const addr = (t: Ticket) => `${t.num} ${SITES[t.site].street}`;
+const addr = (t: Ticket) => { const q = quarterOf(t.site); return `${t.num} ${SITES[t.site].street}${q ? ` (${QUARTERS[q].t})` : ''}`; };
+/** Extra-muros tickets: the quartier, with the road time from the walls. */
+const qChip = (t: Ticket) => { const q = quarterOf(t.site); if (!q) return ''; const h = qTravel(0, q); return `<span class="chip qx" title="Hors les murs : ${h} h de route depuis l’intra-muros, 0 h entre deux adresses du quartier">${icon('van', 'ic xs')}${esc(QUARTERS[q].t)} · ${h} h</span>`; };
 // ---- player: name (always rendered with textContent), grammatical agreement, avatar
 if (S.player) { setSex(S.player.sex); setPlayerLook(S.player.look); }
 const NM = '<span class="pname"></span>';
@@ -50,7 +52,7 @@ function fillNames(root: ParentNode = document) { const n = S.player?.name ?? ''
 const me = (cls = '') => (S.player ? who('player', cls) : who('capy', cls));
 const cap1 = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 /** Very short block labels for the timeline (the full name is on the ticket card and in the details). */
-const TAG: Record<string, string> = { fuite_bt: 'Fuite', fuite_pc: 'Fuite cpt', prc: 'PRC', introuvable: 'Perdu', resilie: 'Résilié', coupure: 'Coupure', debit_nuit: 'Débit nuit', purge: 'Purge', poteau: 'Poteau' };
+const TAG: Record<JobId, string> = { fuite_bt: 'Fuite', fuite_pc: 'Fuite cpt', prc: 'PRC', introuvable: 'Perdu', resilie: 'Résilié', coupure: 'Coupure', debit_nuit: 'Débit nuit', purge: 'Purge', fontaine: 'Borne', poteau: 'Poteau' };
 /** RDV = the window in which the capy must arrive: « 8h–9h » (same text on the ticket, the band and the sheet). */
 const rdvText = (r: [number, number]) => (r[0] === r[1] ? `à ${slotShort(r[0])}` : `${slotShort(r[0])}–${slotShort(r[1])}`);
 const THE: Record<string, string> = { fuite_bt: 'la fuite', fuite_pc: 'la fuite au compteur', prc: 'le compteur', introuvable: 'le compteur introuvable', resilie: 'le résilié', coupure: 'la coupure', debit_nuit: 'le débit de nuit', purge: 'la purge', fontaine: 'la borne-fontaine', poteau: 'le poteau incendie' };
@@ -388,7 +390,7 @@ function card(id: string) {
     <div class="tk-s">${badge}${!ok && G.festivalBlocked(g!, id) ? '<span class="chip">Arrêté Festival</span>' : !ok && t.avail !== null ? `<span class="chip">Possible ${WEEKDAYS[t.avail % 5].toLowerCase()}</span>` : `<span class="ad">${esc(addr(t))}<span class="ab"> · ${esc(shortWho(t))}</span></span>`}</div>
     <div class="tk-q">${esc(quoteOf(t))}</div>
     ${rw.length ? `<div class="tk-w">${icon('warn', 'ic xs')}${esc(rw.join(' · '))}</div>` : ''}
-    <div class="tk-r"><span class="cfs">${fitChips(t)}</span>${t.rdv ? `<span class="chip" title="Arrivée entre ${slotLabel(t.rdv[0])} et ${slotLabel(t.rdv[1])}">${icon('clock', 'ic xs')}${rdv}</span>` : ''}<span class="rks">${t.risks.filter((r) => r !== 'absent').map((r) => `<span class="rk" title="${RISKS[r].name}">${icon(RISKS[r].icon, 'ic xs')}</span>`).join('')}${t.risks.includes('absent') ? `<span class="rk" title="Abonné peut-être absent">${icon('clock', 'ic xs')}</span>` : ''}</span>${age > 0 ? (G.waitCosts(t) ? `<span class="chip warn" title="${esc(shortWho(t))} attend depuis ${age + 1} jours : s’il reste encore ce soir, −1 point d’abonnés">J+${age}</span>` : `<span class="chip">J+${age}</span>`) : ''}
+    <div class="tk-r"><span class="cfs">${fitChips(t)}</span>${qChip(t)}${t.rdv ? `<span class="chip" title="Arrivée entre ${slotLabel(t.rdv[0])} et ${slotLabel(t.rdv[1])}">${icon('clock', 'ic xs')}${rdv}</span>` : ''}<span class="rks">${t.risks.filter((r) => r !== 'absent').map((r) => `<span class="rk" title="${RISKS[r].name}">${icon(RISKS[r].icon, 'ic xs')}</span>`).join('')}${t.risks.includes('absent') ? `<span class="rk" title="Abonné peut-être absent">${icon('clock', 'ic xs')}</span>` : ''}</span>${age > 0 ? (G.waitCosts(t) ? `<span class="chip warn" title="${esc(shortWho(t))} attend depuis ${age + 1} jours : s’il reste encore ce soir, −1 point d’abonnés">J+${age}</span>` : `<span class="chip">J+${age}</span>`) : ''}
       ${J.dig ? `<button class="chip act ${t.gas ? 'green' : 'red'}" data-gas="${id}" aria-label="${t.gas ? 'Exploitant gaz appelé' : 'Appeler l’exploitant gaz'}">${icon(t.gas ? 'phone' : 'phoneX', 'ic xs')}${t.gas ? 'Gaz OK' : 'Gaz ?'}</button>` : ''}${t.avail === null ? `<button class="chip act blue" data-avis="${id}">${icon('mail', 'ic xs')}Avis 48 h</button>` : ''}</div></div>`;
 }
 /** « Le plan du jour » : RDV to keep and how much work there is for the team, so the player knows what matters before placing. */
