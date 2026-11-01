@@ -224,3 +224,7 @@ describe('mid-day calls « Qui lâche quoi ? »', () => {
     const o = opts[0]; const t = G.dispatch(g, i, { capy: o.capy, index: o.index })!; expect(d.plan[o.capy][o.index]).toBe(t.id);
   });
 });
+it('subscribers have a soft floor: below 35 the losses count half, and the overnight catch-up is faster', () => {
+  expect(G.softSat(60, -10)).toBe(50); expect(G.softSat(40, -10)).toBe(32.5); expect(G.softSat(30, -10)).toBe(25); expect(G.softSat(20, 5)).toBe(25);
+  const g = G.newGame(3); G.startDay(g); g.today!.phase = 'close'; g.sat = 20; G.nextDay(g); expect(g.sat).toBe(40); expect(g.news.join(' ')).toContain('vous laissent une chance');
+});

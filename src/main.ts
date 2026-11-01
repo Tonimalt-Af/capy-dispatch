@@ -248,7 +248,7 @@ function explain(kind: 'y' | 'm3' | 'sat', back?: () => void) {
     html = `<h2>Les abonnés, c'est quoi ?</h2>
       <p>L'humeur des habitants d'Avignon, sur 100. Ce matin <b>${Math.round(d.satStart)}</b>, maintenant <b>${Math.round(g!.sat)}</b> <b class="${dv >= 0 ? 'green' : 'red'}">(${dv >= 0 ? '+' : '−'}${Math.abs(dv)})</b>. Le but : finir la journée plus haut qu'au matin.</p>
       <h3>${since}</h3>${why(sw.map((x) => ({ text: x.text, v: x.v, unit: '' })), 'Rien de spécial pour l’instant.')}
-      <p class="tip"><b>Pour les rendre contents :</b> tenir les RDV, réparer vite les urgences, et choisir les réponses gentilles quand le téléphone sonne. Un RDV raté, ça se paie.</p>`; }
+      <p class="tip"><b>Pour les rendre contents :</b> tenir les RDV, réparer vite les urgences, et choisir les réponses gentilles quand le téléphone sonne. Un RDV raté, ça se paie.</p>${g!.sat < G.SAT_FLOOR + 5 ? `<p class="muted">Sous ${G.SAT_FLOOR}, ils sont fâchés mais pas perdus : les mauvaises nouvelles comptent moitié moins, et chaque nuit ils remontent un peu plus vite.</p>` : ''}`; }
   openOv(`<div class="explain">${html}<div class="btns">${back ? `<button class="btn" id="x-back">${glyph('left')}<span>Retour</span></button>` : ''}<button class="btn primary" id="x-ok">Compris</button></div></div>`, 'explain-ov');
   const done = () => { if (back) back(); else { closeOv(); resumeAfterOverlay(); } };
   $('#x-ok').onclick = done; $('#x-back')?.addEventListener('click', done);

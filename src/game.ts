@@ -37,7 +37,10 @@ export const BG0 = Math.round(SECTOR_M3 * (1 / START_YIELD - 1)); // background 
 export const newGame = (seed = 2026): Game => ({ v: 1, map: MAP_V, seed, day: 0, tickets: {}, pile: [], sat: 60, bg: BG0, history: [], today: null, stickers: [], next: 1, over: false, news: [] });
 const clampSat = (s: number) => Math.max(0, Math.min(100, s));
 /** Change the subscribers' mood and remember why (for the « Abonnés » sheet). */
-function mood(g: Game, v: number, text: string) { if (!v) return; const before = g.sat; g.sat = clampSat(g.sat + v); const dv = g.sat - before; if (dv && g.today) (g.today.satWhy ??= []).push({ text, v: dv }); }
+/** Soft floor: below SAT_FLOOR the subscribers only lose half as much (a bad run is not a death spiral). */
+export const SAT_FLOOR = 35;
+export const softSat = (sat: number, v: number) => { let n = sat + v; if (v < 0 && n < SAT_FLOOR) n += (SAT_FLOOR - n - Math.max(0, SAT_FLOOR - sat)) / 2; return clampSat(Math.round(n * 2) / 2); };
+function mood(g: Game, v: number, text: string) { if (!v) return; const before = g.sat; g.sat = softSat(g.sat, v); const dv = g.sat - before; if (dv && g.today) (g.today.satWhy ??= []).push({ text, v: dv }); }
 const whoOf = (t: Ticket) => t.who.split(' (')[0].split(' · ')[0];
 const COMMON = /^(rue|place|placette|avenue|boulevard|impasse|cours|quai|chemin|passage|square|allée|montée|traverse|route|portail|plan|carreau|rempart|parvis|cloître|petite|grande|porte|galerie|jardin|esplanade|pont)\b/i;
 /** « rue du Roi René », « place Pie » (a street name as said in a sentence). */
@@ -328,7 +331,8 @@ export function nextDay(g: Game) {
   const d = g.today!; if (d.phase !== 'close') return;
   g.day++; g.today = null; g.news = [];
   // overnight the subscribers' mood drifts back a quarter of the way to 70: a good day must be earned again, a bad one is not a death spiral
-  const drift = Math.round((g.sat - SAT_HOME) * 0.25); if (drift) { g.sat = clampSat(g.sat - drift); g.news.push(drift > 0 ? `Les abonnés oublient vite : ${drift} point${drift > 1 ? 's' : ''} d'abonnés en moins ce matin.` : `Une nuit de sommeil, et les abonnés se calment : +${-drift} point${-drift > 1 ? 's' : ''} ce matin.`); }
+  // under the soft floor the catch-up is faster (40 %) and said so
+  const drift = Math.round((g.sat - SAT_HOME) * (g.sat < SAT_FLOOR ? 0.4 : 0.25)); if (drift) { const low = g.sat < SAT_FLOOR; g.sat = clampSat(g.sat - drift); g.news.push(drift > 0 ? `Les abonnés oublient vite : ${drift} point${drift > 1 ? 's' : ''} d'abonnés en moins ce matin.` : low ? `Les abonnés vous laissent une chance : +${-drift} points ce matin. Une bonne journée, et ça remonte vite.` : `Une nuit de sommeil, et les abonnés se calment : +${-drift} point${-drift > 1 ? 's' : ''} ce matin.`); }
   for (const id of [...g.pile]) { const t = g.tickets[id];
     if (JOBS[t.job].coupure && t.deadline !== null && g.day > t.deadline) { // the tired valve gave up: it is now an urgent leak
       g.pile = g.pile.filter((x) => x !== id); delete g.tickets[id];
