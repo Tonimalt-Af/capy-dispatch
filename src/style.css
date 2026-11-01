@@ -552,3 +552,7 @@ button.stickers{border:0;font:inherit;color:inherit;text-align:left;cursor:point
 .pin.prs>path{filter:brightness(.88)}.pin.prs{opacity:1}
 .calm .prs{scale:none!important}
 @media (max-height:430px){.set{display:grid;grid-template-columns:1fr 1fr}.set>.me-row,.set>p,.set>.tg:last-of-type{grid-column:1/-1}.set .tg{font-size:var(--fs-s)}.set>p{margin:0}}
+/* permanent notebook (section 16) */
+.nb-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 8px}.nb-tabs{flex:none}.nb-tabs button[aria-selected=true]{background:var(--ldr-navy);color:#fff;box-shadow:0 2px 0 #000}
+.nb-page .carnet{grid-template-columns:repeat(auto-fill,minmax(74px,1fr))}.cn.saison{--k:#D9F0C4}.cn-leg .saison{background:#D9F0C4}
+.nb-page:has(.cn-sea){display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}.cn-sea{display:flex;align-items:center;gap:8px;margin-bottom:6px}.cn-sea>b{flex:none;width:70px;font-size:var(--fs-s)}.cn-sea .carnet{flex:1}

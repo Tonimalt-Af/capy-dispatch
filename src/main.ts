@@ -6,7 +6,7 @@ import { SLOTS, LUNCH_AFTER, DAYS, SAFETY_RULE, YIELD_TARGET, START_YIELD, URGEN
 import * as G from './game';
 import type { Game, Ticket } from './game';
 import { load, save as persist, defaults, KEY, type Save } from './storage';
-import { carnet } from './carnet';
+import { readBook, merge, bookView, BOOK_KEY, SEASONS, type Sticker } from './carnet';
 import { MapView, type Pin, type Route } from './mapview';
 import { who, icon, ICONS, logoLDR, glyph, vanSvg, playerSvg, outfitThumb, headThumb, HEADS, setPlayerLook, FURS, OUTFITS, DEFAULT_LOOK, type Who, type Look } from './art';
 import { cleanName, validName, setSex, agree, gx, NAME_MAX, ACCS, ACC_LABEL, FUR_LABEL, OUTFIT_LABEL, OUTFIT_SHORT, HEAD_LABEL, type Sex } from './player';
@@ -39,6 +39,11 @@ const calm = () => document.documentElement.classList.toggle('calm', !!S.setting
 const expert = () => !!S.settings.expert;
 let sel: string | null = null; let running = false; let timer = 0; let skipping = false; /** « Prochaine décision » is the default way to play (5-minute sessions), except on the first day; x1/x2 switch to watching */ let autoSkip = true; let speed: 1 | 2 = S.settings.speed;
 const save = () => { S.game = g; persist(S); };
+// the permanent field notebook (section 16): its own key, migrated from the current campaign on first load
+const book = readBook(localStorage.getItem(BOOK_KEY));
+const isoDay = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function keepBook(from: Game | null = g) { const fresh = merge(book, from, isoDay()); if (fresh.length || !localStorage.getItem(BOOK_KEY)) try { localStorage.setItem(BOOK_KEY, JSON.stringify(book)); } catch { /* full */ } return fresh; }
+keepBook();
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const SK_COL: Record<Skill, string> = { icc: '#F39A2B', reseau: '#2FA4A9', fuite: '#E86A92' };
@@ -114,7 +119,7 @@ function home() {
       <p class="pitch">${say("Tout juste {arrivé|arrivée} à l'agence d'Avignon, tu rejoins l'équipe de capybaras : fuites, compteurs, rendez-vous… dans toutes les rues de la ville.")}</p>
       <div class="h-btns">
         ${cont ? `<button class="btn primary big cta" id="h-cont">${glyph('play')}<span>Continuer <small>${dayName(g!.day)}</small></span></button>` : `<button class="btn primary big cta" id="h-new">${glyph('play')}<span>Jouer</span></button>`}
-        <div class="row2">${cont ? `<button class="btn small" id="h-new">Nouvelle quinzaine</button>` : ''}<button class="btn small" id="h-set">${glyph('gear')}<span>Réglages</span></button><button class="btn small" id="h-cred">Crédits</button></div>
+        <div class="row2">${cont ? `<button class="btn small" id="h-new">Nouvelle quinzaine</button>` : ''}<button class="btn small" id="h-nb">${icon('heart', 'ic s')}<span>Carnet ${bookView(book, g).filter((x) => x.got).length}/${bookView(book, g).length}</span></button><button class="btn small" id="h-set">${glyph('gear')}<span>Réglages</span></button><button class="btn small" id="h-cred">Crédits</button></div>
       </div>
       ${S.best.runs ? `<p class="best">Meilleure quinzaine : ${S.best.stars} ★ sur ${DAYS * 3} · rendement ${pct(S.best.yield)}</p>` : ''}
     </div>
@@ -123,7 +128,7 @@ function home() {
   fillNames($('#home'));
   $('#h-cont')?.addEventListener('click', () => enterGame());
   $('#h-new').addEventListener('click', () => { if (cont) confirmBox('Nouvelle quinzaine ?', 'La quinzaine en cours sera perdue.', 'Recommencer', newRun); else newRun(); });
-  $('#h-set').addEventListener('click', settings); $('#h-cred').addEventListener('click', credits);
+  $('#h-set').addEventListener('click', settings); $('#h-cred').addEventListener('click', credits); $('#h-nb').addEventListener('click', () => notebook());
   $('#h-me')?.addEventListener('click', () => creator(home, false));
 }
 // ---------------------------------------------------------------- character creation (first launch, then from the settings)
@@ -190,6 +195,18 @@ function settings() {
   $('#s-me')?.addEventListener('click', () => { const ret = () => (back === 'game' && g?.today ? enterGame() : home()); creator(ret, false); });
 }
 const view = () => (document.querySelector('.view.active')?.id ?? 'home') as 'home' | 'game' | 'create';
+const cnIcon = (x: Sticker) => x.id === 'capydindon' ? who('capydindon') : icon(x.group === 'compteur' ? 'meter' : x.id === 'prefet' ? 'mail' : x.group === 'saison' ? (DAY_CARDS[x.id.slice(4)]?.icon ?? 'sun') : 'heart', 'ic');
+const cnHtml = (x: Sticker) => `<span class="cn ${x.group} ${x.got ? 'got' : 'miss'}" title="${x.got ? x.label : x.hint}">${cnIcon(x)}<i>${x.got ? x.label : '?'}</i></span>`;
+/** The permanent notebook, in pages: habitués, compteurs rares, saisons. */
+function notebook(page = 0) { keepBook(); const stk = bookView(book, g); const n = stk.filter((x) => x.got).length;
+  const pages: [string, Sticker[], string][] = [['Habitués', stk.filter((x) => x.group === 'habitue' || x.group === 'rare'), 'Les appels qui ne tombent pas tous les jours, et le capydindon.'], ['Compteurs rares', stk.filter((x) => x.group === 'compteur'), 'Les compteurs introuvables les mieux cachés.'], ['Saisons', stk.filter((x) => x.group === 'saison'), 'Une page par saison : les journées spéciales bien tenues.']];
+  const [title, list, sub] = pages[page];
+  const body = page === 2 ? ['Été', 'Automne', 'Hiver', 'Printemps'].map((sn) => `<div class="cn-sea"><b>${sn}</b><div class="carnet">${list.filter((x) => x.page === sn).map(cnHtml).join('')}</div></div>`).join('') : `<div class="carnet">${list.map(cnHtml).join('')}</div>`;
+  openOv(`<h2>Carnet de terrain <small class="muted">${n} sur ${stk.length}</small></h2><p class="muted">Il se garde d’une quinzaine à l’autre. ${sub}</p>
+    <div class="chips nb-tabs" role="tablist">${pages.map((p, i) => `<button role="tab" aria-selected="${i === page}" data-pg="${i}">${p[0]} ${p[1].filter((x) => x.got).length}/${p[1].length}</button>`).join('')}</div>
+    <div class="nb-page" aria-label="${title}">${body}</div><div class="btns"><button class="btn primary" id="nb-ok">OK</button></div>`, 'small');
+  document.querySelectorAll<HTMLElement>('[data-pg]').forEach((b) => b.addEventListener('click', () => { snd.play('click'); notebook(Number(b.dataset.pg)); }));
+  $('#nb-ok').onclick = () => { closeOv(); if (view() === 'home') home(); }; }
 function credits() {
   openOv(`<h2>Crédits &amp; licences</h2><div class="cred">
     <p><b>Capy Dispatch</b> (titre de travail) · un jeu de Maxime Durand.</p>
@@ -609,7 +626,7 @@ function afterStep(before: { slot: number; done: number }) {
   for (const c of TEAM) { const cr = d.capys[c.id]; const tgt = cr.job ?? cr.target; if (tgt && (cr.job || cr.travel === 0 || d.sub === 'mid')) mv?.moveCapy(c.id, SITES[g!.tickets[tgt].site].node, ms); }
   const fresh = d.done.slice(before.done); if (fresh.length) snd.play('match');
   if (before.slot === LUNCH_AFTER - 1 && d.slot === LUNCH_AFTER && !skipping) toast(LUNCH_LABEL, 1400);
-  if (d.phase === 'close') { stop(); render(); celebrate(fresh); setTimeout(() => replayDay(), 600); return; }
+  if (d.phase === 'close') { stop(); keepBook(); render(); celebrate(fresh); setTimeout(() => replayDay(), 600); return; }
   render(); celebrate(fresh);
   if (d.pending.length) { stop(); showPending(); return; }
   schedule();
@@ -845,10 +862,10 @@ function bilan() {
   save(); snd.play('legend');
   const fixed = Object.values(g!.tickets).filter((t) => !g!.pile.includes(t.id) && (JOBS[t.job].leak || JOBS[t.job].fix)).length;
   const moments = (g!.moments ?? []).filter((m) => m && !/^Une journée calme/.test(m)); const fun = moments.length ? moments[(g!.seed + moments.length) % moments.length] : '';
-  const din = g!.stickers.includes('capydindon'); const stk = carnet(g!); const got = stk.filter((x) => x.got).length; const p0 = Math.round(START_YIELD * 100), p1 = Math.round(y * 100);
+  keepBook(); const stk = bookView(book, g); const din = stk[0].got; const got = stk.filter((x) => x.got).length; const p0 = Math.round(START_YIELD * 100), p1 = Math.round(y * 100);
   openOv(`<div class="brief pot"><div class="b-left"><div class="bubble">${tier}</div><div class="duo">${who('chef', 'chef')}<div class="pl">${me('plc')}<span class="nt">${NM}</span></div></div></div><div class="b-right"><p class="kicker">Fin de la quinzaine</p><h2>Le pot du vendredi</h2>
     <div class="pot-top"><div class="pot-stars">${icon('star')}<b>${tot}</b><span>étoiles<br>sur ${DAYS * 3}</span></div><button class="stickers" id="bi-carnet" aria-expanded="false" aria-controls="bi-nb"><span class="stk ${din ? 'got' : 'miss'}">${who('capydindon')}</span><span><b>Carnet de terrain</b><br>${got} autocollant${got > 1 ? 's' : ''} sur ${stk.length}</span></button></div>
-    <div class="carnet" id="bi-nb" hidden>${stk.map((x) => `<span class="cn ${x.group} ${x.got ? 'got' : 'miss'}" title="${x.got ? x.label : x.hint}">${x.id === 'capydindon' ? who('capydindon') : icon(x.group === 'compteur' ? 'meter' : x.id === 'prefet' ? 'mail' : 'heart', 'ic')}<i>${x.got ? x.label : '?'}</i></span>`).join('')}<p class="cn-leg"><b class="rare">Rareté</b><b class="habitue">Habitués</b><b class="compteur">Compteurs rares</b></p></div>
+    <div class="carnet" id="bi-nb" hidden>${stk.filter((x) => x.group !== 'saison').map(cnHtml).join('')}<p class="cn-leg"><b class="rare">Rareté</b><b class="habitue">Habitués</b><b class="compteur">Compteurs rares</b><b class="saison">Saisons : ${stk.filter((x) => x.group === 'saison' && x.got).length}/${SEASONS.length}</b></p></div>
     <ul class="pot-l"><li>${icon('drop', 'ic s')}<span><b>${fixed} fuite${fixed > 1 ? 's' : ''}</b> bouchée${fixed > 1 ? 's' : ''}</span></li>
       <li>${icon('meter', 'ic s')}<span>Avignon perd ${p1 >= p0 ? 'moins' : 'plus'} d’eau : <b>${p0}\u202F% → <em class="${y >= YIELD_TARGET ? 'green' : ''}">${p1}\u202F%</em></b>${y >= YIELD_TARGET ? ' (contrat tenu !)' : ` (le contrat demande ${Math.round(YIELD_TARGET * 100)}\u202F%)`}</span></li>
       <li>${icon('heart', 'ic s')}<span>Abonnés : <b>${Math.round(g!.sat)}</b> sur 100</span></li>

@@ -134,3 +134,15 @@ test('polish: pressed look on tap, Vibrations setting saved, map drag commits th
   expect(m.vb1).not.toBe(m.vb0); expect(m.tf1).toBe(''); expect(m.samePins).toBe(true); // a pan keeps the pins (map units), only the viewBox moved
   expect(e).toEqual([]);
 });
+
+test('permanent notebook: own key, survives a new fortnight, three pages', async ({ page }) => {
+  const e = errors(page); await start(page);
+  await page.evaluate(() => { localStorage.setItem('capy-dispatch-v1-carnet', JSON.stringify({ v: 1, got: { 'vip-maire': '2026-10-30', 'sai-orage': '2026-10-30' } })); }); await page.reload();
+  await page.evaluate(() => (window as unknown as { __capy: { ui: { home: () => void } } }).__capy.ui.home());
+  await expect(page.locator('#h-nb')).toContainText('Carnet 2/20');
+  page.on('dialog', (d) => d.accept()); await page.click('#h-new'); const ok = page.locator('.ov button.primary'); if (await ok.isVisible().catch(() => false)) await ok.click();
+  await page.evaluate(() => (window as unknown as { __capy: { ui: { home: () => void } } }).__capy.ui.home());
+  await page.click('#h-nb'); await expect(page.locator('.nb-page .cn.got')).toHaveCount(1); await page.click('[data-pg="2"]');
+  await expect(page.locator('.cn-sea')).toHaveCount(4); await expect(page.locator('.cn.saison.got')).toContainText('Après l’orage');
+  expect(e).toEqual([]);
+});

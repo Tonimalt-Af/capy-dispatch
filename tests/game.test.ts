@@ -237,11 +237,19 @@ it('every surprise is a real choice: a call that creates a ticket offers at leas
 
 import { carnet } from '../src/carnet';
 describe('field notebook', () => {
-  it('lists 14 stickers, all missing on a new game, and fills up over a played fortnight', async () => {
+  it('lists 20 stickers (14 + 6 season pages), all missing on a new game, and fills up over a played fortnight', async () => {
     const { playKind } = await import('./bot');
-    expect(carnet(G.newGame(1)).length).toBe(14); expect(carnet(G.newGame(1)).filter((s) => s.got).length).toBe(0);
+    expect(carnet(G.newGame(1)).length).toBe(20); expect(carnet(G.newGame(1)).filter((s) => s.got).length).toBe(0);
     const best = Math.max(...[1, 2, 3, 4].map((seed) => carnet(playKind(seed, 'opt')).filter((s) => s.got).length));
     expect(best).toBeGreaterThanOrEqual(3);
+  });
+  it('the book is permanent: it keeps what a finished campaign found after a new one starts, and survives corrupt data', async () => {
+    const { playKind } = await import('./bot'); const { readBook, merge, bookView } = await import('../src/carnet');
+    const old = playKind(2, 'opt'); const book = readBook(null); const fresh = merge(book, old, '2026-11-01'); expect(fresh.length).toBeGreaterThanOrEqual(3);
+    expect(fresh.some((id) => id.startsWith('sai-'))).toBe(true); // season pages fill from the special days
+    const again = readBook(JSON.stringify(book)); const g2 = G.newGame(9); G.startDay(g2);
+    expect(bookView(again, g2).filter((s) => s.got).length).toBe(fresh.length); expect(merge(again, old, '2026-11-02')).toEqual([]); // found once, dated once
+    expect(readBook('{"v":1,"got":{"vip-x":"2026-01-01","<img>":"x","prefet":"nope"}}').got).toEqual({ 'vip-x': '2026-01-01' }); expect(readBook('{oops').got).toEqual({});
   });
 });
 
