@@ -1,6 +1,6 @@
 // Game state and rules: tickets, planning preview, slot-by-slot resolution, cards, day close and scoring.
 // Pure TypeScript (no DOM): everything here is covered by the Vitest suite.
-import { JOBS, TEAM, CAPY, slotsFor, RISK_CARDS, EVENTS, DAYS_SPEC, ABONNES, objText, type JobId, type Risk, type CapyId, type Card, type Effect, type Obj, PREFET, VIPS, vipOutcome, type VipId } from './content';
+import { JOBS, TEAM, CAPY, slotsFor, ignoresRisk, RISK_CARDS, EVENTS, DAYS_SPEC, ABONNES, objText, type JobId, type Risk, type CapyId, type Card, type Effect, type Obj, PREFET, VIPS, vipOutcome, type VipId } from './content';
 import { SITES, SITE_GROUPS, PREFET_SITE, dist, DEPOT, labelXY } from './map';
 import { SLOTS, TRAVEL_M, FESTIVAL_TRAVEL_M, URGENT_TARGET, NIGHT_SLOTS, SECTOR_M3, START_YIELD, SAFETY_RULE, DAYS, slotLabel, DAY_END, type SafetyRule } from './rules';
 
@@ -108,7 +108,7 @@ export const travelCost = (g: Game, from: number, site: number) => {
   if (card === 'marche' && nearHalles(site) && !(from !== DEPOT && SITES.some((s, i) => s.node === from && nearHalles(i)))) return 1;
   return m > (card === 'festival' ? FESTIVAL_TRAVEL_M : TRAVEL_M) ? 1 : 0;
 };
-export const maxExtra = (t: Ticket) => t.risks.length + (JOBS[t.job].minigame ? 1 : 0);
+export const maxExtra = (t: Ticket, c?: CapyId) => t.risks.filter((r) => !c || !ignoresRisk(c, r)).length + (JOBS[t.job].minigame ? 1 : 0);
 /** Where a capy is free again and from which node, given its current run state at slot `s`. */
 export function freeAt(g: Game, c: CapyId): { at: number; pos: number } {
   const d = g.today!; const cr = d.capys[c];
@@ -123,7 +123,7 @@ export function preview(g: Game, c: CapyId, order = g.today!.plan[c]): Slot[] {
     const tr = travelCost(g, pos, t.site); let start = at + tr; let early = false;
     if (t.rdv && start < t.rdv[0]) { start = t.rdv[0]; early = true; }
     const dur = n ?? 1; const end = start + dur;
-    out.push({ id, travel: tr, start, end, endMax: end + maxExtra(t), late: !!t.rdv && start > t.rdv[1], early, overflow: end > SLOTS, noGas: !!J.dig && !t.gas, cannot: n === null });
+    out.push({ id, travel: tr, start, end, endMax: end + maxExtra(t, c), late: !!t.rdv && start > t.rdv[1], early, overflow: end > SLOTS, noGas: !!J.dig && !t.gas, cannot: n === null });
     at = end; pos = SITES[t.site].node;
   }
   return out;
@@ -189,7 +189,7 @@ export function beginSlot(g: Game) {
       log(d, jobLine(J.go, c.name, t));
       if (t.vip && t.day === d.day && !d.vip?.[id]) { judgeVip(g, id, s - t.slot); const w = VIPS[t.vip].watch; if (w) d.pending.push({ card: w, kind: 'event', capy: c.id, ticket: id }); }
       if (J.dig && !t.gas) d.pending.push({ card: 'safety', kind: 'safety', capy: c.id, ticket: id });
-      for (const r of t.risks) d.pending.push({ card: r, kind: 'risk', capy: c.id, ticket: id });
+      for (const r of t.risks) if (!ignoresRisk(c.id, r)) d.pending.push({ card: r, kind: 'risk', capy: c.id, ticket: id }); else log(d, `${c.name} se faufile dans la ruelle sans ralentir`);
       if (J.minigame) d.pending.push({ card: 'compteur', kind: 'mini', capy: c.id, ticket: id });
       break;
     }
@@ -210,7 +210,8 @@ function targetFor(g: Game, card: Card): { capy: CapyId; ticket: string } | null
   return undefined;
 }
 export const SAFETY_CARD: Card = { id: 'safety', title: 'Chantier arrêté : appel gaz manquant', who: 'chef', needs: 'dig', text: "Avant d'ouvrir la chaussée, on appelle l'exploitant du réseau gaz pour connaître les conduites. Personne ne l'a fait. Le chef d'équipe arrête tout, on appelle maintenant.", choices: [
-  { label: 'Appeler et attendre les consignes', hint: '+1 créneau · incident sécurité : journée plafonnée à 1 étoile', fx: { slots: 1, log: "a appelé l'exploitant gaz après coup (incident sécurité)" } }] };
+  { label: 'Appeler et attendre les consignes', hint: '+1 créneau · incident sécurité : journée plafonnée à 1 étoile', fx: { slots: 1, log: "a appelé l'exploitant gaz après coup (incident sécurité)" } },
+  { label: 'Reboucher et revenir demain', hint: 'Le chantier attendra demain · incident sécurité quand même', fx: { postpone: true, log: "a rebouché le trou et reviendra demain, gaz appelé (incident sécurité)" } }] };
 export function cardOf(p: Pending): Card { return p.kind === 'safety' ? SAFETY_CARD : p.kind === 'risk' ? RISK_CARDS[p.card as Risk] : EVENTS[p.card]; }
 /** Apply the player's choice on the first pending card. Returns the ticket created, if any (the UI then opens the replanning). */
 export function choose(g: Game, i: number): Ticket | null {
@@ -264,6 +265,7 @@ function complete(g: Game, c: CapyId) {
   if (J.fix) g.bg = Math.max(0, g.bg - J.fix);
   if (t.rdv && !d.rdvMissed.includes(id)) d.rdvKept.push(id);
   if (t.rdv && !d.rdvMissed.includes(id)) mood(g, 1, `RDV tenu chez ${whoOf(t)}`); if (J.urgent) mood(g, 1, `${J.short} ${rue(t.site)} réparée`);
+  if (c === 'momo' && J.skill === 'icc' && !t.prefet) mood(g, 1, `Fred est passé chez ${whoOf(t)}`);
   log(d, jobLine(J.fin, CAPY[c].name, t), d.slot + 1);
 }
 /** Run until something needs the player (a card) or the slot ends. */
@@ -352,3 +354,59 @@ export const objLabels = (day: number) => DAYS_SPEC[day].objs.map(objText);
 export function objValue(g: Game, o: Obj): string | null {
   const d = g.today!; switch (o.id) { case 'm3': return `${Math.round(d.m3)}`; case 'done': return `${d.done.length}`; case 'travel': return `${d.travel} h`; case 'rdv': return `${d.rdvKept.length}/${d.rdvToday.length}`; default: return null; }
 }
+
+// ---------- « Qui lâche quoi ? »: concrete dispatch options for a mid-day call that creates a ticket
+export interface Dispatch {
+  capy: CapyId; index: number; kind: 'rush' | 'after' | 'end';
+  /** the queued job it jumps ahead of (rush) / the job it comes after (after, end) */ skip: string | null; prev: string | null;
+  start: number; end: number; travel: number; slower: boolean;
+  m3: number; sat: number; late: string[]; over: string[];
+  /** one cell per remaining hour of that capy: '', 'r' (route), 'w' (wait), a skill id, 'new' (the new ticket), 'x' (pushed past the end of the day) */ bar: string[];
+}
+/** Which card choice creates a ticket (−1 if none). */
+export const createIndex = (card: Card) => card.choices.findIndex((c) => !!c.fx.addTicket);
+function capyBar(g: Game, c: CapyId, id: string): string[] {
+  const d = g.today!; const cr = d.capys[c]; const p = preview(g, c); const now = d.slot; const out: string[] = [];
+  const at = freeAt(g, c).at;
+  for (let s = now; s < Math.max(SLOTS, now + 1); s++) {
+    let k = '';
+    if (cr.job && s < now + cr.left) k = JOBS[g.tickets[cr.job].job].skill;
+    else if (cr.travel && cr.target && s < now + cr.travel) k = 'r';
+    else { let prev = at; for (const x of p) { if (s >= prev && s < prev + x.travel) { k = 'r'; break; } if (s >= prev + x.travel && s < x.start) { k = 'w'; break; } if (s >= x.start && s < x.end) { k = x.id === id ? 'new' : JOBS[g.tickets[x.id].job].skill; break; } prev = x.end; } }
+    out.push(k);
+  }
+  const spill = p.reduce((n, x) => n + Math.max(0, x.end - Math.max(x.start, SLOTS)), 0); for (let i = 0; i < Math.min(spill, 4); i++) out.push('x');
+  return out;
+}
+export function dispatchOptions(g: Game, choice: number): Dispatch[] {
+  const g1 = structuredClone(g); const t = choose(g1, choice); if (!t) return []; const d1 = g1.today!; const J = JOBS[t.job]; const now = d1.slot;
+  const all: Dispatch[] = [];
+  for (const c of TEAM) {
+    if (!canDo(c.id, t.id, g1)) continue; const q = d1.plan[c.id]; const base = preview(g1, c.id);
+    const sp = bestSpot(g1, c.id, t.id); const idx = new Map<number, Dispatch['kind']>([[0, 'rush']]); if (sp && sp.index !== 0 && sp.index !== q.length) idx.set(sp.index, 'after'); if (!idx.has(q.length)) idx.set(q.length, 'end');
+    for (const [i, kind] of idx) {
+      const g2 = structuredClone(g1); assign(g2, c.id, t.id, i); const p = preview(g2, c.id); const me = p.find((x) => x.id === t.id)!;
+      const late = p.filter((x) => x.id !== t.id && x.late && !base.find((y) => y.id === x.id)?.late).map((x) => x.id);
+      const over = p.filter((x) => x.id !== t.id && x.overflow && !base.find((y) => y.id === x.id)?.overflow).map((x) => x.id);
+      let sat = -4 * late.length - 3 * over.filter((id) => g1.tickets[id].rdv).length + (me.late ? -4 : 0);
+      if (t.vip) sat += VIPS[t.vip][vipOutcome(VIPS[t.vip], me.overflow ? null : me.start - t.slot)].sat;
+      const leak = J.leak ?? 0; const lossTo = (l: number, e: number, of: boolean) => l * (of ? (SLOTS - now) + NIGHT_SLOTS : e - now);
+      const others = p.filter((x) => x.id !== t.id).reduce((s2, x) => { const l = JOBS[g1.tickets[x.id].job].leak ?? 0; const o = base.find((y) => y.id === x.id); return l && o ? s2 + Math.max(0, lossTo(l, x.end, x.overflow) - lossTo(l, o.end, o.overflow)) : s2; }, 0);
+      const m3 = lossTo(leak, me.end, me.overflow) + others;
+      all.push({ capy: c.id, index: i, kind, skip: kind === 'rush' ? q[0] ?? null : null, prev: i > 0 ? q[i - 1] : d1.capys[c.id].job, start: me.start, end: me.end, travel: me.travel, slower: (slotsFor(CAPY[c.id], J) ?? 0) > J.dur, m3, sat, late, over, bar: capyBar(g2, c.id, t.id) });
+    }
+  }
+  const score = (o: Dispatch) => o.m3 + -o.sat * 6 + o.end * 0.5 + (o.slower ? 0.3 : 0);
+  all.sort((a, b) => score(a) - score(b)); const pick: Dispatch[] = [];
+  const add = (o?: Dispatch) => { if (o && !pick.some((x) => x.capy === o.capy && x.index === o.index) && pick.length < 3) pick.push(o); };
+  add(all[0]); add(all.find((o) => o.capy !== pick[0]?.capy)); add(all.filter((o) => o.kind === 'end').sort((a, b) => b.start - a.start)[0]); for (const o of all) add(o);
+  return pick;
+}
+/** Play the call's ticket-creating choice and put the new ticket where the player said. */
+export function dispatch(g: Game, choice: number, o: Pick<Dispatch, 'capy' | 'index'>): Ticket | null {
+  const t = choose(g, choice); if (!t) return null; assign(g, o.capy, t.id, o.index); return t;
+}
+
+
+/** Yield points a fix of `fix` m³/day would bring today (for the ticket front). */
+export function fixGain(g: Game, fix: number) { const y = yieldLive(g); const L = SECTOR_M3 / y - SECTOR_M3; return (SECTOR_M3 / (SECTOR_M3 + Math.max(0, L - fix)) - y) * 100; }

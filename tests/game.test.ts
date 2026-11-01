@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as G from '../src/game';
-import { JOBS, TEAM, DAYS_SPEC, RISK_CARDS, EVENTS, VIPS, vipOutcome, type JobId } from '../src/content';
+import { JOBS, TEAM, DAYS_SPEC, RISK_CARDS, EVENTS, VIPS, vipOutcome, slotsFor, CAPY, type JobId } from '../src/content';
 import { SLOTS, LUNCH_AFTER, slotLabel, slotShort, slotEnd, LUNCH_LABEL, SAFETY_RULE } from '../src/rules';
 import { SITES, DEPOT, PREFET_SITE } from '../src/map';
 
@@ -152,7 +152,7 @@ describe('VIP surprises', () => {
     expect(d.vip![t.id]).toBe('late'); expect(d.stars).toBe(Math.max(0, d.met!.filter(Boolean).length - 1));
   });
   it('the rival: starting 2 to 4 h after the call is the sweet spot; the mairie card goes to the real hôtel de ville', () => {
-    const g = fresh(); const t = callVip(g, 'vip_rival'); const d = g.today!; d.slot = 3; d.plan.momo = [t.id]; d.capys.momo.pos = SITES[t.site].node; const sat = g.sat; G.step(g);
+    const g = fresh(); const t = callVip(g, 'vip_rival'); const d = g.today!; d.slot = 3; d.plan.lulu = [t.id]; d.capys.lulu.pos = SITES[t.site].node; const sat = g.sat; G.step(g);
     expect(d.vip![t.id]).toBe('mid'); expect(g.sat).toBe(sat + 2);
     const m = callVip(fresh(), 'vip_maire'); expect(`${m.num} ${SITES[m.site].street}`).toBe("15 Place de l'Horloge"); expect(m.who).not.toMatch(/Monsieur|Madame/);
   });
@@ -197,5 +197,30 @@ describe('boucle v2: yield explainer and day lines', () => {
   it('log lines speak like a person (« 8 h · Fred sonne chez … »)', () => {
     const g = G.newGame(2026); G.startDay(g); const t = Object.values(g.tickets)[0];
     expect(G.jobLine('{c} sonne chez {who}, {rue}', 'Fred', t)).toMatch(/^Fred sonne chez .+, [a-zé]/);
+  });
+});
+
+describe('capy traits', () => {
+  it('Josette repairs a leak without the extra hour, Lulu ignores narrow streets, Fred pleases subscribers', () => {
+    expect(slotsFor(CAPY.josette, JOBS.fuite_bt)).toBe(JOBS.fuite_bt.dur); expect(slotsFor(CAPY.josette, JOBS.purge)).toBe(JOBS.purge.dur + 1);
+    const g = fresh(); const t = addTicket(g, 'fuite_bt', { risks: ['ruelle'] }); t.gas = true; g.today!.phase = 'run';
+    expect(G.maxExtra(t, 'lulu')).toBe(G.maxExtra(t) - 1);
+    const d = g.today!; for (const c of TEAM) d.plan[c.id] = []; d.plan.lulu = [t.id]; d.capys.lulu.pos = SITES[t.site].node; d.pending = []; G.step(g);
+    expect(d.pending.some((p) => p.card === 'ruelle')).toBe(false);
+    const g2 = fresh(); const p = addTicket(g2, 'prc', { risks: [] }); p.rdv = null; const d2 = g2.today!; d2.phase = 'run'; for (const c of TEAM) d2.plan[c.id] = []; d2.plan.momo = [p.id]; d2.capys.momo.pos = SITES[p.site].node; d2.pending = [];
+    const s0 = g2.sat; for (let i = 0; i < 3 && !d2.done.includes(p.id); i++) { d2.pending = []; G.step(g2); } expect(d2.done).toContain(p.id); expect(g2.sat).toBeGreaterThan(s0);
+  });
+});
+
+describe('mid-day calls « Qui lâche quoi ? »', () => {
+  it('no card has a single button: a lone choice always brings a ticket, which the call turns into « who drops what » options', () => {
+    for (const c of [...Object.values(EVENTS), ...Object.values(RISK_CARDS), G.SAFETY_CARD]) if (c.choices.length === 1) expect(c.choices[0].fx.addTicket, c.id).toBeTruthy();
+  });
+  it('a call that creates a ticket offers several dispatch options, and dispatching places the ticket in the chosen row', () => {
+    const g = fresh(); runUntilPending(g); const d = g.today!; d.pending = [{ card: 'riverain', kind: 'event', capy: null, ticket: null }];
+    const i = EVENTS.riverain.choices.findIndex((c) => c.fx.addTicket); const opts = G.dispatchOptions(g, i);
+    expect(opts.length).toBeGreaterThanOrEqual(2); expect(new Set(opts.map((o) => `${o.capy}:${o.index}`)).size).toBe(opts.length);
+    for (const o of opts) { expect(o.end).toBeGreaterThan(o.start); expect(o.m3).toBeGreaterThanOrEqual(0); }
+    const o = opts[0]; const t = G.dispatch(g, i, { capy: o.capy, index: o.index })!; expect(d.plan[o.capy][o.index]).toBe(t.id);
   });
 });

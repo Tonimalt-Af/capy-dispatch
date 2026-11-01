@@ -1,6 +1,6 @@
 import '@fontsource/fredoka/latin-400.css'; import '@fontsource/fredoka/latin-600.css'; import '@fontsource/fredoka/latin-700.css';
 import './style.css';
-import { JOBS, TEAM, CAPY, RISKS, DAY_CARDS, DAYS_SPEC, WEEKDAYS, SKILL_SHORT, slotsFor, objText, VIPS, GLOSSARY, CAPY_LINE, type CapyId, type Skill } from './content';
+import { JOBS, TEAM, CAPY, RISKS, DAY_CARDS, DAYS_SPEC, WEEKDAYS, SKILL_SHORT, slotsFor, objText, VIPS, GLOSSARY, CAPY_LINE, QUOTES, type CapyId, type Skill } from './content';
 import { SITES } from './map';
 import { SLOTS, LUNCH_AFTER, DAYS, SAFETY_RULE, YIELD_TARGET, START_YIELD, URGENT_TARGET, slotLabel, slotShort, slotEnd, LUNCH_LABEL, DAY_END } from './rules';
 import * as G from './game';
@@ -68,7 +68,7 @@ function hintHtml(h: string) {
 }
 const okMsg = (left: number) => left ? `<span class="okmsg todo">${icon('van', 'ic s')} ${left} ticket${left > 1 ? 's' : ''} t'attend${left > 1 ? 'ent' : ''}</span>` : `<span class="okmsg">${glyph('check')} Tout le monde a sa journée</span>`;
 let pauseMsg = '';
-const range = (t: Ticket, c?: CapyId) => { const J = JOBS[t.job]; const base = c ? slotsFor(CAPY[c], J) : J.dur; if (base === null) return '—'; const mx = base + G.maxExtra(t); return mx > base ? `${base}–${mx}` : `${base}`; };
+const range = (t: Ticket, c?: CapyId) => { const J = JOBS[t.job]; const base = c ? slotsFor(CAPY[c], J) : J.dur; if (base === null) return '—'; const mx = base + G.maxExtra(t, c); return mx > base ? `${base}–${mx}` : `${base}`; };
 
 document.body.innerHTML = `<div id="app"><div class="view" id="home"></div><div class="view" id="create"></div><div class="view" id="game"></div></div>
 <div class="ov" id="ov"><div class="card" id="card"></div></div><div class="toast" id="toast" role="status"></div>
@@ -362,7 +362,7 @@ function panel() {
       <div class="ctrl"><button class="cbtn" id="r-pause" aria-label="Pause et modifier">${glyph('pause')}</button><button class="cbtn ${speed === 1 ? 'on' : ''}" id="r-x1" aria-pressed="${speed === 1}">x1</button><button class="cbtn ${speed === 2 ? 'on' : ''}" id="r-x2" aria-pressed="${speed === 2}">x2</button><button class="cbtn wide" id="r-skip">${glyph('skip')}<span>Prochaine décision</span></button></div>`;
   }
   const main = $('#game .main'); const wasRun = main.classList.contains('run'); main.classList.toggle('run', !planning); if (wasRun !== !planning) { setMap(mapOpen); if (!planning && DRAWER.matches && !mapOpen) requestAnimationFrame(() => mv?.home()); }
-  const co = coach();
+  const co = coach() || (d.phase === 'plan' && edit && !sel ? planBand() : '');
   p.innerHTML = `${co}<div class="scale"><div class="who-h"></div><div class="hours">${hours}</div></div><div class="rows">${rows}</div><div class="bottom">${bottom}</div>`;
   if (co) fillNames(p);
   p.classList.toggle('editing', edit);
@@ -370,15 +370,36 @@ function panel() {
 }
 /** « Fred 1 h · Lulu 2 h »: who can do it and how long, the specialist first. */
 const fitLine = (t: Ticket) => TEAM.filter((c) => slotsFor(c, JOBS[t.job]) !== null).sort((a, b) => slotsFor(a, JOBS[t.job])! - slotsFor(b, JOBS[t.job])!).map((c) => `${c.name} ${slotsFor(c, JOBS[t.job])} h`).join(' · ');
-const fitChips = (t: Ticket) => { const J = JOBS[t.job]; const cs = TEAM.filter((c) => slotsFor(c, J) !== null).sort((a, b) => slotsFor(a, J)! - slotsFor(b, J)!); return cs.slice(0, 1).map((c, i) => `<span class="cf${i === 0 ? ' best' : ''}" title="${c.name} : ${slotsFor(c, J)} h${i === 0 ? ', le plus rapide' : ''}">${c.name} ${slotsFor(c, J)}\u202Fh</span>`).join(''); };
+/** Capy chips for the ticket front: the fastest in green, the others grey, those who can't do it struck « Josette — ». */
+const fitChips = (t: Ticket) => { const J = JOBS[t.job]; const cs = [...TEAM].sort((a, b) => (slotsFor(a, J) ?? 99) - (slotsFor(b, J) ?? 99)); const best = slotsFor(cs[0], J);
+  return cs.map((c, i) => { const n = slotsFor(c, J); const k = n === null ? ' no' : i === 0 || n === best ? ' best' : ' oth'; return `<span class="cf${k}" title="${c.name} : ${n === null ? 'pas son métier' : `${n} h${k === ' best' ? ', le plus rapide' : ''}`}">${c.name} ${n === null ? '—' : `${n}\u202Fh`}</span>`; }).join(''); };
+const quoteOf = (t: Ticket) => { const q = QUOTES[t.job]; return t.prefet ? '« Monsieur le préfet vous attend. »' : q[(t.num + t.site) % q.length]; };
+const shortWho = (t: Ticket) => t.who.split(' (')[0];
 function card(id: string) {
   const t = g!.tickets[id]; const J = JOBS[t.job]; const ok = G.avail(g!, id);
   const age = g!.day - t.day; const rdv = t.rdv ? rdvText(t.rdv) : '';
+  const sub = J.name.replace(/\s*\(.*\)$/, '').replace(/[«»]/g, '').trim(); const subShow = sub.toLowerCase() !== J.short.toLowerCase();
+  const gain = J.fix ? G.fixGain(g!, J.fix) : 0;
+  const badge = J.leak ? `<span class="chip red" title="Urgent : ${J.leak} m³ perdus par heure tant que ce n’est pas réparé">Urgent · ${J.leak}\u202Fm³/h</span>` : gain >= 0.05 ? `<span class="chip gain" title="Rendement de réseau gagné une fois réparé">${pt1(gain)}</span>` : '';
+  const rw = t.risks.filter((r) => r !== 'absent').map((r) => `${RISKS[r].name} (+1 h ?)`).concat(t.risks.includes('absent') ? ['Peut-être absent'] : []).concat(J.minigame ? ['Compteur à trouver (+1 h ?)'] : []);
   return `<div class="tk${J.urgent ? ' urg' : ''}${sel === id ? ' sel' : ''}${ok ? '' : ' wait'}" data-t="${id}" style="--c:${SK_COL[J.skill]}" role="button" tabindex="0" aria-label="${J.short}${J.urgent ? ', urgent' : ''}">
-    <div class="tk-h">${icon(J.icon)}<b>${J.short}</b><span class="dur" title="Durée (1 créneau = 1 h)">${range(t)} h</span></div>
-    <div class="tk-s">${J.urgent ? '<span class="chip red">Urgent</span>' : ''}${t.vip ? `<span class="chip vip">${VIPS[t.vip].tag}</span>` : ''}${!ok && G.festivalBlocked(g!, id) ? '<span class="chip">Arrêté Festival</span>' : !ok && t.avail !== null ? `<span class="chip">Possible ${WEEKDAYS[t.avail % 5].toLowerCase()}</span>` : `<span class="ad">${esc(addr(t))}</span>`}</div>
-    <div class="tk-r">${fitChips(t)}${t.rdv ? `<span class="chip" title="Arrivée entre ${slotLabel(t.rdv[0])} et ${slotLabel(t.rdv[1])}">${icon('clock', 'ic xs')}${rdv}</span>` : ''}${t.risks.filter((r) => r !== 'absent').map((r) => `<span class="rk" title="${RISKS[r].name}">${icon(RISKS[r].icon, 'ic xs')}</span>`).join('')}${t.risks.includes('absent') ? `<span class="rk" title="Abonné peut-être absent">${icon('clock', 'ic xs')}</span>` : ''}${age > 0 ? `<span class="chip">J+${age}</span>` : ''}
+    <div class="tk-h">${icon(J.icon)}<b>${J.short}</b>${t.vip ? `<span class="chip vip">${VIPS[t.vip].tag}</span>` : ''}<span class="dur" title="Durée (1 créneau = 1 h)">${range(t)} h</span></div>
+    ${subShow ? `<div class="tk-sub">${esc(sub)}</div>` : ''}
+    <div class="tk-s">${badge}${!ok && G.festivalBlocked(g!, id) ? '<span class="chip">Arrêté Festival</span>' : !ok && t.avail !== null ? `<span class="chip">Possible ${WEEKDAYS[t.avail % 5].toLowerCase()}</span>` : `<span class="ad">${esc(addr(t))}<span class="ab"> · ${esc(shortWho(t))}</span></span>`}</div>
+    <div class="tk-q">${esc(quoteOf(t))}</div>
+    ${rw.length ? `<div class="tk-w">${icon('warn', 'ic xs')}${esc(rw.join(' · '))}</div>` : ''}
+    <div class="tk-r"><span class="cfs">${fitChips(t)}</span>${t.rdv ? `<span class="chip" title="Arrivée entre ${slotLabel(t.rdv[0])} et ${slotLabel(t.rdv[1])}">${icon('clock', 'ic xs')}${rdv}</span>` : ''}<span class="rks">${t.risks.filter((r) => r !== 'absent').map((r) => `<span class="rk" title="${RISKS[r].name}">${icon(RISKS[r].icon, 'ic xs')}</span>`).join('')}${t.risks.includes('absent') ? `<span class="rk" title="Abonné peut-être absent">${icon('clock', 'ic xs')}</span>` : ''}</span>${age > 0 ? `<span class="chip">J+${age}</span>` : ''}
       ${J.dig ? `<button class="chip act ${t.gas ? 'green' : 'red'}" data-gas="${id}" aria-label="${t.gas ? 'Exploitant gaz appelé' : 'Appeler l’exploitant gaz'}">${icon(t.gas ? 'phone' : 'phoneX', 'ic xs')}${t.gas ? 'Gaz OK' : 'Gaz ?'}</button>` : ''}${t.avail === null ? `<button class="chip act blue" data-avis="${id}">${icon('mail', 'ic xs')}Avis 48 h</button>` : ''}</div></div>`;
+}
+/** « Le plan du jour » : RDV to keep and how much work there is for the team, so the player knows what matters before placing. */
+function planBand() {
+  const d = today(); const ids = [...G.tray(g!), ...Object.values(d.plan).flat()].filter((id) => G.avail(g!, id) && !d.done.includes(id));
+  if (!ids.length) return '';
+  const work = ids.reduce((s, id) => s + Math.min(...TEAM.map((c) => slotsFor(c, JOBS[g!.tickets[id].job]) ?? 99)), 0); const cap = TEAM.length * SLOTS;
+  const rdv = ids.map((id) => g!.tickets[id]).filter((t) => t.rdv).sort((a, b) => a.rdv![0] - b.rdv![0]);
+  const urg = ids.some((id) => JOBS[g!.tickets[id].job].urgent);
+  const tip = urg ? 'les urgences d’abord, puis les RDV' : work > cap ? 'trop pour aujourd’hui : place le plus important d’abord' : work > cap * 0.8 ? 'ça va être serré : le plus important d’abord' : 'de la marge : pense aux trajets';
+  return `<div class="planband" role="status"><b>Le plan du jour</b>${rdv.length ? `<span class="pb-r">${rdv.length} RDV à tenir ${rdv.slice(0, 3).map((t) => `<span class="pdr">${rdvText(t.rdv!)} <i>${esc(t.who.split(' (')[0])}</i></span>`).join('')}</span>` : ''}<span class="pb-w${work > cap ? ' over' : ''}"><b>${work} h</b> de travail pour ${TEAM.length} × ${SLOTS} h : ${tip}</span></div>`;
 }
 function coach() {
   if (g?.today?.replan && pauseMsg) return `<div class="coach pause" role="status">${icon('clock', 'ic s')}<p>${say(pauseMsg)}</p></div>`;
@@ -553,6 +574,7 @@ function showPending() {
   const c = G.cardOf(p); const t = p.ticket ? g!.tickets[p.ticket] : null;
   const w: Who = c.who === 'capy' ? (p.capy ?? 'capy') : (c.who as Who);
   snd.play(p.kind === 'safety' || c.choices.some((x) => x.fx.addTicket && JOBS[x.fx.addTicket].urgent) ? 'alert' : 'card');
+  const ci = G.createIndex(c); if (p.kind === 'event' && ci >= 0) { whoDrops(p, c, ci); return; }
   const ctx = [p.capy ? CAPY[p.capy].name : '', t ? `${JOBS[t.job].short}, ${addr(t)}` : '', slotLabel(Math.min(d.slot, SLOTS - 1))].filter(Boolean).join(' · ');
   openOv(`<div class="ecard${p.kind === 'safety' ? ' safety' : ''}"><div class="e-art">${who(w)}</div><div class="e-body"><p class="kicker">${esc(ctx)}</p><h2>${c.title}</h2><p>${c.text}</p>
     <div class="choices">${c.choices.map((ch, i) => `<button class="choice" data-i="${i}"><b>${ch.label}</b><span class="fxs">${hintHtml(ch.hint)}</span></button>`).join('')}</div></div></div>`, 'wide');
@@ -562,6 +584,38 @@ function showPending() {
     if (nt) { const J = JOBS[nt.job]; today().replan = true; sel = nt.id; render(); mv?.focus(nt.site); pauseMsg = `Pause ! Place ${THE[J.id] ?? 'le nouveau ticket'}, puis ▶`; render(); snd.play(J.urgent ? 'alert' : 'select'); return; }
     if (today().pending.length) showPending(); else play();
   }));
+}
+/** « Qui lâche quoi ? » (mockup 03): a call that creates a ticket offers concrete moves, each with its cost in m³ and in mood. */
+function whoDrops(p: G.Pending, c: ReturnType<typeof G.cardOf>, ci: number) {
+  const d = today(); const opts = G.dispatchOptions(g!, ci); const ch = c.choices[ci]; const J = JOBS[ch.fx.addTicket!];
+  const nm = (id: string | null) => (id ? THE[g!.tickets[id].job] ?? 'son ticket' : ''); const wn = (id: string) => whoName(g!.tickets[id]);
+  const end = (e: number) => (e > SLOTS ? 'demain' : slotEnd(e - 1, true));
+  const row = (o: G.Dispatch) => { const n = CAPY[o.capy].name;
+    const title = o.kind === 'rush' ? (o.skip ? `${n} laisse ${nm(o.skip)} et fonce` : o.prev ? `${n} finit ${nm(o.prev)} et fonce` : `${n} fonce`)
+      : o.kind === 'after' ? `${n} y va après ${nm(o.prev) || 'sa pause'}` : (d.plan[o.capy].length ? `On finit ce qu’on a, ${n} y va à ${slotShort(Math.min(o.start, SLOTS - 1))}` : `${n} y va à ${slotShort(Math.min(o.start, SLOTS - 1))}`);
+    const bits = [o.start >= SLOTS ? 'Personne avant demain' : `Arrive à ${slotShort(o.start)}${o.travel ? ` (route ${o.travel} h)` : ''}${o.kind !== 'rush' ? `, finit à ${end(o.end)}` : ''}`];
+    if (o.slower) bits.push(`plus lent${o.capy === 'momo' ? '' : 'e'} hors de son métier (+1 h)`);
+    for (const id of o.over) bits.push(`${nm(id)} reportée à demain${g!.tickets[id].rdv ? `, ${wn(id)} râle` : ''}`);
+    for (const id of o.late) bits.push(`RDV de ${wn(id)} en retard`);
+    if (!o.over.length && !o.late.length && o.kind === 'end' && J.leak) bits.push(`l'eau coule jusqu'à ${end(o.end)}`);
+    const m3c = J.leak ? `<span class="pill ${o.m3 <= opts[0].m3 ? 'g' : o.m3 > opts[0].m3 * 2 ? 'r' : 'o'}">${Math.round(o.m3)} m³</span>` : '';
+    const satc = `<span class="pill ${o.sat < 0 ? 'r' : o.sat > 0 ? 'g' : ''}">${icon('heart', 'ic xs')}${o.sat > 0 ? '+' : o.sat < 0 ? '−' : ''}${Math.abs(o.sat)}</span>`;
+    const bar = `<span class="mbar" aria-hidden="true">${o.bar.map((k) => `<i class="${k ? `k-${k}` : ''}"></i>`).join('')}</span>`;
+    return `<button class="choice dch" data-c="${o.capy}" data-x="${o.index}"><span class="dc-t"><b>${esc(title)}</b><small>${esc(nb(bits.join(' · ')))}</small>${bar}</span><span class="dc-r">${m3c}${satc}</span></button>`; };
+  const others = c.choices.map((x, i) => ({ x, i })).filter(({ i }) => i !== ci).map(({ x, i }) => `<button class="choice dch alt" data-i="${i}"><span class="dc-t"><b>${x.label}</b><small>${hintHtml(x.hint)}</small></span></button>`).join('');
+  const can = TEAM.filter((k) => slotsFor(k, J) !== null).map((k) => k.name); const canTxt = can.length > 1 ? `${can.slice(0, -1).join(', ')} et ${can.at(-1)} savent faire.` : `${can[0]} sait faire.`;
+  const lead = J.leak ? `${J.leak} m³ perdus par heure` : J.urgent ? 'urgent' : ch.fx.addRdvSoon ? 'RDV dans les 2 h' : '';
+  openOv(`<div class="ecard drop"><div class="e-art">${who(c.who === 'capy' ? (p.capy ?? 'capy') : (c.who as Who))}</div><div class="e-body"><p class="kicker">${esc([slotShort(Math.min(d.slot, SLOTS - 1)), lead].filter(Boolean).join(' · '))}</p><h2>Le téléphone sonne : ${c.title.replace(/^./, (m) => m.toLowerCase())}</h2>
+    <p>${c.text} ${canTxt} <b>Qui lâche quoi ?</b></p>
+    <div class="choices">${opts.map(row).join('')}${others}</div>
+    <div class="dc-ft"><span>Le temps est arrêté : tu peux aussi placer le ticket à la main.</span><button class="btn" id="dc-plan">Voir le planning</button></div></div></div>`, 'wide drop-ov');
+  const after = (nt: G.Ticket | null, placed: boolean) => { snd.play('place'); save(); closeOv();
+    if (nt && !placed) { today().replan = true; sel = nt.id; render(); mv?.focus(nt.site); pauseMsg = `Pause ! Place ${THE[nt.job] ?? 'le nouveau ticket'}, puis ▶`; render(); return; }
+    if (nt && placed) { today().replan = false; autoGas(nt.id); render(); const blk = document.querySelector(`.blk[data-b="${nt.id}"]`); blk?.classList.add('pop'); }
+    if (today().pending.length) showPending(); else play(); };
+  document.querySelectorAll<HTMLElement>('.dch[data-c]').forEach((b) => b.addEventListener('click', () => { const nt = G.dispatch(g!, ci, { capy: b.dataset.c as CapyId, index: +b.dataset.x! }); after(nt, true); }));
+  document.querySelectorAll<HTMLElement>('.dch[data-i]').forEach((b) => b.addEventListener('click', () => { const nt = G.choose(g!, +b.dataset.i!); after(nt, false); }));
+  $('#dc-plan').onclick = () => { const nt = G.choose(g!, ci); after(nt, false); };
 }
 function miniGame(id: string, capy: CapyId) {
   const t = g!.tickets[id]; const f = facade(t.num * 131 + t.site); let wrong = 0, hint = false, done = false; const missed = new Set<number>();

@@ -32,13 +32,15 @@ export type CapyId = 'josette' | 'momo' | 'lulu';
 export interface Capy { id: CapyId; name: string; job: string; main: Skill; second: Skill | null; color: string; hat: string; trait: string }
 /** Secondary skill: the job takes one more slot. */
 export const TEAM: Capy[] = [
-  { id: 'josette', name: 'Josette', job: 'Technicienne réseaux recherche de fuite', main: 'fuite', second: 'reseau', color: '#E86A92', hat: '#FFFFFF', trait: "Oreille d'or : elle entend une fuite à travers 1 m de bitume." },
-  { id: 'momo', name: 'Fred', job: 'Technicien interventions chez le client', main: 'icc', second: null, color: '#F39A2B', hat: '#FFFFFF', trait: 'Tout le monde lui offre le café. Il accepte souvent.' },
-  { id: 'lulu', name: 'Lulu', job: 'Technicienne réseau polyvalente', main: 'reseau', second: 'icc', color: '#2FA4A9', hat: '#FFFFFF', trait: 'Conduit le fourgon dans des ruelles où personne ne passe.' },
+  { id: 'josette', name: 'Josette', job: 'Technicienne réseaux recherche de fuite', main: 'fuite', second: 'reseau', color: '#E86A92', hat: '#FFFFFF', trait: "Oreille d'or : sur une fuite, elle trouve le point exact du premier coup. Pas d'heure en plus, même hors de son métier." },
+  { id: 'momo', name: 'Fred', job: 'Technicien interventions chez le client', main: 'icc', second: null, color: '#F39A2B', hat: '#FFFFFF', trait: 'Tout le monde l\'adore : chaque intervention chez un client fait gagner 1 point d\'abonnés. Il accepte souvent le café.' },
+  { id: 'lulu', name: 'Lulu', job: 'Technicienne réseau polyvalente', main: 'reseau', second: 'icc', color: '#2FA4A9', hat: '#FFFFFF', trait: 'Passe en fourgon dans les ruelles où personne ne passe : le risque « ruelle étroite » ne la gêne jamais.' },
 ];
 export const CAPY = Object.fromEntries(TEAM.map((c) => [c.id, c])) as Record<CapyId, Capy>;
 /** Slots a capy needs for a job: base, +1 on a secondary skill; null when it can't do it at all. */
-export function slotsFor(c: Capy, j: JobType): number | null { if (c.main === j.skill) return j.dur; if (c.second === j.skill) return j.dur + 1; return null; }
+export function slotsFor(c: Capy, j: JobType): number | null { if (c.main === j.skill) return j.dur; if (c.second === j.skill) return c.id === 'josette' && j.leak ? j.dur : j.dur + 1; return null; }
+/** Lulu's trait: narrow streets never slow her down. */
+export const ignoresRisk = (c: CapyId, r: Risk) => c === 'lulu' && r === 'ruelle';
 
 /** Risks are announced on the ticket at the briefing: each one MAY cost one extra slot, and the player chooses how it goes. No hidden randomness. */
 export type Risk = 'chien' | 'cave' | 'ruelle' | 'absent' | 'cafe';
@@ -101,7 +103,8 @@ export const EVENTS: Record<string, Card> = {
     { label: 'Accepter le RDV', hint: 'Nouveau PRC, RDV dans les 2 prochains créneaux', fx: { addTicket: 'prc', addRdvSoon: true, log: "RDV accepté à l'hôtel Forbin de Sainte-Croix (sonner chez le majordome)" } },
     { label: 'Proposer demain', hint: 'Satisfaction −3', fx: { sat: -3, log: 'RDV du préfet décalé à demain (le chat a soupiré)' } }] },
   directeur: { id: 'directeur', title: 'Le chef passe à l’agence', who: 'chef', needs: 'none', text: "« Je montre le planning au directeur régional cet après-midi. Pas de panique. Enfin, un peu. »", choices: [
-    { label: 'Tout va bien, chef', hint: 'Satisfaction +2', fx: { sat: 2, log: 'Le chef a montré le planning au directeur' } }] },
+    { label: '« Tout va bien, chef ! »', hint: 'Satisfaction +2', fx: { sat: 2, log: 'Le chef a montré le planning au directeur' } },
+    { label: '« Montrez-lui aussi ce qui coince »', hint: 'Satisfaction +1 · le directeur promet un fourgon neuf (un jour)', fx: { sat: 1, log: 'Le directeur a vu ce qui coince et promis un fourgon neuf. Un jour.' } }] },
   mistral: { id: 'mistral', title: 'Le mistral emporte les barrières', who: 'capy', needs: 'dig', text: 'Une rafale couche les barrières du chantier. Il faut les lester avant de continuer.', choices: [
     { label: 'Lester les barrières', hint: '+1 créneau', fx: { slots: 1, log: 'a lesté les barrières contre le mistral' } },
     { label: 'Continuer, un capy les tient', hint: 'Satisfaction −2', fx: { sat: -2, log: 'a travaillé avec un capy accroché aux barrières' } }] },
@@ -136,7 +139,8 @@ export const EVENTS: Record<string, Card> = {
   fest_fontaine: { id: 'fest_fontaine', title: 'Canicule : la borne-fontaine est à sec', who: 'kevin', needs: 'none', text: "38 °C à l'ombre des platanes. Place des Corps-Saints, la borne-fontaine ne donne plus qu'un filet et la file de festivaliers s'allonge, gourdes à la main.", choices: [
     { label: 'Créer le ticket', hint: 'Borne-fontaine · commencer en 1 h : +4 · à partir de 3 h : −3', fx: { addTicket: 'fontaine', vip: 'fontaine', log: 'Ticket Festival : borne-fontaine à sec, place des Corps-Saints' } }] },
   capydindon: { id: 'capydindon', title: 'Le capydindon doré !', who: 'capydindon', needs: 'none', text: "Un capydindon doré se baigne dans la fontaine de la place. C'est rarissime. Toute l'équipe a le sourire.", choices: [
-    { label: 'Prendre une photo', hint: 'Satisfaction +5 · autocollant rare', fx: { sat: 5, bonus: 'capydindon', log: 'Le capydindon doré a été aperçu !' } }] },
+    { label: 'Prendre une photo', hint: 'Satisfaction +5 · autocollant rare', fx: { sat: 5, bonus: 'capydindon', log: 'Le capydindon doré a été aperçu !' } },
+    { label: 'Le laisser se baigner en paix', hint: 'Satisfaction +3', fx: { sat: 3, log: 'Le capydindon doré a fini son bain tranquille. Les touristes, eux, ont filmé.' } }] },
 };
 
 /** VIP tickets: the delay between the call and the START of the job decides how it goes (fast / mid / late).
@@ -254,3 +258,17 @@ export const DAYS_SPEC: DaySpec[] = [
 /** Fictional subscriber names (common Provençal surnames, no real person intended). */
 export const ABONNES = ['Mme Bérard', 'M. Chabaud', 'Mme Fabre', 'M. Roux', 'Mme Imbert', 'M. Arnaud', 'Mme Reynaud', 'M. Gras', 'Mme Bonnet', 'M. Michel', 'Mme Blanc', 'M. Martin', 'Mme Garcia', 'M. Meunier', 'Mme Pons', 'M. Barral', 'Mme Jullian', 'M. Sauvan', 'Mme Ricard', 'M. Truc', 'Mme Mistral', 'M. Aubert', 'Mme Durbec', 'M. Chauvet'];
 export const PREFET = "Hôtel Forbin de Sainte-Croix · résidence du préfet (sonner chez le majordome)";
+
+/** What the caller said, for the ticket front (picked by street number, so it never changes for a ticket). */
+export const QUOTES: Record<JobId, string[]> = {
+  fuite_bt: ['« Le trottoir fait des bulles, c’est normal ? »', '« Mon chat refuse de sortir, la rue est une piscine. »', '« Ça coule depuis ce matin, j’ai mis un seau, il déborde. »'],
+  fuite_pc: ['« Le compteur pleure. Un peu. Beaucoup. »', '« Il y a une flaque dans le regard, et elle grandit. »', '« J’entends goutter la nuit, je ne dors plus. »'],
+  prc: ['« Le vieux compteur tourne même quand tout est fermé. »', '« Je suis là toute la matinée, sonnez fort. »', '« Le chiffre est illisible depuis 1998. »'],
+  introuvable: ['« Un compteur ? Ici ? Première nouvelle. »', '« Il est peut-être sous le rosier. Ou pas. »', '« Mon grand-père savait où il était. »'],
+  resilie: ['« Personne n’habite là, mais l’eau coule quand même. »', '« Le logement est vide depuis mars, paraît-il. »', '« Le compteur tourne tout seul, c’est un fantôme. »'],
+  coupure: ['« Prévenez-nous avant de couper, j’ai une lessive. »', '« Encore des travaux ? Bon, si c’est pour la bonne cause. »', '« Combien de temps sans eau ? J’ai des invités. »'],
+  debit_nuit: ['« La nuit, le secteur boit comme un régiment. »', '« Le compteur de secteur ne dort jamais. »', '« Quelque part, une fuite se cache. »'],
+  purge: ['« L’eau sort couleur sirop de grenadine. »', '« Mon café a un goût de rouille. »', '« L’eau est jaune, même mon chien n’en veut pas. »'],
+  fontaine: ['« La borne ne coule plus, les pigeons font la tête. »', '« Les touristes cherchent de l’eau fraîche. »', '« Elle crachote, puis plus rien. »'],
+  poteau: ['« Un camion a embrassé le poteau. Geyser sur la place ! »', '« Les enfants adorent, la mairie un peu moins. »', '« Il y a un jet d’eau de trois mètres devant chez moi. »'],
+};
