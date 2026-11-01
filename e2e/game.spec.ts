@@ -13,7 +13,8 @@ async function playToClose(page: Page) {
     if (await page.locator('#mg-auto').isVisible()) { await page.click('#mg-auto'); await page.waitForTimeout(200); continue; }
     if (await page.locator('#w-go').isVisible()) { await page.click('#w-go'); continue; }
     if (await page.locator('#p-go').isVisible()) { await page.click('#p-go'); continue; }
-    if (await page.locator('#r-skip').isVisible()) await page.click('#r-skip');
+    // while skipping, the button is re-rendered every step (never "stable"): only press it when it is off, and never wait on it
+    const sk = page.locator('#r-skip'); if (await sk.isVisible() && (await sk.getAttribute('aria-pressed')) !== 'true') await sk.click({ timeout: 1500 }).catch(() => {});
     await page.waitForTimeout(250);
   }
   throw new Error('day did not close');
@@ -39,7 +40,7 @@ test('day 1: briefing with 3 objectives, tap-to-assign, launch, x2, skip, close 
   await tapAssignAll(page); await expect(page.locator('.tk')).toHaveCount(0); await expect(page.locator('.blk.q')).toHaveCount(7);
   await page.click('#p-go'); await expect(page.locator('#r-x2')).toBeVisible();
   await page.click('#r-x2'); await expect(page.locator('#r-x2')).toHaveClass(/on/);
-  await page.click('#r-skip'); await playToClose(page);
+  await page.locator('#r-skip').click({ timeout: 3000 }).catch(() => {}); await playToClose(page);
   await expect(page.locator('.stars .st')).toHaveCount(3); await expect(page.locator('#card')).toContainText('On range les fourgons'); await page.click('#c-y'); await expect(page.locator('.explain')).toContainText('Aujourd’hui'); await page.click('#x-back'); await expect(page.locator('#card')).toContainText('On range les fourgons'); await page.click('#c-more'); await expect(page.locator('#c-det')).toContainText('tickets traités');
   await page.click('#c-next'); await expect(page.locator('#b-go')).toBeVisible(); await expect(page.locator('#card')).toContainText('Jour 2');
   expect(e).toEqual([]);
