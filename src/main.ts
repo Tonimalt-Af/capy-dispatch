@@ -32,6 +32,7 @@ const S: Save = load();
 let g: Game | null = S.game;
 const snd = new Sound(); snd.sfxOn = S.settings.sfx; snd.musicOn = S.settings.music;
 const calm = () => document.documentElement.classList.toggle('calm', !!S.settings.calm); calm();
+const expert = () => !!S.settings.expert;
 let sel: string | null = null; let running = false; let timer = 0; let skipping = false; /** « Prochaine décision » is the default way to play (5-minute sessions), except on the first day; x1/x2 switch to watching */ let autoSkip = true; let speed: 1 | 2 = S.settings.speed;
 const save = () => { S.game = g; persist(S); };
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
@@ -60,6 +61,16 @@ const rdvText = (r: [number, number]) => (r[0] === r[1] ? `à ${slotShort(r[0])}
 const THE: Record<string, string> = { fuite_bt: 'la fuite', fuite_pc: 'la fuite au compteur', prc: 'le compteur', introuvable: 'le compteur introuvable', resilie: 'le résilié', coupure: 'la coupure', debit_nuit: 'le débit de nuit', purge: 'la purge', fontaine: 'la borne-fontaine', poteau: 'le poteau incendie' };
 const chipFx = (ic: string, v: string, cls = '') => `<em class="fx ${cls}">${icon(ic, 'ic xs')}${v}</em>`;
 /** Card effects as icons: « +1 créneau · satisfaction +4 » → [horloge +1 h] [cœur +4]. */
+/** Expert mode: every field of a choice's effect, in plain numbers. */
+function exactFx(fx: import('./content').Effect) { const p: string[] = [];
+  if (fx.slots) p.push(`${fx.slots > 0 ? '+' : ''}${fx.slots} créneau${Math.abs(fx.slots) > 1 ? 'x' : ''} sur ce chantier`);
+  if (fx.sat) p.push(`abonnés ${fx.sat > 0 ? '+' : '−'}${Math.abs(fx.sat)} pt`);
+  if (fx.postpone) p.push('ticket reporté (retour dans le bac, avis de passage)');
+  if (fx.addTicket) p.push(`nouveau ticket : ${JOBS[fx.addTicket].short} (${JOBS[fx.addTicket].dur} h${JOBS[fx.addTicket].leak ? `, ${JOBS[fx.addTicket].leak} m³/h perdus tant qu’il n’est pas réparé` : ''})`);
+  if (fx.addRdvSoon) p.push('RDV dans l’heure');
+  if (fx.vip) p.push(`appel ${VIPS[fx.vip].tag} : ${VIPS[fx.vip].rule}`);
+  if (fx.bonus) p.push('autocollant pour le carnet');
+  return p.length ? `Exact : ${esc(p.join(' · '))}` : 'Exact : aucun effet chiffré'; }
 function hintHtml(h: string) {
   return h.split(' · ').map((part) => { let m: RegExpMatchArray | null;
     if ((m = part.match(/^\+(\d+) créneaux?( de trajet)?$/))) return chipFx(m[2] ? 'van' : 'clock', `+${m[1]} h`, 'time');
@@ -160,11 +171,13 @@ function settings() {
     <label class="tg"><span>Bruitages</span><input type="checkbox" role="switch" id="s-sfx" ${S.settings.sfx ? 'checked' : ''}></label>
     <label class="tg"><span>Musique</span><input type="checkbox" role="switch" id="s-mus" ${S.settings.music ? 'checked' : ''}></label>
     <label class="tg"><span>Réduire les animations</span><input type="checkbox" role="switch" id="s-calm" ${S.settings.calm ? 'checked' : ''}></label>
+    <label class="tg"><span>Mode expert <small>chiffres exacts : trajets, effets des choix</small></span><input type="checkbox" role="switch" id="s-exp" ${S.settings.expert ? 'checked' : ''}></label>
     <p class="muted">Règle de sécurité (appel gaz avant de creuser) : ${SAFETY_RULE === 'cap1' ? 'une erreur est possible, mais la journée est plafonnée à 1 étoile.' : 'la journée ne peut pas démarrer sans l’appel.'}</p>
   </div><div class="btns">${g && back === 'game' ? `<button class="btn" id="s-home">${glyph('home')}<span>Accueil</span></button>` : ''}<button class="btn primary" id="s-ok">OK</button></div>`, 'small');
   $('#s-sfx').onchange = (e) => { S.settings.sfx = snd.sfxOn = (e.target as HTMLInputElement).checked; save(); };
   $('#s-mus').onchange = (e) => { S.settings.music = (e.target as HTMLInputElement).checked; snd.setMusic(S.settings.music); save(); };
   $('#s-calm').onchange = (e) => { if ((e.target as HTMLInputElement).checked) S.settings.calm = true; else delete S.settings.calm; calm(); save(); };
+  $('#s-exp').onchange = (e) => { if ((e.target as HTMLInputElement).checked) S.settings.expert = true; else delete S.settings.expert; save(); if (g?.today) render(); };
   $('#s-ok').onclick = () => { closeOv(); if (view() === 'game') resumeAfterOverlay(); };
   $('#s-home')?.addEventListener('click', home);
   $('#s-me')?.addEventListener('click', () => { const ret = () => (back === 'game' && g?.today ? enterGame() : home()); creator(ret, false); });
@@ -345,7 +358,7 @@ function panel() {
     if (cr.job) { const t = g!.tickets[cr.job]; const J = JOBS[t.job]; html += `<div class="blk now" style="left:${xs(cr.started)}%;width:${xe(d.slot + cr.left) - xs(cr.started)}%;--c:${SK_COL[J.skill]}"><div class="b1">${icon(J.icon, 'ic s')}<b>${TAG[J.id]}</b></div><div class="b2"><span class="bd">en cours</span>${cr.extra ? `<i class="plus">+${cr.extra} h</i>` : ''}</div></div>`; }
     if (cr.travel && cr.target) html += `<div class="trv" style="left:${xs(d.slot)}%;width:${xe(d.slot + cr.travel) - xs(d.slot)}%" title="Trajet">${icon('van', 'ic xs')}</div>`;
     pv.forEach((s, i) => { const t = g!.tickets[s.id]; const J = JOBS[t.job]; const prev = i ? pv[i - 1].end : fa.at;
-      if (s.travel && !(cr.travel && cr.target === s.id && i === 0)) html += `<div class="trv" style="left:${xs(prev)}%;width:${xe(prev + s.travel) - xs(prev)}%" title="Trajet">${icon('van', 'ic xs')}</div>`;
+      if (s.travel && !(cr.travel && cr.target === s.id && i === 0)) { const why = expert() ? G.travelWhy(g!, s.from, t.site) : ''; html += `<div class="trv${why ? ' x' : ''}" style="left:${xs(prev)}%;width:${xe(prev + s.travel) - xs(prev)}%" title="${why ? esc(why) : 'Trajet'}">${icon('van', 'ic xs')}${why ? `<span>${esc(why.replace(/ :.*$/, '').replace(/ intra-muros.*$/, ''))}</span>` : ''}</div>`; }
       if (s.start > prev + s.travel) html += `<div class="wait" style="left:${xs(prev + s.travel)}%;width:${xe(s.start) - xs(prev + s.travel)}%" title="Attente du RDV"></div>`;
       if (s.endMax > s.end) html += `<div class="maybe" style="left:${xs(s.end)}%;width:${xe(s.endMax) - xs(s.end)}%" title="Temps en plus si un risque tombe"><span>+${s.endMax - s.end} h ?</span></div>`;
       const cls = ['blk', 'q', s.late ? 'late' : '', s.overflow ? 'over' : '', J.urgent ? 'urg' : '', sel === s.id ? 'sel' : ''].join(' ');
@@ -613,7 +626,7 @@ function showPending() {
   const ci = G.createIndex(c); if (p.kind === 'event' && ci >= 0) { whoDrops(p, c, ci); return; }
   const ctx = [p.capy ? CAPY[p.capy].name : '', t ? `${JOBS[t.job].short}, ${addr(t)}` : '', slotLabel(Math.min(d.slot, SLOTS - 1))].filter(Boolean).join(' · ');
   openOv(`<div class="ecard${p.kind === 'safety' ? ' safety' : ''}"><div class="e-art">${who(w)}</div><div class="e-body"><p class="kicker">${esc(ctx)}</p><h2>${c.title}</h2><p>${c.text}</p>
-    <div class="choices">${c.choices.map((ch, i) => `<button class="choice" data-i="${i}"><b>${ch.label}</b><span class="fxs">${hintHtml(ch.hint)}</span></button>`).join('')}</div></div></div>`, 'wide');
+    <div class="choices">${c.choices.map((ch, i) => `<button class="choice" data-i="${i}"><b>${ch.label}</b><span class="fxs">${hintHtml(ch.hint)}</span>${expert() ? `<span class="xfx">${exactFx(ch.fx)}</span>` : ''}</button>`).join('')}</div></div></div>`, 'wide');
   document.querySelectorAll<HTMLElement>('.choice').forEach((b) => b.addEventListener('click', () => {
     const nt = G.choose(g!, Number(b.dataset.i)); snd.play('click'); save(); closeOv();
     if (p.capy && t) { const cr = today().capys[p.capy]; if (!cr.job && !cr.travel) mv?.moveCapy(p.capy, SITES[t.site].node); }

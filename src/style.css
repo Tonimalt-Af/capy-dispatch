@@ -496,3 +496,8 @@ button.stickers{border:0;font:inherit;color:inherit;text-align:left;cursor:point
 .cn.got{background:var(--k);border:2px solid #fff;box-shadow:0 2px 0 #0002;transform:rotate(-3deg)}.cn.got:nth-child(2n){transform:rotate(3deg)}.cn.miss svg{filter:grayscale(1);opacity:.35}
 .cn-leg{grid-column:1/-1;margin:0;display:flex;gap:8px;font-size:11px}.cn-leg b{padding:1px 8px;border-radius:8px;background:var(--sun)}.cn-leg .habitue{background:#FBD3E0}.cn-leg .compteur{background:#CFE6FA}
 .card.nb .pot-l,.card.nb .c-quote{display:none}
+
+/* expert mode (section 14, P2): exact numbers */
+.choice .xfx{display:block;margin-top:3px;font-size:var(--fs-xs,12px);color:var(--ink-2);font-weight:500;line-height:1.25}
+.trv.x span:not(.ic){font-size:10px;font-weight:600;color:#3B5B7A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-left:2px}.trv.x{justify-content:flex-start;overflow:hidden}
+.tg small{display:block;font-weight:400;font-size:var(--fs-xs,12px);color:var(--ink-2)}

@@ -1,7 +1,7 @@
 // Game state and rules: tickets, planning preview, slot-by-slot resolution, cards, day close and scoring.
 // Pure TypeScript (no DOM): everything here is covered by the Vitest suite.
 import { JOBS, TEAM, CAPY, slotsFor, ignoresRisk, RISK_CARDS, EVENTS, DAYS_SPEC, ABONNES, objText, type JobId, type Risk, type CapyId, type Card, type Effect, type Obj, PREFET, VIPS, vipOutcome, type VipId } from './content';
-import { SITES, PREFET_SITE, dist, DEPOT, labelXY, quarterOf, quarterOfNode, qTravel, GROUPS_BY_Q, MAP_V } from './map';
+import { SITES, PREFET_SITE, dist, DEPOT, labelXY, quarterOf, quarterOfNode, qTravel, GROUPS_BY_Q, MAP_V, QUARTERS } from './map';
 import { SLOTS, TRAVEL_M, FESTIVAL_TRAVEL_M, URGENT_TARGET, NIGHT_SLOTS, SECTOR_M3, START_YIELD, SAFETY_RULE, DAYS, slotLabel, DAY_END, type SafetyRule } from './rules';
 
 export const rng = (seed: number) => () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -119,7 +119,7 @@ export function sendAvis(g: Game, id: string) { const t = g.tickets[id]; if (!JO
 export function toggleGas(g: Game, id: string) { const t = g.tickets[id]; if (!JOBS[t.job].dig) return; t.gas = !t.gas; }
 
 // ---------------------------------------------------------------- planning preview
-export interface Slot { id: string; travel: number; start: number; end: number; endMax: number; late: boolean; early: boolean; overflow: boolean; noGas: boolean; cannot: boolean }
+export interface Slot { id: string; /** node the capy drives from (expert mode shows the exact trip) */ from: number; travel: number; start: number; end: number; endMax: number; late: boolean; early: boolean; overflow: boolean; noGas: boolean; cannot: boolean }
 export const travelCost = (g: Game, from: number, site: number) => {
   if (from === DEPOT) return 0; // prise de poste: the drive to the first job is part of the 7h30 start
   const qa = quarterOfNode(from), qb = quarterOf(site); if (qa !== qb) return qTravel(qa, qb); // between quartiers: 1 h near, 2 h far
@@ -127,6 +127,15 @@ export const travelCost = (g: Game, from: number, site: number) => {
   const card = DAYS_SPEC[g.day]?.card; const m = dist(from, SITES[site].node);
   if (card === 'marche' && nearHalles(site) && !(from !== DEPOT && SITES.some((s, i) => s.node === from && nearHalles(i)))) return 1;
   return m > (card === 'festival' ? FESTIVAL_TRAVEL_M : TRAVEL_M) ? 1 : 0;
+};
+/** Expert mode: the exact rule behind a trip, in words (same branches as travelCost). */
+export const travelWhy = (g: Game, from: number, site: number): string => {
+  if (from === DEPOT) return 'Départ du dépôt : compris dans la prise de poste';
+  const qa = quarterOfNode(from), qb = quarterOf(site); if (qa !== qb) return `${QUARTERS[qa].t} → ${QUARTERS[qb].t} : ${qTravel(qa, qb)} créneau${qTravel(qa, qb) > 1 ? 'x' : ''}`;
+  if (qa !== 0) return `Dans le quartier ${QUARTERS[qa].t} : 0 créneau`;
+  const card = DAYS_SPEC[g.day]?.card; const m = Math.round(dist(from, SITES[site].node)); const lim = card === 'festival' ? FESTIVAL_TRAVEL_M : TRAVEL_M;
+  if (card === 'marche' && nearHalles(site) && !SITES.some((s, i) => s.node === from && nearHalles(i))) return `${m} m, vers les Halles un jour de marché : 1 créneau`;
+  return `${m} m intra-muros (seuil ${lim} m${card === 'festival' ? ', Festival' : ''}) : ${m > lim ? 1 : 0} créneau`;
 };
 export const maxExtra = (t: Ticket, c?: CapyId) => t.risks.filter((r) => !c || !ignoresRisk(c, r)).length + (JOBS[t.job].minigame ? 1 : 0);
 /** Where a capy is free again and from which node, given its current run state at slot `s`. */
@@ -143,7 +152,7 @@ export function preview(g: Game, c: CapyId, order = g.today!.plan[c]): Slot[] {
     const tr = travelCost(g, pos, t.site); let start = at + tr; let early = false;
     if (t.rdv && start < t.rdv[0]) { start = t.rdv[0]; early = true; }
     const dur = n ?? 1; const end = start + dur;
-    out.push({ id, travel: tr, start, end, endMax: end + maxExtra(t, c), late: !!t.rdv && start > t.rdv[1], early, overflow: end > SLOTS, noGas: !!J.dig && !t.gas, cannot: n === null });
+    out.push({ id, from: pos, travel: tr, start, end, endMax: end + maxExtra(t, c), late: !!t.rdv && start > t.rdv[1], early, overflow: end > SLOTS, noGas: !!J.dig && !t.gas, cannot: n === null });
     at = end; pos = SITES[t.site].node;
   }
   return out;
