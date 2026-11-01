@@ -18,6 +18,7 @@ it('a campaign round-trips through save/load, mid-day with a pending card', () =
 });
 it('garbage or tampered saves are dropped safely (settings kept), corrupt JSON is set aside', () => {
   expect(sanitize(null)).toEqual(defaults()); expect(sanitize({ settings: { sfx: false, speed: 9 } }).settings).toEqual({ sfx: false, music: true, speed: 1 });
+  expect(sanitize({ settings: { calm: true } }).settings.calm).toBe(true); expect(sanitize({ settings: { calm: 'oui' } }).settings.calm).toBeUndefined();
   const g = G.newGame(1); G.startDay(g); const bad = JSON.parse(JSON.stringify(g)); bad.tickets[Object.keys(bad.tickets)[0]].job = '<img onerror=x>';
   expect(sanitize({ game: bad }).game).toBe(null);
   const bad2 = JSON.parse(JSON.stringify(g)); bad2.today.log.push('x'.repeat(5000)); expect(sanitize({ game: bad2 }).game).toBe(null);

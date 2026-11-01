@@ -126,6 +126,7 @@ export class MapView {
   /** Capy heads: placed on a node, or animated along the street path from where they are (ms). */
   moveCapy(id: CapyId, node: number, ms = 0) {
     const to = nodeXY(node); const from = this.capyPos[id];
+    if (document.documentElement.classList.contains('calm') || matchMedia('(prefers-reduced-motion: reduce)').matches) ms = 0; // « Réduire les animations »
     if (!from || ms <= 0) { this.capyPos[id] = to; this.drawCapys(); return; }
     const near = (p: [number, number]) => { let best = 0, bd = 1e12; for (let i = 0; i < MAP.graph.nodes.length / 2; i += 1) { const dx = MAP.graph.nodes[i * 2] - p[0], dy = MAP.graph.nodes[i * 2 + 1] - p[1]; const dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; best = i; } } return best; };
     const pts = this.pathPts(near(from), node); if (pts.length < 2) { this.capyPos[id] = to; this.drawCapys(); return; }

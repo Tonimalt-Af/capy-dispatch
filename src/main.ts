@@ -30,6 +30,7 @@ addEventListener('beforeinstallprompt', (e) => e.preventDefault());
 const S: Save = load();
 let g: Game | null = S.game;
 const snd = new Sound(); snd.sfxOn = S.settings.sfx; snd.musicOn = S.settings.music;
+const calm = () => document.documentElement.classList.toggle('calm', !!S.settings.calm); calm();
 let sel: string | null = null; let running = false; let timer = 0; let skipping = false; let speed: 1 | 2 = S.settings.speed;
 const save = () => { S.game = g; persist(S); };
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
@@ -157,10 +158,12 @@ function settings() {
     ${S.player ? `<button class="me-row" id="s-me"><span class="av">${me()}</span><span><b>${NM}</b><small>Agence d'Avignon</small></span><span class="me-edit">${glyph('edit')} Modifier mon personnage</span></button>` : ''}
     <label class="tg"><span>Bruitages</span><input type="checkbox" role="switch" id="s-sfx" ${S.settings.sfx ? 'checked' : ''}></label>
     <label class="tg"><span>Musique</span><input type="checkbox" role="switch" id="s-mus" ${S.settings.music ? 'checked' : ''}></label>
+    <label class="tg"><span>Réduire les animations</span><input type="checkbox" role="switch" id="s-calm" ${S.settings.calm ? 'checked' : ''}></label>
     <p class="muted">Règle de sécurité (appel gaz avant de creuser) : ${SAFETY_RULE === 'cap1' ? 'une erreur est possible, mais la journée est plafonnée à 1 étoile.' : 'la journée ne peut pas démarrer sans l’appel.'}</p>
   </div><div class="btns">${g && back === 'game' ? `<button class="btn" id="s-home">${glyph('home')}<span>Accueil</span></button>` : ''}<button class="btn primary" id="s-ok">OK</button></div>`, 'small');
   $('#s-sfx').onchange = (e) => { S.settings.sfx = snd.sfxOn = (e.target as HTMLInputElement).checked; save(); };
   $('#s-mus').onchange = (e) => { S.settings.music = (e.target as HTMLInputElement).checked; snd.setMusic(S.settings.music); save(); };
+  $('#s-calm').onchange = (e) => { if ((e.target as HTMLInputElement).checked) S.settings.calm = true; else delete S.settings.calm; calm(); save(); };
   $('#s-ok').onclick = () => { closeOv(); if (view() === 'game') resumeAfterOverlay(); };
   $('#s-home')?.addEventListener('click', home);
   $('#s-me')?.addEventListener('click', () => { const ret = () => (back === 'game' && g?.today ? enterGame() : home()); creator(ret, false); });

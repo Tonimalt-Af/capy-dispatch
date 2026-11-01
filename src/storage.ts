@@ -9,7 +9,7 @@ import { cleanPlayer, type Player } from './player';
 export const KEY = 'capy-dispatch-v1';
 export const BACKUP_KEY = 'capy-dispatch-v1.bak';
 export const CORRUPT_KEY = 'capy-dispatch-v1.corrupt';
-export interface Settings { sfx: boolean; music: boolean; speed: 1 | 2 }
+export interface Settings { sfx: boolean; music: boolean; speed: 1 | 2; /** « Réduire les animations » */ calm?: boolean }
 export interface Save { settings: Settings; game: Game | null; best: { stars: number; yield: number; runs: number }; seenTuto: boolean; player: Player | null }
 /** `player: null` = no character yet: the creation screen is shown (first launch, and once for saves made before v0.2). */
 export const defaults = (): Save => ({ player: null, settings: { sfx: true, music: true, speed: 1 }, game: null, best: { stars: 0, yield: 0, runs: 0 }, seenTuto: false });
@@ -79,7 +79,7 @@ export function game(x: unknown): Game | null {
 }
 export function sanitize(x: unknown): Save {
   const s = defaults(); if (!isObj(x)) return s;
-  if (isObj(x.settings)) { const i = x.settings; s.settings = { sfx: typeof i.sfx === 'boolean' ? i.sfx : true, music: typeof i.music === 'boolean' ? i.music : true, speed: i.speed === 2 ? 2 : 1 }; }
+  if (isObj(x.settings)) { const i = x.settings; s.settings = { sfx: typeof i.sfx === 'boolean' ? i.sfx : true, music: typeof i.music === 'boolean' ? i.music : true, speed: i.speed === 2 ? 2 : 1 }; if (i.calm === true) s.settings.calm = true; }
   if (isObj(x.best)) { s.best = { stars: int(x.best.stars, 0, DAYS * 3) ? (x.best.stars as number) : 0, yield: num(x.best.yield, 0, 1) ? (x.best.yield as number) : 0, runs: int(x.best.runs, 0, 1e6) ? (x.best.runs as number) : 0 }; }
   s.seenTuto = x.seenTuto === true;
   s.player = cleanPlayer(x.player);

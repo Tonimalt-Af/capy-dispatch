@@ -299,6 +299,7 @@ details{font-size:var(--fs-s)}summary{cursor:pointer;font-weight:600;padding:var
 }
 @media (max-width:700px){.t-day div span{display:none}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.calm *,.calm *::before,.calm *::after{animation:none!important;transition:none!important}
 /* ---------------------------------------------------------------- phones (and small tablets): full-width planning, map in a drawer, mini-map while the day runs */
 @media (max-height:560px),(max-width:899px){
   .main{position:relative}
