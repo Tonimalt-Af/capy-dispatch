@@ -24,3 +24,16 @@ it('garbage or tampered saves are dropped safely (settings kept), corrupt JSON i
   mem[KEY] = '{not json'; expect(load()).toEqual(defaults()); expect(mem[CORRUPT_KEY]).toBe('{not json');
 });
 it('the previous save is kept as a backup', () => { const s = defaults(); save(s); s.best.runs = 3; save(s); expect(JSON.parse(mem[BACKUP_KEY]).best.runs).toBe(0); });
+it('Momo was renamed Fred: old saves keep working (id momo) and old log lines read Fred', () => {
+  const g = G.newGame(5); G.startDay(g); g.today!.log.push('9h · Momo prend un café', 'Momolito reste'); g.today!.plan.momo = [];
+  const s = defaults(); s.game = g; save(s);
+  const back = load().game!; expect(back.today!.log.slice(-2)).toEqual(['9h · Fred prend un café', 'Momolito reste']); expect(back.today!.plan.momo).toEqual([]);
+});
+it('saves from the first real-address release still load (residence + retired OSM slot)', async () => {
+  const { RETIRED_SITES, PREFET_SITE, SITES } = await import('../src/map');
+  const g = G.newGame(5); G.startDay(g); const [a, b] = Object.keys(g.tickets);
+  const r = [...RETIRED_SITES][0]; g.tickets[a].site = r; g.tickets[b].prefet = true; g.tickets[b].site = 1505;
+  const s = defaults(); s.game = g; save(s); const back = load().game!;
+  expect(back.tickets[b].site).toBe(PREFET_SITE); const t = back.tickets[a]; expect(RETIRED_SITES.has(t.site)).toBe(false); expect(t.site).not.toBe(PREFET_SITE);
+  expect(SITES[t.site].street).toMatch(/\p{L}{3}/u); expect(t.num).toBe(SITES[t.site].num);
+});

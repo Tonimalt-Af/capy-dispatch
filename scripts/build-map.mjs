@@ -98,10 +98,10 @@ const snap = (p, want) => { let bs = -1, bd = 1e9, ba = -1, bda = 1e9; for (cons
 for (const e of addrRaw.elements) { const t = e.tags; if (!t['addr:housenumber'] || !t['addr:street'] || e.lat == null) continue; stat.osm++;
   const p = pr(e); if (!inside(p) || wallD(p) < 30) { stat.outside++; continue; }
   const m = /^\s*(\d{1,3})\s*$/.exec(t['addr:housenumber']); if (!m || +m[1] < 1) { stat.oddNumber++; continue; } // "2A", "1bis", "3-5": skipped (the game shows plain numbers)
-  const street = t['addr:street'].trim(); if (!/\p{L}{3}/u.test(street)) { stat.oddNumber++; continue; } // OSM typos such as addr:street="28"
+  const street = t['addr:street'].trim(); const bad = !/\p{L}{3}/u.test(street); // OSM typos such as addr:street="28": kept as a retired slot so site indices in saves stay stable
   const key = norm(street) + '|' + +m[1]; if (seenAddr.has(key)) { stat.dup++; continue; } seenAddr.add(key);
   const s = snap(p, norm(street)); if (s.d > 40 && !s.same) { stat.far++; continue; } if (!inside(nodePos.get(s.id))) { stat.outside++; continue; } if (s.same) stat.sameStreet++;
-  const cls = clsByName.get(norm(street)); sites.push({ i: idx.get(s.id), n: nameIdx(street), num: +m[1], r: cls === 2 ? 1 : 0 }); }
+  const cls = clsByName.get(norm(street)); sites.push({ i: idx.get(s.id), n: nameIdx(street), num: +m[1], r: cls === 2 ? 1 : 0, bad }); if (bad) stat.retired = (stat.retired ?? 0) + 1; }
 sites.sort((a, b) => a.i - b.i || a.n - b.n || a.num - b.num);
 // the préfet card: Hôtel Forbin de Sainte-Croix (hôtel préfectoral de Vaucluse). OSM: way 83783907 "Préfecture (site historique)",
 // wikidata Q22916641, no addr:* tags; its address "2, place de la Préfecture" comes from that Wikidata item (P6375, CC0).
@@ -109,7 +109,8 @@ const forbin = addrRaw.elements.find((e) => e.t === 'w' && e.id === 83783907); /
 if (!forbin) throw new Error('Hôtel Forbin de Sainte-Croix (OSM way 83783907) not found');
 const FP = pr(forbin); const fs = snap(FP, norm('Rue Viala'));
 const prefet = sites.length; sites.push({ i: idx.get(fs.id), n: nameIdx('place de la Préfecture'), num: 2, r: 0 });
-console.log('addresses', stat, 'pool', sites.length - 1);
+const retired = sites.flatMap((s, i) => (s.bad ? [i] : []));
+console.log('addresses', stat, 'pool', sites.length - 1 - retired.length);
 // depot (fictional agency): the graph node nearest to a point just outside Porte Saint-Michel (south)
 const DEP = pr({ lon: 4.8085, lat: 43.9415 }); let depot = 0, dd0 = 1e9; keep.forEach((id, i) => { const p = nodePos.get(id); const q = Math.hypot(p[0] - DEP[0], p[1] - DEP[1]); if (q < dd0) { dd0 = q; depot = i; } });
 // labels: real place names, positioned from OSM (centroid of the feature)
@@ -127,6 +128,6 @@ labels.push({ t: 'Hôtel Forbin', x: FP[0], y: FP[1], k: 'prefecture' });
 const usedNames = [...new Set(sites.map((s) => s.n))]; const remap = new Map(usedNames.map((n, i) => [n, i]));
 const S = (c) => d(streets.filter((s) => s.c === c).map((s) => s.p), false);
 const paths = { water: d(water, true), parks: d(parks, true), squares: d(squares, true), bldg: d(bldg.map((b) => b.p), true), palais: d(landmarks.filter((l) => l.n === 'Palais des Papes').map((l) => l.p), true), pont: d(landmarks.filter((l) => l.n !== 'Palais des Papes').map((l) => l.p), true), walls: d(walls, false), s0: S(0), s1: S(1), s2: S(2), s3: S(3), s4: S(4) };
-const out = { w: W, h: H, bbox: [LON0, LAT1, LON1, LAT0], ring: flat(ring), paths, labels, depot, graph: { nodes, edges }, names: usedNames.map((n) => names[n]), sites: sites.flatMap((s) => [s.i, remap.get(s.n), s.num, s.r]), prefet, source: 'OpenStreetMap (ODbL 1.0), extrait du ' + (raw.fetched ?? '').slice(0, 10) + ', adresses du ' + (addrRaw.fetched ?? '').slice(0, 10) };
+const out = { w: W, h: H, bbox: [LON0, LAT1, LON1, LAT0], ring: flat(ring), paths, labels, depot, graph: { nodes, edges }, names: usedNames.map((n) => names[n]), sites: sites.flatMap((s) => [s.i, remap.get(s.n), s.num, s.r]), prefet, retired, source: 'OpenStreetMap (ODbL 1.0), extrait du ' + (raw.fetched ?? '').slice(0, 10) + ', adresses du ' + (addrRaw.fetched ?? '').slice(0, 10) };
 writeFileSync('src/data/map.json', JSON.stringify(out));
 console.log({ W, H, bldg: bldg.length, nodes: keep.length, sites: sites.length, depot, labels: labels.map((l) => l.t).join(' | '), kb: Math.round(JSON.stringify(out).length / 1024) });

@@ -48,7 +48,7 @@ test('drag & drop a ticket onto a capy row', async ({ page }) => {
   const row = page.locator('.row .tl').nth(1); const rb = (await row.boundingBox())!;
   await page.mouse.move(tb.x + 20, tb.y + 20); await page.mouse.down(); await page.mouse.move(tb.x + 30, tb.y - 10, { steps: 3 });
   await page.mouse.move(rb.x + 40, rb.y + rb.height / 2, { steps: 8 }); await page.mouse.up();
-  // day 1, first ticket = PRC (ICC): Momo (row 2) is the ICC capy
+  // day 1, first ticket = PRC (ICC): Fred (row 2) is the ICC capy
   const placed = await page.locator(`.blk.q[data-b="${cls}"]`).count(); const back = await page.locator(`.tk[data-t="${cls}"]`).count();
   expect(placed).toBe(1); expect(back).toBe(0);
 });

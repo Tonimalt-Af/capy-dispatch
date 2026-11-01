@@ -1,6 +1,6 @@
 import { it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { MAP, SITES, DEPOT, dist, path, NODE_COUNT, labelXY, nodeXY, PREFET_SITE, SITE_GROUPS } from '../src/map';
+import { MAP, SITES, DEPOT, dist, path, NODE_COUNT, labelXY, nodeXY, PREFET_SITE, SITE_GROUPS, RETIRED_SITES } from '../src/map';
 
 it('OSM Avignon intra-muros map is baked with streets, ring, labels and sites', () => {
   expect(MAP.w).toBeGreaterThan(1000); expect(NODE_COUNT).toBeGreaterThan(200);
@@ -23,7 +23,8 @@ it('every site is reachable from the depot by the street graph, and paths follow
 it('ticket sites are real OSM addresses (number + street pairs that exist in the extract), deduplicated', () => {
   const raw = JSON.parse(readFileSync('data/osm-addr.json', 'utf8')) as { elements: { tags: Record<string, string> }[] };
   const real = new Set(raw.elements.filter((e) => e.tags['addr:housenumber'] && e.tags['addr:street']).map((e) => `${e.tags['addr:housenumber'].trim()} ${e.tags['addr:street'].trim()}`));
-  const pool = SITES.filter((_, i) => i !== PREFET_SITE);
+  const pool = SITES.filter((_, i) => i !== PREFET_SITE && !RETIRED_SITES.has(i));
+  expect(SITES.length).toBe(1507); expect(PREFET_SITE).toBe(1506); // frozen layout: saves store site indices
   expect(pool.length).toBeGreaterThan(1000);
   for (const s of pool) { expect(Number.isInteger(s.num) && s.num >= 1).toBe(true); expect(s.street, s.street).toMatch(/\p{L}{3}/u); expect(real.has(`${s.num} ${s.street}`), `${s.num} ${s.street}`).toBe(true); }
   expect(new Set(pool.map((s) => `${s.num} ${s.street}`)).size).toBe(pool.length);

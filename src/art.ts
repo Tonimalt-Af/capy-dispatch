@@ -292,7 +292,7 @@ const badge = (m: Mode, col: string, letter: string) => c(m, 64, 104, 6.4, col) 
 
 export type Who = CapyId | 'chef' | 'kevin' | 'chat' | 'ours' | 'capydindon' | 'capy' | 'player';
 const CAPY_COL: Record<CapyId, string> = { josette: '#E86A92', momo: '#F39A2B', lulu: '#2FA4A9' };
-/** Base-cap with a front visor (Momo, interventions at the customer's: no hard hat indoors). */
+/** Base-cap with a front visor (Fred, internal id 'momo'; interventions at the customer's: no hard hat indoors). */
 function cap(m: Mode, col: string) {
   return `<g transform="translate(0 ${H.hatDy})">` + p(m, 'M29 45 C28 27 72 27 71 45 Z', col) + e(m, 50, 45.5, 23, 4.2, col) + p(m, 'M33 46 C40 52 60 52 67 46 C60 48.6 40 48.6 33 46Z', col) +
     det(m, `<path d="M33 46 C40 52 60 52 67 46 C60 48.6 40 48.6 33 46Z" fill="#000" opacity=".22"/><path d="M50 28.6 V44" stroke="#000" stroke-opacity=".12" stroke-width="2.4"/><ellipse cx="40" cy="33" rx="4.6" ry="2.2" fill="#fff" opacity=".35" transform="rotate(-25 40 33)"/><circle cx="50" cy="28.4" r="1.8" fill="#000" opacity=".2"/>
@@ -334,7 +334,7 @@ function playerLayer(m: Mode, l: Look) {
 function layer(who: Who, m: Mode) {
   switch (who) {
     case 'josette': return capyFront(m, vestWear('#E9F542')) + badge(m, CAPY_COL.josette, 'J') + headsetOn(m, '#E86A92', true) + helmet(m);
-    case 'momo': return withFur(FURS.noisette, () => withHead('ronde', () => capyFront(m, poloWear(LDR.navy)) + badge(m, CAPY_COL.momo, 'M') + cap(m, LDR.blue)));
+    case 'momo': return withFur(FURS.noisette, () => withHead('ronde', () => capyFront(m, poloWear(LDR.navy)) + badge(m, CAPY_COL.momo, 'F') + cap(m, LDR.blue)));
     case 'lulu': return withFur(FURS.miel, () => withHead('long', () => capyFront(m, vestWear('#FF9A2E')) + badge(m, CAPY_COL.lulu, 'L') + helmet(m, '#FFD23F') + wrench(m)));
     case 'player': return withFur(FURS[LOOK.fur] ?? FUR_CARAMEL, () => withHead(LOOK.head, () => playerLayer(m, LOOK)));
     case 'chef': return withHead('long', () => capyFront(m, shirtWear()) + tie(m) + glasses(m));

@@ -3,13 +3,15 @@ import M from './data/map.json';
 
 /** A real postal address (OSM addr:housenumber + addr:street), snapped to a street-graph node. */
 export interface Site { node: number; street: string; num: number; x: number; y: number; narrow: boolean }
-export const MAP = M as unknown as { w: number; h: number; ring: number[]; paths: Record<string, string>; labels: { t: string; x: number; y: number; k: string }[]; bbox: number[]; depot: number; graph: { nodes: number[]; edges: number[] }; names: string[]; sites: number[]; prefet: number };
+export const MAP = M as unknown as { w: number; h: number; ring: number[]; paths: Record<string, string>; labels: { t: string; x: number; y: number; k: string }[]; bbox: number[]; depot: number; graph: { nodes: number[]; edges: number[] }; names: string[]; sites: number[]; prefet: number; retired: number[] };
 export const SITES: Site[] = [];
 for (let i = 0; i < MAP.sites.length; i += 4) { const n = MAP.sites[i]; SITES.push({ node: n, street: MAP.names[MAP.sites[i + 1]], num: MAP.sites[i + 2], x: MAP.graph.nodes[n * 2], y: MAP.graph.nodes[n * 2 + 1], narrow: MAP.sites[i + 3] === 1 }); }
 /** Site of the préfet surprise card: 2, place de la Préfecture (Hôtel Forbin de Sainte-Croix); never drawn at random. */
 export const PREFET_SITE = MAP.prefet;
+/** Slots of OSM addresses found invalid after release (e.g. addr:street="28"): never drawn, kept so saved site indices stay stable. */
+export const RETIRED_SITES = new Set(MAP.retired);
 /** Random tickets: pick a street node first (even spread over the town), then one of the real addresses snapped to it. */
-export const SITE_GROUPS: number[][] = [...SITES.reduce((m, s, i) => { if (i !== PREFET_SITE) { if (!m.has(s.node)) m.set(s.node, []); m.get(s.node)!.push(i); } return m; }, new Map<number, number[]>()).values()];
+export const SITE_GROUPS: number[][] = [...SITES.reduce((m, s, i) => { if (i !== PREFET_SITE && !RETIRED_SITES.has(i)) { if (!m.has(s.node)) m.set(s.node, []); m.get(s.node)!.push(i); } return m; }, new Map<number, number[]>()).values()];
 const N = MAP.graph.nodes.length / 2;
 export const nodeXY = (n: number): [number, number] => [MAP.graph.nodes[n * 2], MAP.graph.nodes[n * 2 + 1]];
 const adj: [number, number][][] = Array.from({ length: N }, () => []);

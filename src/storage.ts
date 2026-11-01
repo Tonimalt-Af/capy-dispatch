@@ -1,7 +1,7 @@
 // Local save. Every key is prefixed 'capy-dispatch-': the github.io origin is shared with Maxime's other games
 // (Mahjong Capybaras uses 'capy-mahjong-'), and the two games share nothing on purpose.
 import { JOBS, RISKS, TEAM, EVENTS, VIPS, type CapyId } from './content';
-import { SITES, NODE_COUNT, PREFET_SITE } from './map';
+import { SITES, NODE_COUNT, PREFET_SITE, RETIRED_SITES } from './map';
 import { DAYS, SLOTS } from './rules';
 import type { Game, Ticket, DayState, DayResult } from './game';
 import { cleanPlayer, type Player } from './player';
@@ -21,7 +21,15 @@ const str = (x: unknown, max = 200): x is string => typeof x === 'string' && x.l
 const ids = (x: unknown, ok: (s: string) => boolean) => Array.isArray(x) && x.every((v) => typeof v === 'string' && ok(v));
 const CAPYS = TEAM.map((c) => c.id) as CapyId[];
 
+/** Nearest usable address to a retired slot: same map node first, else the next index (sites are sorted by node). */
+function liveSite(i: number): number {
+  const ok = (j: number) => j >= 0 && j < SITES.length && j !== PREFET_SITE && !RETIRED_SITES.has(j);
+  const same = SITES.findIndex((s, j) => ok(j) && s.node === SITES[i].node); if (same >= 0) return same;
+  for (let k = 1; k < SITES.length; k++) { if (ok(i + k)) return i + k; if (ok(i - k)) return i - k; }
+  return 0;
+}
 function ticket(t: unknown, id: string): t is Ticket {
+  if (isObj(t) && t.prefet === true) t.site = PREFET_SITE; // the residence slot moved when the address pool changed size
   if (!isObj(t) || t.id !== id || !str(t.job) || !Object.hasOwn(JOBS, t.job) || !int(t.site, 0, SITES.length - 1) || !int(t.num, 0, 999) || !str(t.who)) return false;
   if (!Array.isArray(t.risks) || !t.risks.every((r) => typeof r === 'string' && Object.hasOwn(RISKS, r))) return false;
   if (t.rdv !== null && !(Array.isArray(t.rdv) && t.rdv.length === 2 && t.rdv.every((v) => int(v, 0, SLOTS - 1)))) return false;
@@ -40,6 +48,7 @@ function today(d: unknown, g: Game): d is DayState {
     && (p.kind !== 'risk' || Object.hasOwn(RISKS, p.card as string)) && (p.kind !== 'event' || Object.hasOwn(EVENTS, p.card as string))
     && (p.capy === null || CAPYS.includes(p.capy as CapyId)) && (p.ticket === null || (str(p.ticket) && known(p.ticket))))) return false;
   for (const k of ['done', 'postponed', 'absentOk', 'rdvToday', 'rdvKept', 'rdvMissed'] as const) if (!ids(d[k], () => true)) return false;
+  if (Array.isArray(d.log)) d.log = d.log.map((s) => (typeof s === 'string' ? s.replace(/\bMomo\b/g, 'Fred') : s)); // Momo was renamed Fred (id stays 'momo')
   if (!Array.isArray(d.log) || !d.log.every((s) => str(s, 300)) || !Array.isArray(d.fired) || !d.fired.every((v) => int(v, 0, SLOTS))) return false;
   if (!isObj(d.hist) || !CAPYS.every((c) => Array.isArray((d.hist as Record<string, unknown>)[c]))) d.hist = { josette: [], momo: [], lulu: [] };
   if (d.vip !== undefined && !(isObj(d.vip) && Object.entries(d.vip).every(([id, k]) => known(id) && ['fast', 'mid', 'late'].includes(k as string)))) return false;
@@ -55,7 +64,7 @@ export function game(x: unknown): Game | null {
   if (!Array.isArray(g.news) || !g.news.every((s) => str(s, 300))) g.news = [];
   if (g.today !== null && !today(g.today, g)) return null;
   // ticket numbers always come from the real address of their site (older saves had invented numbers)
-  for (const t of Object.values(g.tickets)) { if (t.prefet) t.site = PREFET_SITE; t.num = SITES[t.site].num; }
+  for (const t of Object.values(g.tickets)) { if (t.prefet) t.site = PREFET_SITE; else if (RETIRED_SITES.has(t.site)) t.site = liveSite(t.site); t.num = SITES[t.site].num; }
   return g;
 }
 export function sanitize(x: unknown): Save {

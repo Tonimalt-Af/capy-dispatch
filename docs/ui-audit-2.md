@@ -22,7 +22,7 @@ Scènes nouvelles : `00-creation-vide`, `00b-creation-remplie`, `23-creation-mod
 | M3 façade | Pierre de taille, chaînages d'angle, génoise, tuiles canal, persiennes, balcon en fer forgé, porte cochère avec claveaux, lanterne, pavés. La règle tient dans la colonne de droite. |
 | M4 et M5 clôture et bilan | Étoiles animées, phrase du chef avec le prénom, tuiles KPI avec icônes, capydindon dessiné. |
 | M6, M7 et M8 | Menu de bloc avec icônes, interrupteurs dans les réglages, rebond du bloc posé, secousse de la ligne refusée, toast rouge. |
-| M9 équipe | Josette : casque blanc et casque audio rose. Momo : casquette bleue et polo marine. Lulu : casque jaune, gilet orange et clé. |
+| M9 équipe | Josette : casque blanc et casque audio rose. Fred : casquette bleue et polo marine. Lulu : casque jaune, gilet orange et clé. |
 | M10 jetons | Jetons d'espacement, de typographie, de couleur (vert `#A2C617`, bleu `#77B7FC`, marine `#030F40`), de rayons et d'ombres dans `style.css`. |
 
 ## Nouveaux constats (classés)

@@ -32,7 +32,7 @@ export interface Capy { id: CapyId; name: string; job: string; main: Skill; seco
 /** Secondary skill: the job takes one more slot. */
 export const TEAM: Capy[] = [
   { id: 'josette', name: 'Josette', job: 'Technicienne réseaux recherche de fuite', main: 'fuite', second: 'reseau', color: '#E86A92', hat: '#FFFFFF', trait: "Oreille d'or : elle entend une fuite à travers 1 m de bitume." },
-  { id: 'momo', name: 'Momo', job: 'Technicien interventions chez le client', main: 'icc', second: null, color: '#F39A2B', hat: '#FFFFFF', trait: 'Tout le monde lui offre le café. Il accepte souvent.' },
+  { id: 'momo', name: 'Fred', job: 'Technicien interventions chez le client', main: 'icc', second: null, color: '#F39A2B', hat: '#FFFFFF', trait: 'Tout le monde lui offre le café. Il accepte souvent.' },
   { id: 'lulu', name: 'Lulu', job: 'Technicienne réseau polyvalente', main: 'reseau', second: 'icc', color: '#2FA4A9', hat: '#FFFFFF', trait: 'Conduit le fourgon dans des ruelles où personne ne passe.' },
 ];
 export const CAPY = Object.fromEntries(TEAM.map((c) => [c.id, c])) as Record<CapyId, Capy>;

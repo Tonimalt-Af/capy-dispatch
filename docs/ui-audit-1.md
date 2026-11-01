@@ -30,7 +30,7 @@ Classement par impact (H = haut, M = moyen, B = bas).
 | M6 | Menu de bloc : flèches unicode ◀ ▶ et ✕ peu claires. | Libellés « Plus tôt », « Plus tard », « Retirer », icônes dessinées. |
 | M7 | Réglages : cases à cocher natives, phrase technique sur la règle de sécurité. | Interrupteurs, lien « Modifier mon personnage ». |
 | M8 | Aucun retour visuel quand on place un ticket (le bloc apparaît sec) ni quand c'est refusé (simple toast). | Petit rebond du bloc posé, secousse de la ligne refusée, toast avec icône. |
-| M9 | Les capys de l'équipe se ressemblent (même casque blanc, même gilet). | Tenues distinctes : Josette casque blanc et casque audio rose, Momo casquette bleue et polo, Lulu casque orange et gilet orange. |
+| M9 | Les capys de l'équipe se ressemblent (même casque blanc, même gilet). | Tenues distinctes : Josette casque blanc et casque audio rose, Fred casquette bleue et polo, Lulu casque orange et gilet orange. |
 | M10 | Couleurs et espacements improvisés écran par écran. | Jetons de design : espacements, typographie, couleurs de marque, rayons, ombres. |
 
 ## Bas impact
