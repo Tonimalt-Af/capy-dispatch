@@ -1,6 +1,6 @@
 // Local save. Every key is prefixed 'capy-dispatch-': the github.io origin is shared with Maxime's other games
 // (Mahjong Capybaras uses 'capy-mahjong-'), and the two games share nothing on purpose.
-import { JOBS, RISKS, TEAM, EVENTS, VIPS, type CapyId } from './content';
+import { JOBS, RISKS, TEAM, EVENTS, VIPS, DAY_CARDS, type CapyId } from './content';
 import { SITES, NODE_COUNT, PREFET_SITE, RETIRED_SITES, DEPOT, MAP_V } from './map';
 import { DAYS, SLOTS } from './rules';
 import type { Game, Ticket, DayState, DayResult } from './game';
@@ -60,12 +60,21 @@ function today(d: unknown, g: Game): d is DayState {
 }
 const result = (h: unknown): h is DayResult => isObj(h) && int(h.day, 0, DAYS - 1) && int(h.stars, 0, 3) && Array.isArray(h.met) && num(h.m3, 0, 1e7) && num(h.yield, 0, 1) && int(h.done, 0, 99) && int(h.incidents, 0, 99) && num(h.sat, 0, 100);
 /** A saved campaign is trusted only if every field is well-formed; otherwise it is dropped (settings and best scores survive). */
+/** A generated day (gen.ts): only known cards, jobs, risks, calls and objectives. */
+function spec(x: unknown): boolean {
+  if (!isObj(x) || !str(x.card) || !Object.hasOwn(DAY_CARDS, x.card) || !int(x.rdv, 0, 5) || !str(x.chef, 400) || !Array.isArray(x.jobs) || x.jobs.length > 20 || !Array.isArray(x.events) || !Array.isArray(x.objs) || x.objs.length !== 3) return false;
+  if (!x.jobs.every((j) => Array.isArray(j) && j.length >= 1 && Object.hasOwn(JOBS, j[0]) && j.slice(1).every((r: unknown) => typeof r === 'string' && Object.hasOwn(RISKS, r)))) return false;
+  if (!x.events.every((e) => Array.isArray(e) && e.length === 2 && int(e[0], 0, SLOTS - 1) && typeof e[1] === 'string' && Object.hasOwn(EVENTS, e[1]))) return false;
+  return x.objs.every((o) => isObj(o) && ['urgent', 'rdv', 'done', 'm3', 'backlog', 'travel', 'sat', 'yield'].includes(o.id as string) && (o.n === undefined || num(o.n, 0, 99)));
+}
 export function game(x: unknown): Game | null {
   if (!isObj(x) || x.v !== 1 || !int(x.seed, 0, 2 ** 32) || !int(x.day, 0, DAYS) || !isObj(x.tickets) || !num(x.sat, 0, 100) || !num(x.bg, 0, 1e5) || !int(x.next, 1, 1e6) || typeof x.over !== 'boolean') return null;
   const g = x as unknown as Game;
   if (!Object.entries(g.tickets).every(([id, t]) => ticket(t, id))) return null;
   if (!ids(g.pile, (s) => Object.hasOwn(g.tickets, s)) || !Array.isArray(g.history) || !g.history.every(result) || !ids(g.stickers, (s) => s === 'capydindon')) return null;
   if (!Array.isArray(g.news) || !g.news.every((s) => str(s, 300))) g.news = [];
+  if (g.gen !== undefined && typeof g.gen !== 'boolean') delete g.gen;
+  if (g.specs !== undefined && !(isObj(g.specs) && Object.entries(g.specs).every(([k, v]) => /^[3-9]$/.test(k) && spec(v)))) delete g.specs; // a broken generated day is generated again
   if (g.moments !== undefined && !(Array.isArray(g.moments) && g.moments.every((s) => s === null || str(s, 400)))) delete g.moments;
   // the map changed (v1 intra-muros → v2 with the quartiers outside): graph node numbers moved, site indices did not;
   // each capy is put back at the site of its current ticket (or of the trip under way), else at the depot

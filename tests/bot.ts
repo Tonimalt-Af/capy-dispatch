@@ -61,8 +61,8 @@ function finishGreedy(g: Game) { let guard = 0; while (g.today!.phase === 'run' 
 const lookahead: Policy = (g) => { const c = cardOf(g.today!.pending[0]); if (c.choices.length < 2) return 0; let best = 0, bs = -Infinity;
   c.choices.forEach((_, i) => { const h = structuredClone(g); if (choose(h, i)) plan(h); const s = finishGreedy(h); if (s > bs) { bs = s; best = i; } }); return best; };
 /** spy: called when a day is planned ('plan'), on every card answered ('card') and when it is closed ('close'). */
-export function playKind(seed: number, kind: Kind, spy?: (g: Game, at: 'plan' | 'card' | 'close') => void) {
-  const g = newGame(seed); startDay(g); const r = rng(seed * 31 + 7);
+export function playKind(seed: number, kind: Kind, spy?: (g: Game, at: 'plan' | 'card' | 'close') => void, gen = false) {
+  const g = newGame(seed); if (gen) g.gen = true; startDay(g); const r = rng(seed * 31 + 7);
   const doPlan = () => { if (kind === 'opt') { if (g.today!.phase === 'run') for (const c of TEAM) for (const s of preview(g, c.id)) if (s.late || s.overflow) unassign(g, s.id); plan(g); } else if (kind === 'obvious') planObvious(g); else planRandom(g, r); };
   while (!g.over) { spy?.(g, 'plan'); doPlan(); launch(g); let guard = 0;
     while (g.today!.phase === 'run' && guard++ < 500) { step(g); const d = g.today!;

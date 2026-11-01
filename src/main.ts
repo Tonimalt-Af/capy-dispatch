@@ -14,6 +14,7 @@ import { facade, wrongText, foundText, miniScore, meterSvg } from './facade';
 import { Sound } from './audio';
 import { haptic, installPress, setHaptics } from './feel';
 import * as H from './hindsight';
+import './gen'; // days 4 to 10 of a new campaign are generated (and proven 3 ★) at their briefing
 
 // ---------------------------------------------------------------- boot guard
 let booted = false;
@@ -169,7 +170,7 @@ function creator(after: () => void, first: boolean) {
   $('#cr-cancel')?.addEventListener('click', after);
   upd(); if (first) setTimeout(() => { if (!matchMedia('(pointer:coarse)').matches) input.focus(); }, 60);
 }
-function newRun() { if (!S.player) { creator(newRun, true); return; } forgetMorning(); g = G.newGame(1 + Math.floor(Math.random() * 1e6)); if (!S.best.runs && !S.seenTuto) g.seed = 2026; G.startDay(g); save(); enterGame(); }
+function newRun() { if (!S.player) { creator(newRun, true); return; } forgetMorning(); g = G.newGame(1 + Math.floor(Math.random() * 1e6)); if (!S.best.runs && !S.seenTuto) g.seed = 2026; g.gen = true; G.startDay(g); save(); enterGame(); }
 function confirmBox(title: string, text: string, ok: string, fn: () => void) {
   openOv(`<h2>${title}</h2><p>${text}</p><div class="btns"><button class="btn" id="c-no">Annuler</button><button class="btn danger" id="c-yes">${ok}</button></div>`, 'small');
   $('#c-no').onclick = closeOv; $('#c-yes').onclick = () => { closeOv(); fn(); };
@@ -246,13 +247,13 @@ function fitBlocks() { document.querySelectorAll<HTMLElement>('#game .blk').forE
   if (b.scrollWidth > b.clientWidth + 1 || b.scrollHeight > b.clientHeight + 1) { el.classList.add('cut'); el.title = el.getAttribute('aria-label') ?? ''; } }); }
 addEventListener('resize', () => { if (g?.today) fitBlocks(); });
 function topbar() {
-  const d = today(); const card = DAY_CARDS[DAYS_SPEC[d.day].card]; const y = G.yieldLive(g!); mv?.setDress(DAYS_SPEC[d.day].card);
+  const d = today(); const card = DAY_CARDS[G.specOf(g!, d.day).card]; const y = G.yieldLive(g!); mv?.setDress(G.specOf(g!, d.day).card);
   const cur = { y: Math.round(y * 1000), m3: Math.round(d.m3), sat: Math.round(g!.sat), day: d.day }; const bump = { y: '', m3: '', sat: '' };
   if (lastKpi && lastKpi.day === cur.day) { if (cur.y !== lastKpi.y) bump.y = cur.y > lastKpi.y ? ' up' : ' down'; if (cur.m3 > lastKpi.m3) bump.m3 = ' down'; if (cur.sat !== lastKpi.sat) bump.sat = cur.sat > lastKpi.sat ? ' up' : ' down'; } lastKpi = cur; const lo = 0.65, hi = 0.9; const f = (v: number) => Math.max(0, Math.min(1, (v - lo) / (hi - lo))) * 100;
-  const n = DAYS_SPEC[d.day].objs.length; const met = d.met ? d.met.filter(Boolean).length : 0;
+  const n = G.specOf(g!, d.day).objs.length; const met = d.met ? d.met.filter(Boolean).length : 0;
   $('#game .top').innerHTML = `<button class="iconbtn" id="t-menu" aria-label="Menu">${glyph('menu')}</button>
     <div class="t-day"><span class="av">${me()}</span><div><b>${WEEKDAYS[d.day % 5]}</b><span>Jour ${d.day + 1}/${DAYS}</span></div>${icon(card.icon, 'ic s')}</div>
-    <button class="t-obj" id="t-obj" aria-label="Objectifs du jour">${DAYS_SPEC[d.day].objs.map((_, i) => icon(d.met?.[i] ? 'star' : 'starOff', 'ic s')).join('')}<span><span class="lbl">Objectifs</span><b>${met}/${n}</b></span></button>
+    <button class="t-obj" id="t-obj" aria-label="Objectifs du jour">${G.specOf(g!, d.day).objs.map((_, i) => icon(d.met?.[i] ? 'star' : 'starOff', 'ic s')).join('')}<span><span class="lbl">Objectifs</span><b>${met}/${n}</b></span></button>
     <div class="t-kpis">
       <button class="kpi k-y${bump.y}" id="t-y" aria-label="Rendement de réseau ${pct(y)}, but ${Math.round(YIELD_TARGET * 100)} % : qu'est-ce que c'est ?"><span class="lbl">Rendement de réseau</span><span class="kv"><b>${pct(y)}</b><span class="gauge"><i style="width:${f(y)}%"></i><em style="left:${f(YIELD_TARGET)}%"></em></span><span class="goal">but ${Math.round(YIELD_TARGET * 100)}</span></span></button>
       <button class="kpi k-m3${bump.m3}" id="t-m3" aria-label="Eau perdue aujourd'hui : ${Math.round(d.m3)} m³"><span class="lbl">Eau perdue</span><span class="kv">${icon('drop', 'ic xs')}<b>${Math.round(d.m3)} m³</b></span></button>
@@ -301,7 +302,7 @@ function menu() {
   $('#m-back').onclick = () => { closeOv(); resumeAfterOverlay(); }; $('#m-set').onclick = settings; $('#m-cred').onclick = credits; $('#m-home').onclick = home;
 }
 function objectives() {
-  const d = today(); const spec = DAYS_SPEC[d.day];
+  const d = today(); const spec = G.specOf(g!, d.day);
   openOv(`<h2>Objectifs du jour</h2><p class="muted">Chaque objectif tenu à ${DAY_END} vaut une étoile.${d.incidents ? ' <b class="red">On a creusé sans appeler le gaz : la journée ne peut pas dépasser 1 étoile.</b>' : ''}</p>
     <ul class="objs">${spec.objs.map((o) => `<li>${icon('star')}<span>${objText(o)}</span></li>`).join('')}</ul>
     <p class="muted">Sur 100 litres mis dans les tuyaux d'Avignon, ${Math.round(G.yieldLive(g!) * 100)} arrivent au robinet. Le contrat en demande ${Math.round(YIELD_TARGET * 100)}. Chaque fuite réparée et chaque fuite cachée trouvée fait monter ce chiffre.</p>
@@ -323,7 +324,7 @@ DRAWER.addEventListener?.('change', () => setMap(false));
 
 // ---------------------------------------------------------------- briefing
 function briefing() {
-  const d = today(); const spec = DAYS_SPEC[d.day]; const card = DAY_CARDS[spec.card]; snd.music(0);
+  const d = today(); const spec = G.specOf(g!, d.day); const card = DAY_CARDS[spec.card]; snd.music(0);
   const tick = G.tray(g!); const urg = tick.filter((id) => JOBS[g!.tickets[id].job].urgent).length; const rdv = tick.filter((id) => g!.tickets[id].rdv && G.avail(g!, id)).length;
   openOv(`<div class="brief"><div class="b-left"><div class="bubble">${say(spec.chef)}</div><div class="duo">${who('chef', 'chef')}<div class="pl">${me('plc')}<span class="nt">${NM}</span></div></div></div>
     <div class="b-right"><p class="kicker">Le café de 7 h 30</p><h2>${dayName(d.day)}</h2>
@@ -750,7 +751,7 @@ function mapUpdate() {
 const ptText = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1).replace('.', ',')}\u202Fpt`;
 let closeReplay = false; const reopenClose = () => { closeReplay = true; closeScreen(); };
 function closeScreen() {
-  stopReplay(); startHindsight(); const d = today(); const spec = DAYS_SPEC[d.day]; snd.music(0); if (!closeReplay) snd.play(d.stars ? 'win' : 'lose');
+  stopReplay(); startHindsight(); const d = today(); const spec = G.specOf(g!, d.day); snd.music(0); if (!closeReplay) snd.play(d.stars ? 'win' : 'lose');
   const dsat = Math.round(g!.sat - d.satStart); const yw = G.yieldWhy(g!); const dy = (yw.y1 - yw.y0) * 100; const lost = Math.round(d.m3 + d.night);
   const last = d.day + 1 >= DAYS; const next = last ? 'Le pot du vendredi' : `Au lit ! ${WEEKDAYS[(d.day + 1) % 5]}`;
   const tile = (id: string, v: string, l: string, cls = '') => `<button class="ctile ${cls}" id="${id}"><b>${v}</b><span>${l}</span></button>`;
@@ -822,7 +823,7 @@ function marks(): Mark[] { const d = today(); const out: Mark[] = []; const T = 
   for (const id of g!.pile) if (JOBS[T(id).job].urgent && G.avail(g!, id) && d.urgent[id] === undefined) out.push({ capy: null, at: SLOTS, label: 'Urgence pas commencée', ic: 'warn', text: `${JOBS[T(id).job].short} ${G.rue(T(id).site)} : personne n’a commencé.` });
   for (const c of TEAM) for (const [id, s0] of d.hist[c.id]) { const t = T(id); if (JOBS[t.job].dig && !t.gas) out.push({ capy: c.id, at: s0, label: 'Sans le gaz !', ic: 'phoneX', text: `${CAPY[c.id].name} a creusé ${G.rue(t.site)} sans appeler le gaz : une étoile maximum.` }); }
   for (const [id, k] of Object.entries(d.vip ?? {})) { const v = T(id).vip; if (!v || !VIPS[v][k].star) continue; const w = where(id); out.push({ capy: w?.capy ?? null, at: w?.at ?? SLOTS, label: `${VIPS[v].tag} fâché`, ic: 'star', text: VIPS[v][k].log }); }
-  const missTravel = DAYS_SPEC[d.day].objs.some((o, j) => o.id === 'travel' && !d.met![j]);
+  const missTravel = G.specOf(g!, d.day).objs.some((o, j) => o.id === 'travel' && !d.met![j]);
   for (const [c, s0, n, id] of d.trips ?? []) if (n >= 2 || (missTravel && n >= 1)) out.push({ capy: c, at: s0, label: `${n} h de route`, ic: 'van', text: `${CAPY[c].name} : ${n} h de route jusqu’à ${G.rue(T(id).site)}.` });
   const left = g!.pile.filter((id) => G.avail(g!, id) && G.waitCosts(T(id)) && !JOBS[T(id).job].urgent).length;
   if (left) out.push({ capy: null, at: SLOTS, label: `${left} attend${left > 1 ? 'ent' : ''} demain`, ic: 'basket', text: `${left} ticket${left > 1 ? 's' : ''} dans le bac : chaque soir d’attente coûte 1 point d’abonnés.` });
@@ -899,7 +900,7 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) addEventListener('load
 });
 addEventListener('resize', () => { if (view() === 'game' && g?.today) render(); });
 // test hook (read-only snapshot + controls used by the Playwright suite)
-(window as unknown as { __capy: object }).__capy = { state: () => g, render: () => render(), mini: (id: string, c: CapyId) => miniGame(id, c), defaults, speed: (s: 1 | 2) => { speed = s; },
+(window as unknown as { __capy: object }).__capy = { state: () => g, G, render: () => render(), mini: (id: string, c: CapyId) => miniGame(id, c), defaults, speed: (s: 1 | 2) => { speed = s; },
   ui: { creator: () => creator(home, false), briefing, closeScreen, replayDay, hindsight: () => hs, bilan, detail, showPending, showWarnings, menu, settings, objectives, enterGame, home, stop, blockMenu: (id: string) => { const el = document.querySelector<HTMLElement>(`.blk[data-b="${id}"]`); if (el) blockMenu(id, el); } } };
 
 if (!S.player) creator(home, true); else { home(); if (g && !g.over && g.today && location.hash === '#jouer') enterGame(); }

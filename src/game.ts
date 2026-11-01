@@ -1,6 +1,6 @@
 // Game state and rules: tickets, planning preview, slot-by-slot resolution, cards, day close and scoring.
 // Pure TypeScript (no DOM): everything here is covered by the Vitest suite.
-import { JOBS, TEAM, CAPY, slotsFor, ignoresRisk, RISK_CARDS, EVENTS, DAYS_SPEC, ABONNES, objText, type JobId, type Risk, type CapyId, type Card, type Effect, type Obj, PREFET, VIPS, vipOutcome, type VipId } from './content';
+import { JOBS, TEAM, CAPY, slotsFor, ignoresRisk, RISK_CARDS, EVENTS, DAYS_SPEC, ABONNES, objText, type JobId, type Risk, type CapyId, type Card, type Effect, type Obj, type DaySpec, PREFET, VIPS, vipOutcome, type VipId } from './content';
 import { SITES, PREFET_SITE, dist, DEPOT, labelXY, quarterOf, quarterOfNode, qTravel, GROUPS_BY_Q, MAP_V, QUARTERS } from './map';
 import { SLOTS, TRAVEL_M, FESTIVAL_TRAVEL_M, URGENT_TARGET, NIGHT_SLOTS, SECTOR_M3, START_YIELD, SAFETY_RULE, DAYS, slotLabel, DAY_END, type SafetyRule } from './rules';
 
@@ -32,9 +32,13 @@ export interface DayState {
   /** end-of-day replay: trips [capy, start slot, slots, ticket] and card answers [card id, choice] */ trips?: [CapyId, number, number, string][]; picks?: [string, number][];
 }
 export interface DayResult { day: number; stars: number; met: boolean[]; m3: number; yield: number; done: number; incidents: number; sat: number; rdvKept: number; rdvTotal: number }
-export interface Game { v: 1; /** map layout version (graph node numbers) */ map?: number; seed: number; day: number; tickets: Record<string, Ticket>; pile: string[]; sat: number; bg: number; history: DayResult[]; today: DayState | null; stickers: string[]; next: number; over: boolean; /** overnight news shown at the next briefing */ news: string[]; /** one line per finished day (the « pot du vendredi » picks a funny one) */ moments?: string[] }
+export interface Game { v: 1; /** generated campaign: days 4 to 10 come from gen.ts */ gen?: boolean; /** generated day specs, by day index */ specs?: Record<number, DaySpec>; /** map layout version (graph node numbers) */ map?: number; seed: number; day: number; tickets: Record<string, Ticket>; pile: string[]; sat: number; bg: number; history: DayResult[]; today: DayState | null; stickers: string[]; next: number; over: boolean; /** overnight news shown at the next briefing */ news: string[]; /** one line per finished day (the « pot du vendredi » picks a funny one) */ moments?: string[] }
 
 export const BG0 = Math.round(SECTOR_M3 * (1 / START_YIELD - 1)); // background losses giving the real starting yield
+/** The day's spec: generated (days 4 to 10 of a generated campaign, saved in the game) or scripted. */
+export const specOf = (g: Pick<Game, 'specs'>, day: number): DaySpec => g.specs?.[day] ?? DAYS_SPEC[day];
+/** Set by gen.ts: builds (and proves) the spec of a generated day before its briefing. */
+export const hooks: { beforeDay?: (g: Game) => void } = {};
 export const newGame = (seed = 2026): Game => ({ v: 1, map: MAP_V, seed, day: 0, tickets: {}, pile: [], sat: 60, bg: BG0, history: [], today: null, stickers: [], next: 1, over: false, news: [] });
 const clampSat = (s: number) => Math.max(0, Math.min(100, s));
 /** Change the subscribers' mood and remember why (for the « Abonnés » sheet). */
@@ -78,7 +82,8 @@ const RDV_WINDOWS: [number, number][] = [[0, 1], [1, 2], [2, 3], [4, 5], [5, 6],
 /** Tickets on the tray at most each morning (urgent ones always come): with the day's calls, about 14 to handle. */
 export const MORNING_CAP = 12;
 export function startDay(g: Game) {
-  const spec = DAYS_SPEC[g.day]; const r = rng(g.seed * 1000 + g.day * 977 + 13);
+  if (g.gen && g.day >= 3 && !g.specs?.[g.day]) hooks.beforeDay?.(g);
+  const spec = specOf(g, g.day); const r = rng(g.seed * 1000 + g.day * 977 + 13);
   // two centres a day: one inside the walls, and from day 2 one in a quartier outside (about a third of the tickets go there)
   const anyIn = (q: number) => { const gs = GROUPS_BY_Q[q]; const grp = gs[Math.floor(r() * gs.length)]; return grp[Math.floor(r() * grp.length)]; };
   const outQ = GROUPS_BY_Q.map((gs, q) => (q && gs.length ? q : -1)).filter((q) => q > 0);
@@ -107,7 +112,7 @@ export function startDay(g: Game) {
   g.today.bg0 = g.bg; g.today.y0 = yieldLive(g);
 }
 /** Festival day: the municipal order forbids non-urgent roadworks intra-muros (scheduled cuts wait). */
-export const festivalBlocked = (g: Game, id: string) => DAYS_SPEC[g.day]?.card === 'festival' && !!JOBS[g.tickets[id].job].coupure;
+export const festivalBlocked = (g: Game, id: string) => specOf(g, g.day)?.card === 'festival' && !!JOBS[g.tickets[id].job].coupure;
 export const avail = (g: Game, id: string) => { const t = g.tickets[id]; return t.avail !== null && t.avail <= g.day && !festivalBlocked(g, id); };
 /** Tickets that can be dragged onto the planning now (open, available, not planned, not running). */
 export function tray(g: Game): string[] {
@@ -125,7 +130,7 @@ export const travelCost = (g: Game, from: number, site: number) => {
   if (from === DEPOT) return 0; // prise de poste: the drive to the first job is part of the 7h30 start
   const qa = quarterOfNode(from), qb = quarterOf(site); if (qa !== qb) return qTravel(qa, qb); // between quartiers: 1 h near, 2 h far
   if (qa !== 0) return 0; // inside one quartier outside the walls
-  const card = DAYS_SPEC[g.day]?.card; const m = dist(from, SITES[site].node);
+  const card = specOf(g, g.day)?.card; const m = dist(from, SITES[site].node);
   if (card === 'marche' && nearHalles(site) && !(from !== DEPOT && SITES.some((s, i) => s.node === from && nearHalles(i)))) return 1;
   return m > (card === 'festival' ? FESTIVAL_TRAVEL_M : TRAVEL_M) ? 1 : 0;
 };
@@ -134,7 +139,7 @@ export const travelWhy = (g: Game, from: number, site: number): string => {
   if (from === DEPOT) return 'Départ du dépôt : compris dans la prise de poste';
   const qa = quarterOfNode(from), qb = quarterOf(site); if (qa !== qb) return `${QUARTERS[qa].t} → ${QUARTERS[qb].t} : ${qTravel(qa, qb)} créneau${qTravel(qa, qb) > 1 ? 'x' : ''}`;
   if (qa !== 0) return `Dans le quartier ${QUARTERS[qa].t} : 0 créneau`;
-  const card = DAYS_SPEC[g.day]?.card; const m = Math.round(dist(from, SITES[site].node)); const lim = card === 'festival' ? FESTIVAL_TRAVEL_M : TRAVEL_M;
+  const card = specOf(g, g.day)?.card; const m = Math.round(dist(from, SITES[site].node)); const lim = card === 'festival' ? FESTIVAL_TRAVEL_M : TRAVEL_M;
   if (card === 'marche' && nearHalles(site) && !SITES.some((s, i) => s.node === from && nearHalles(i))) return `${m} m, vers les Halles un jour de marché : 1 créneau`;
   return `${m} m intra-muros (seuil ${lim} m${card === 'festival' ? ', Festival' : ''}) : ${m > lim ? 1 : 0} créneau`;
 };
@@ -202,7 +207,7 @@ const log = (d: DayState, s: string, at = d.slot) => { d.log.push(`${slotH(at)} 
 export function launch(g: Game) { const d = g.today!; d.phase = 'run'; d.replan = false; }
 /** Begin the current slot: scripted events, capys pick their next job. Returns the cards to play (also kept in d.pending). */
 export function beginSlot(g: Game) {
-  const d = g.today!; if (d.sub !== 'start' || d.phase !== 'run') return d.pending; const s = d.slot; const spec = DAYS_SPEC[d.day];
+  const d = g.today!; if (d.sub !== 'start' || d.phase !== 'run') return d.pending; const s = d.slot; const spec = specOf(g, d.day);
   for (const c of TEAM) {
     const cr = d.capys[c.id]; if (cr.job || cr.travel) continue;
     // next job in the queue: travel first, wait for the RDV window, then start
@@ -337,7 +342,7 @@ export function closeDay(g: Game) {
   const waiting = g.pile.filter((id) => { const t = g.tickets[id]; return avail(g, id) && waitCosts(t) && g.day - t.day >= 1; });
   waiting.slice(0, 4).forEach((id) => mood(g, -1, `${whoOf(g.tickets[id])} attend depuis ${g.day - g.tickets[id].day + 1} jours`));
   d.night = g.pile.reduce((s, id) => s + (JOBS[g.tickets[id].job].leak ?? 0), 0) * NIGHT_SLOTS;
-  const spec = DAYS_SPEC[d.day]; d.met = spec.objs.map((o) => evalObj(g, o));
+  const spec = specOf(g, d.day); d.met = spec.objs.map((o) => evalObj(g, o));
   let stars = d.met.filter(Boolean).length;
   if (Object.entries(d.vip ?? {}).some(([id, k]) => { const v = g.tickets[id]?.vip; return !!v && !!VIPS[v][k].star; })) stars = Math.max(0, stars - 1); // the boss waited
   if (d.incidents > 0) stars = Math.min(stars, 1);
@@ -394,7 +399,7 @@ export function yieldWhy(g: Game): { y0: number; y1: number; items: YieldWhy[] }
   return { y0, y1, items: items.filter((x) => Math.abs(x.pt) >= 0.005).sort((a, b) => Math.abs(b.pt) - Math.abs(a.pt)) };
 }
 export const avgYield = (g: Game) => (g.history.length ? g.history.reduce((s, h) => s + h.yield, 0) / g.history.length : START_YIELD);
-export const objLabels = (day: number) => DAYS_SPEC[day].objs.map(objText);
+export const objLabels = (day: number, g?: Game) => (g ? specOf(g, day) : DAYS_SPEC[day]).objs.map(objText);
 /** The measured value of an objective, shown next to a missed one (« 30 m³ perdus au maximum (34) »). */
 export function objValue(g: Game, o: Obj): string | null {
   const d = g.today!; switch (o.id) { case 'm3': return `${Math.round(d.m3)}`; case 'done': return `${d.done.length}`; case 'travel': return `${d.travel} h`; case 'rdv': return `${d.rdvKept.length}/${d.rdvToday.length}`; case 'sat': return `${g.sat - d.satStart >= 0 ? '+' : ''}${g.sat - d.satStart}`; case 'yield': return `${((closeYield(g) - (d.y0 ?? START_YIELD)) * 100 >= 0 ? '+' : '−')}${Math.abs((closeYield(g) - (d.y0 ?? START_YIELD)) * 100).toFixed(1).replace('.', ',')} pt`; default: return null; }

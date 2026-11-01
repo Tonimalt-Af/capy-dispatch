@@ -3,7 +3,7 @@
 // played by the real game rules (same code as the day itself): it never suggests something impossible.
 // The same search drives tests/search.ts (the « 3 stars every day » proof).
 import { TEAM, JOBS, CAPY, VIPS, DAYS_SPEC, RISK_CARDS, objText, type CapyId } from './content';
-import { tray, assign, unassign, preview, sendAvis, toggleGas, canDo, avail, launch, step, choose, miniResult, closeDay, cardOf, rng, rue, type Game, type DayState } from './game';
+import { tray, assign, unassign, preview, sendAvis, toggleGas, canDo, avail, launch, step, choose, miniResult, closeDay, cardOf, specOf, rng, rue, type Game, type DayState } from './game';
 import { slotLabel, URGENT_TARGET } from './rules';
 
 type R = () => number;
@@ -62,7 +62,7 @@ export function* searchDay(m0: Game, budget = 48): Generator<number, Game | null
 }
 /** Turn the better day into at most 3 moves, each about one thing that cost the player a star. */
 export function explain(end: Game, best: Game | null): Hindsight {
-  const A = end.today!, spec = DAYS_SPEC[A.day]; if (!best || best.today!.stars! <= A.stars!) return { stars: A.stars!, fixes: [], best: null };
+  const A = end.today!, spec = specOf(end, A.day); if (!best || best.today!.stars! <= A.stars!) return { stars: A.stars!, fixes: [], best: null };
   const B = best.today!; const T = (id: string) => best.tickets[id] ?? end.tickets[id]; const fixes: Fix[] = []; const used = new Set<string>();
   const name = (c: CapyId) => CAPY[c].name; const job = (id: string) => `${JOBS[T(id).job].short} ${rue(T(id).site)}`;
   const at = (id: string) => doneAt(B, id);
@@ -95,4 +95,4 @@ export function explain(end: Game, best: Game | null): Hindsight {
 }
 /** Synchronous helper (tests, Node): search then explain. */
 export function hindsight(m0: Game, end: Game, budget = 48): Hindsight { const it = searchDay(m0, budget); let r = it.next(); while (!r.done) r = it.next(); return explain(end, r.value); }
-export const objShort = (day: number, j: number) => objText(DAYS_SPEC[day].objs[j]);
+export const objShort = (day: number, j: number, g?: Game) => objText((g ? specOf(g, day) : DAYS_SPEC[day]).objs[j]);
