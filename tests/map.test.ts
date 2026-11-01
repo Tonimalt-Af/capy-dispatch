@@ -25,7 +25,7 @@ it('ticket sites are real OSM addresses (number + street pairs that exist in the
   const real = new Set(raw.elements.filter((e) => e.tags['addr:housenumber'] && e.tags['addr:street']).map((e) => `${e.tags['addr:housenumber'].trim()} ${e.tags['addr:street'].trim()}`));
   const pool = SITES.filter((_, i) => i !== PREFET_SITE);
   expect(pool.length).toBeGreaterThan(1000);
-  for (const s of pool) { expect(Number.isInteger(s.num) && s.num >= 1).toBe(true); expect(real.has(`${s.num} ${s.street}`), `${s.num} ${s.street}`).toBe(true); }
+  for (const s of pool) { expect(Number.isInteger(s.num) && s.num >= 1).toBe(true); expect(s.street, s.street).toMatch(/\p{L}{3}/u); expect(real.has(`${s.num} ${s.street}`), `${s.num} ${s.street}`).toBe(true); }
   expect(new Set(pool.map((s) => `${s.num} ${s.street}`)).size).toBe(pool.length);
   expect(SITE_GROUPS.flat().length).toBe(pool.length); expect(SITE_GROUPS.length).toBeGreaterThan(300);
 });

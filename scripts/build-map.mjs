@@ -98,7 +98,8 @@ const snap = (p, want) => { let bs = -1, bd = 1e9, ba = -1, bda = 1e9; for (cons
 for (const e of addrRaw.elements) { const t = e.tags; if (!t['addr:housenumber'] || !t['addr:street'] || e.lat == null) continue; stat.osm++;
   const p = pr(e); if (!inside(p) || wallD(p) < 30) { stat.outside++; continue; }
   const m = /^\s*(\d{1,3})\s*$/.exec(t['addr:housenumber']); if (!m || +m[1] < 1) { stat.oddNumber++; continue; } // "2A", "1bis", "3-5": skipped (the game shows plain numbers)
-  const street = t['addr:street'].trim(); const key = norm(street) + '|' + +m[1]; if (seenAddr.has(key)) { stat.dup++; continue; } seenAddr.add(key);
+  const street = t['addr:street'].trim(); if (!/\p{L}{3}/u.test(street)) { stat.oddNumber++; continue; } // OSM typos such as addr:street="28"
+  const key = norm(street) + '|' + +m[1]; if (seenAddr.has(key)) { stat.dup++; continue; } seenAddr.add(key);
   const s = snap(p, norm(street)); if (s.d > 40 && !s.same) { stat.far++; continue; } if (!inside(nodePos.get(s.id))) { stat.outside++; continue; } if (s.same) stat.sameStreet++;
   const cls = clsByName.get(norm(street)); sites.push({ i: idx.get(s.id), n: nameIdx(street), num: +m[1], r: cls === 2 ? 1 : 0 }); }
 sites.sort((a, b) => a.i - b.i || a.n - b.n || a.num - b.num);
