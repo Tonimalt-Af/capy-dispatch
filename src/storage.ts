@@ -52,6 +52,9 @@ function today(d: unknown, g: Game): d is DayState {
   if (!Array.isArray(d.log) || !d.log.every((s) => str(s, 300)) || !Array.isArray(d.fired) || !d.fired.every((v) => int(v, 0, SLOTS))) return false;
   if (!isObj(d.hist) || !CAPYS.every((c) => Array.isArray((d.hist as Record<string, unknown>)[c]))) d.hist = { josette: [], momo: [], lulu: [] };
   if (d.vip !== undefined && !(isObj(d.vip) && Object.entries(d.vip).every(([id, k]) => known(id) && ['fast', 'mid', 'late'].includes(k as string)))) return false;
+  if (d.y0 !== undefined && !num(d.y0, 0, 1)) delete d.y0; if (d.bg0 !== undefined && !num(d.bg0, 0, 1e5)) delete d.bg0;
+  if (d.leaks !== undefined && !(isObj(d.leaks) && Object.values(d.leaks).every((v) => num(v, 0, 1e6)))) delete d.leaks;
+  if (d.story !== undefined && !(Array.isArray(d.story) && d.story.every((s) => str(s, 300)))) delete d.story;
   return num(d.m3, 0, 1e6) && num(d.night, 0, 1e6) && int(d.travel, 0, 99) && int(d.incidents, 0, 99) && isObj(d.urgent) && num(d.satStart, 0, 100);
 }
 const result = (h: unknown): h is DayResult => isObj(h) && int(h.day, 0, DAYS - 1) && int(h.stars, 0, 3) && Array.isArray(h.met) && num(h.m3, 0, 1e7) && num(h.yield, 0, 1) && int(h.done, 0, 99) && int(h.incidents, 0, 99) && num(h.sat, 0, 100);
@@ -62,6 +65,7 @@ export function game(x: unknown): Game | null {
   if (!Object.entries(g.tickets).every(([id, t]) => ticket(t, id))) return null;
   if (!ids(g.pile, (s) => Object.hasOwn(g.tickets, s)) || !Array.isArray(g.history) || !g.history.every(result) || !ids(g.stickers, (s) => s === 'capydindon')) return null;
   if (!Array.isArray(g.news) || !g.news.every((s) => str(s, 300))) g.news = [];
+  if (g.moments !== undefined && !(Array.isArray(g.moments) && g.moments.every((s) => s === null || str(s, 400)))) delete g.moments;
   if (g.today !== null && !today(g.today, g)) return null;
   // ticket numbers always come from the real address of their site (older saves had invented numbers)
   for (const t of Object.values(g.tickets)) { if (t.prefet) t.site = PREFET_SITE; else if (RETIRED_SITES.has(t.site)) t.site = liveSite(t.site); t.num = SITES[t.site].num; }

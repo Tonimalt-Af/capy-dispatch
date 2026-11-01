@@ -1,0 +1,48 @@
+<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="base.css"><style>
+.goal{display:block;line-height:1.7;margin:6px 10px 0;background:#FFF5DE;border-radius:12px;padding:5px 10px;font-size:12.5px}
+.goal b{color:var(--navy)}.goal .chip{background:#fff}
+.hours{display:flex;margin:4px 10px 0 160px;font-size:12px;color:var(--ink2);position:relative;height:14px}.hours span{position:absolute}
+.rows{display:flex;flex-direction:column;gap:5px;margin:2px 10px}
+.row{display:flex;align-items:center;background:#fff;border-radius:12px;box-shadow:0 2px 0 var(--line);height:56px;position:relative}
+.who{width:150px;display:flex;align-items:center;gap:6px;padding-left:6px}.who b{display:block;font-size:14px}.who em{font-style:normal;font-size:11px;font-weight:600;color:#fff;border-radius:5px;padding:0 4px;margin-right:2px}
+.tl{position:relative;flex:1;height:44px;margin-right:8px;background:repeating-linear-gradient(90deg,#FBF6EC 0 calc(100%/8.5 - 1px),#EFE5D3 calc(100%/8.5 - 1px) calc(100%/8.5))}
+.blk{position:absolute;top:3px;bottom:3px;border-radius:9px;background:color-mix(in srgb,var(--c) 22%,#fff);border:2px solid var(--c);font-size:12px;font-weight:700;padding:2px 6px;line-height:1.15}
+.blk small{display:block;font-weight:500;color:var(--ink2)}
+.trv{position:absolute;top:14px;height:16px;border-radius:6px;background:repeating-linear-gradient(45deg,#E2CFAE 0 4px,#F3ECDF 4px 8px);font-size:10.5px;font-weight:700;text-align:center;color:var(--ink2)}
+.ghost{position:absolute;top:2px;bottom:2px;border-radius:9px;border:2.5px dashed var(--c);background:color-mix(in srgb,var(--c) 12%,#fff);font-size:12.5px;font-weight:700;padding:3px 7px;line-height:1.2;color:var(--navy)}
+.ghost small{display:block;font-weight:500;font-size:11.5px;color:var(--ink2)}
+.best{outline:3px solid var(--ok);outline-offset:1px}
+.row.no{opacity:.55}.row.no .tl::after{content:"Pas son métier : Josette fait les fuites cachées";position:absolute;inset:0;display:grid;place-items:center;font-weight:700;color:var(--ink2);font-size:13px}
+.lunch{position:absolute;top:0;bottom:0;width:calc(100%/8.5*.5);background:#F3ECDF}
+.tray{display:flex;gap:8px;margin:6px 10px;align-items:stretch}
+.tk{width:170px;background:#fff;border-radius:12px;border-left:6px solid var(--c);box-shadow:0 2px 0 var(--line);padding:5px 8px;font-size:12px}
+.tk b{font-size:14px}.tk.sel{outline:3px solid var(--navy);transform:translateY(-4px)}
+.cmp{flex:1;background:#fff;border-radius:12px;padding:5px 10px;font-size:12.5px;box-shadow:0 2px 0 var(--line)}
+.cmp p{margin:2px 0}
+</style>
+<div class="bar"><div class="ib">≡</div><div class="pill">Mardi <small>jour 2/10</small></div><div class="pill">★★☆</div>
+<div class="pill"><span class="tap">Rendement de réseau</span> 72,3 % <div class="gauge"><i style="width:72%"></i><b style="left:80%"></b></div><small>but 80</small></div>
+<div class="pill">♥ Abonnés 61</div><div style="flex:1"></div><div class="ib">🗺</div></div>
+<div class="goal"><b>Le plan du jour</b> · 2 RDV à tenir <span class="chip">9 h–11 h Mme Fabre</span><span class="chip">13 h 30–15 h 30 M. Roux</span> · 9 h de travail pour 8 h par capy : <b>place le plus important d'abord</b></div>
+<div class="hours"><span style="left:0">8h</span><span style="left:11.7%">9h</span><span style="left:23.5%">10h</span><span style="left:35.3%">11h</span><span style="left:47%">12h</span><span style="left:52.9%">13h30</span><span style="left:64.7%">14h30</span><span style="left:76.5%">15h30</span><span style="left:88.2%">16h30</span></div>
+<div class="rows">
+ <div class="row"><div class="who"><div class="hd" style="background:#F39A2B">F</div><div><b style="color:#C06A0C">Fred</b><em style="background:var(--icc)">ICC</em></div></div>
+  <div class="tl"><div class="lunch" style="left:47%"></div>
+   <div class="blk" style="--c:var(--icc);left:0;width:11.4%">PRC<small>Bérard</small></div>
+   <div class="trv" style="left:11.8%;width:11.3%">route 1 h</div>
+   <div class="ghost best" style="--c:var(--icc);left:23.6%;width:11.4%">1 h<small>dès 10 h</small></div>
+  </div></div>
+ <div class="row"><div class="who"><div class="hd" style="background:#2FA4A9">L</div><div><b style="color:#1E7C80">Lulu</b><em style="background:var(--reseau)">Réseau</em><em style="background:#fff;color:var(--icc);border:1.5px solid var(--icc)">ICC+1h</em></div></div>
+  <div class="tl"><div class="lunch" style="left:47%"></div>
+   <div class="blk" style="--c:var(--reseau);left:0;width:23.2%">Purge<small>déjà rue Carnot</small></div>
+   <div class="ghost" style="--c:var(--icc);left:23.6%;width:23.2%">2 h · 0 route<small>finit à 12 h, juste à côté</small></div>
+  </div></div>
+ <div class="row no"><div class="who"><div class="hd" style="background:#E86A92">J</div><div><b style="color:#B7406A">Josette</b><em style="background:var(--fuite)">Fuite</em><em style="background:#fff;color:var(--reseau);border:1.5px solid var(--reseau)">Rés.+1h</em></div></div>
+  <div class="tl"></div></div>
+</div>
+<div class="tray">
+ <div class="tk sel" style="--c:var(--icc)"><b>PRC</b> <span class="chip">1–2 h</span><br>14 rue Carnot · Mme Fabre<br><span class="chip blue">⏰ 9 h–11 h</span> <span class="chip">🐕 Chien</span></div>
+ <div class="cmp"><p><b>Qui y va ?</b> Fred <b>1 h</b> · Lulu <b>2 h</b> · Josette <b>pas son métier</b></p>
+ <p>Fred est le spécialiste, mais il vient de Saint-Ruf (1 h de route). Lulu est déjà dans la rue : même heure de fin, et Fred reste libre pour l'urgence de 11 h ?</p></div>
+</div>
+<div class="note" style="left:560px;top:118px">Fantôme sur chaque ligne : durée + route</div>

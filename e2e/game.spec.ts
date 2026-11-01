@@ -37,7 +37,7 @@ test('day 1: briefing with 3 objectives, tap-to-assign, launch, x2, skip, close 
   await page.click('#p-go'); await expect(page.locator('#r-x2')).toBeVisible();
   await page.click('#r-x2'); await expect(page.locator('#r-x2')).toHaveClass(/on/);
   await page.click('#r-skip'); await playToClose(page);
-  await expect(page.locator('.stars .st')).toHaveCount(3); await expect(page.locator('#card')).toContainText('tickets traités');
+  await expect(page.locator('.stars .st')).toHaveCount(3); await expect(page.locator('#card')).toContainText('On range les fourgons'); await page.click('#c-more'); await expect(page.locator('#c-det')).toContainText('tickets traités');
   await page.click('#c-next'); await expect(page.locator('#b-go')).toBeVisible(); await expect(page.locator('#card')).toContainText('Jour 2');
   expect(e).toEqual([]);
 });

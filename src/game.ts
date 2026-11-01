@@ -25,13 +25,21 @@ export interface DayState {
   satStart: number; fired: number[]; log: string[]; replan: boolean; stars?: number; met?: boolean[];
   /** finished work per capy, for the timeline: [ticket, start slot, end slot] */ hist: Record<CapyId, [string, number, number][]>;
   /** VIP tickets of the day already judged: outcome by ticket */ vip?: Record<string, 'fast' | 'mid' | 'late'>;
+  /** network yield this morning (for « pourquoi ça a bougé ») and the background losses then */ y0?: number; bg0?: number;
+  /** m³ lost today, by ticket */ leaks?: Record<string, number>;
+  /** the day's funny moments (card choices, VIP outcomes), for the end-of-day line */ story?: string[];
 }
 export interface DayResult { day: number; stars: number; met: boolean[]; m3: number; yield: number; done: number; incidents: number; sat: number; rdvKept: number; rdvTotal: number }
-export interface Game { v: 1; seed: number; day: number; tickets: Record<string, Ticket>; pile: string[]; sat: number; bg: number; history: DayResult[]; today: DayState | null; stickers: string[]; next: number; over: boolean; /** overnight news shown at the next briefing */ news: string[] }
+export interface Game { v: 1; seed: number; day: number; tickets: Record<string, Ticket>; pile: string[]; sat: number; bg: number; history: DayResult[]; today: DayState | null; stickers: string[]; next: number; over: boolean; /** overnight news shown at the next briefing */ news: string[]; /** one line per finished day (the « pot du vendredi » picks a funny one) */ moments?: string[] }
 
 export const BG0 = Math.round(SECTOR_M3 * (1 / START_YIELD - 1)); // background losses giving the real starting yield
 export const newGame = (seed = 2026): Game => ({ v: 1, seed, day: 0, tickets: {}, pile: [], sat: 60, bg: BG0, history: [], today: null, stickers: [], next: 1, over: false, news: [] });
 const clampSat = (s: number) => Math.max(0, Math.min(100, s));
+const COMMON = /^(rue|place|placette|avenue|boulevard|impasse|cours|quai|chemin|passage|square|allée|montée|traverse|route|portail|plan|carreau|rempart|parvis|cloître|petite|grande|porte|galerie|jardin|esplanade|pont)\b/i;
+/** « rue du Roi René », « place Pie » (a street name as said in a sentence). */
+export const rue = (site: number) => { const n = SITES[site].street; return COMMON.test(n) ? n.charAt(0).toLowerCase() + n.slice(1) : n; };
+/** A day log line for a job: {c} capy name, {who} subscriber, {rue} street. */
+export const jobLine = (tpl: string, c: string, t: Ticket) => tpl.replace('{c}', c).replace('{who}', t.who.split(' (')[0].split(' · ')[0]).replace('{rue}', rue(t.site));
 const HALLES = labelXY('halles');
 const nearHalles = (site: number) => !!HALLES && Math.hypot(SITES[site].x - HALLES.x, SITES[site].y - HALLES.y) < 230;
 
@@ -72,7 +80,8 @@ export function startDay(g: Game) {
   const plan = { josette: [], momo: [], lulu: [] } as Record<CapyId, string[]>;
   const capys = Object.fromEntries(TEAM.map((c) => [c.id, { pos: DEPOT, job: null, left: 0, travel: 0, target: null, started: -1, extra: 0 }])) as Record<CapyId, CapyRun>;
   const rdvToday = g.pile.filter((id) => g.tickets[id].rdv && avail(g, id));
-  g.today = { day: g.day, slot: 0, phase: 'briefing', sub: 'start', plan, capys, pending: [], done: [], postponed: [], absentOk: [], m3: 0, night: 0, travel: 0, incidents: 0, urgent: {}, rdvToday, rdvKept: [], rdvMissed: [], satStart: g.sat, fired: [], log: [], replan: false, hist: { josette: [], momo: [], lulu: [] } };
+  g.today = { day: g.day, slot: 0, phase: 'briefing', sub: 'start', plan, capys, pending: [], done: [], postponed: [], absentOk: [], m3: 0, night: 0, travel: 0, incidents: 0, urgent: {}, rdvToday, rdvKept: [], rdvMissed: [], satStart: g.sat, fired: [], log: [], replan: false, hist: { josette: [], momo: [], lulu: [] }, leaks: {}, story: [] };
+  g.today.bg0 = g.bg; g.today.y0 = yieldLive(g);
 }
 /** Festival day: the municipal order forbids non-urgent roadworks intra-muros (scheduled cuts wait). */
 export const festivalBlocked = (g: Game, id: string) => DAYS_SPEC[g.day]?.card === 'festival' && !!JOBS[g.tickets[id].job].coupure;
@@ -125,18 +134,18 @@ export function unassign(g: Game, id: string) { const d = g.today!; for (const k
 export function move(g: Game, id: string, delta: number) { const d = g.today!; for (const k of TEAM) { const q = d.plan[k.id]; const i = q.indexOf(id); if (i >= 0) { const j = Math.max(0, Math.min(q.length - 1, i + delta)); q.splice(i, 1); q.splice(j, 0, id); return; } } }
 /** Index in a capy's queue for a tap/drop on slot `slot` (insert before the first job that starts at or after it). */
 export function indexForSlot(g: Game, c: CapyId, slot: number) { const p = preview(g, c); const i = p.findIndex((s) => s.start + (s.end - s.start) / 2 > slot); return i < 0 ? p.length : i; }
-export interface Warn { level: 'red' | 'orange'; text: string }
+export interface Warn { level: 'red' | 'orange'; text: string; /** the block to show */ id?: string; kind: 'gas' | 'late' | 'over' | 'maybe' | 'urgent' }
 export function warnings(g: Game, rule: SafetyRule = SAFETY_RULE): Warn[] {
   const w: Warn[] = [];
   for (const c of TEAM) for (const s of preview(g, c.id)) {
-    const t = g.tickets[s.id]; const name = `${JOBS[t.job].short} (${c.name})`;
-    if (s.noGas) w.push({ level: 'red', text: `${name} : pas d'appel à l'exploitant gaz avant de creuser${rule === 'cap1' ? ' → journée plafonnée à 1 étoile' : ''}` });
-    if (s.late) w.push({ level: 'red', text: `${name} : RDV manqué (arrivée après ${slotH(t.rdv![1])})` });
-    if (s.overflow) w.push({ level: 'orange', text: `${name} : finit après ${DAY_END}, sera reporté` });
-    else if (s.endMax > SLOTS) w.push({ level: 'orange', text: `${name} : peut déborder après ${DAY_END} si un risque tombe` });
+    const t = g.tickets[s.id]; const J = JOBS[t.job]; const at = `${J.short} ${rue(t.site)}`;
+    if (s.noGas) w.push({ level: 'red', kind: 'gas', id: s.id, text: `${c.name} va creuser ${rue(t.site)} sans avoir appelé le gaz${rule === 'cap1' ? ' : la journée sera plafonnée à 1 étoile' : ''}` });
+    if (s.late) w.push({ level: 'red', kind: 'late', id: s.id, text: `${c.name} arrivera trop tard chez ${t.who.split(' (')[0].split(' · ')[0]} (RDV à ${slotH(t.rdv![1])} au plus tard)` });
+    if (s.overflow) w.push({ level: 'orange', kind: 'over', id: s.id, text: `${c.name} n'aura pas le temps de finir (${at}) : ça attendra demain` });
+    else if (s.endMax > SLOTS) w.push({ level: 'orange', kind: 'maybe', id: s.id, text: `${c.name} risque de finir après ${DAY_END} si un imprévu tombe (${at})` });
   }
   const urgent = g.pile.filter((id) => JOBS[g.tickets[id].job].urgent && avail(g, id) && !g.today!.done.includes(id) && !Object.values(g.today!.plan).flat().includes(id) && !Object.values(g.today!.capys).some((c) => c.job === id));
-  for (const id of urgent) w.push({ level: 'orange', text: `${JOBS[g.tickets[id].job].short} pas encore planifiée : l'eau coule` });
+  for (const id of urgent) { const t = g.tickets[id]; const J = JOBS[t.job]; w.push({ level: 'orange', kind: 'urgent', id, text: `${J.short} ${rue(t.site)} : personne n'y va encore, l'eau coule (${J.leak ?? 0} m³ par heure)` }); }
   return w;
 }
 const slotH = slotLabel; // SLOTS = end of the day (17 h 30)
@@ -160,8 +169,8 @@ export function beginSlot(g: Game) {
       d.plan[c.id].shift(); cr.job = id; cr.target = null; cr.pos = SITES[t.site].node; cr.left = slotsFor(c, JOBS[t.job])!; cr.started = s; cr.extra = 0; t.tries++;
       const J = JOBS[t.job];
       if (J.urgent) d.urgent[id] = s - (t.day === d.day ? t.slot : 0);
-      if (t.rdv) { if (s > t.rdv[1]) { d.rdvMissed.push(id); g.sat = clampSat(g.sat - 4); log(d, `${c.name} arrive en retard au RDV de ${t.who}`); } else if (!d.rdvToday.includes(id)) d.rdvToday.push(id); }
-      log(d, `${c.name} commence : ${J.short}, ${t.num} ${SITES[t.site].street}`);
+      if (t.rdv) { if (s > t.rdv[1]) { d.rdvMissed.push(id); g.sat = clampSat(g.sat - 4); log(d, `${c.name} arrive en retard chez ${t.who.split(' (')[0]} : RDV manqué`); } else if (!d.rdvToday.includes(id)) d.rdvToday.push(id); }
+      log(d, jobLine(J.go, c.name, t));
       if (t.vip && t.day === d.day && !d.vip?.[id]) { judgeVip(g, id, s - t.slot); const w = VIPS[t.vip].watch; if (w) d.pending.push({ card: w, kind: 'event', capy: c.id, ticket: id }); }
       if (J.dig && !t.gas) d.pending.push({ card: 'safety', kind: 'safety', capy: c.id, ticket: id });
       for (const r of t.risks) d.pending.push({ card: r, kind: 'risk', capy: c.id, ticket: id });
@@ -202,7 +211,7 @@ export function choose(g: Game, i: number): Ticket | null {
       d.pending = d.pending.filter((x) => x.ticket !== p.ticket); postpone(g, p.ticket);
     } else if (fx.slots) { if (card.needs === 'travel') { cr.travel += fx.slots; d.travel += fx.slots; } else { cr.left += fx.slots; cr.extra += fx.slots; } }
   }
-  log(d, (p.capy ? who : '') + fx.log);
+  log(d, (p.capy ? who : '') + fx.log); if (fx.log && !fx.addTicket) (d.story ??= []).push((p.capy ? who : '') + fx.log);
   if (fx.addTicket) {
     const r = rng(g.seed * 31 + d.day * 101 + d.slot * 7 + g.next);
     const t = makeTicket(g, fx.addTicket, r, { slot: d.slot, rdv: fx.addRdvSoon ? [Math.min(d.slot + 1, SLOTS - 1), Math.min(d.slot + 2, SLOTS - 1)] : null });
@@ -227,7 +236,8 @@ export function endSlot(g: Game) {
   for (const c of TEAM) { const cr = d.capys[c.id];
     if (cr.travel) { cr.travel--; if (!cr.travel && cr.target) cr.pos = SITES[g.tickets[cr.target].site].node; continue; }
     if (cr.job) { cr.left--; if (cr.left <= 0) complete(g, c.id); } }
-  d.m3 += leakingNow(g);
+  d.m3 += leakingNow(g); const lk = (d.leaks ??= {});
+  for (const id of g.pile) { const t = g.tickets[id]; const L = JOBS[t.job].leak ?? 0; if (L && !d.done.includes(id) && !(t.day === d.day && t.slot > d.slot)) lk[id] = (lk[id] ?? 0) + L; }
   d.slot++; d.sub = 'start';
   if (d.slot >= SLOTS) closeDay(g);
 }
@@ -238,7 +248,7 @@ function complete(g: Game, c: CapyId) {
   if (J.fix) g.bg = Math.max(0, g.bg - J.fix);
   if (t.rdv && !d.rdvMissed.includes(id)) d.rdvKept.push(id);
   g.sat = clampSat(g.sat + (t.rdv && !d.rdvMissed.includes(id) ? 1 : 0) + (J.urgent ? 1 : 0));
-  log(d, `${CAPY[c].name} a terminé : ${J.short} ✓`, d.slot + 1);
+  log(d, jobLine(J.fin, CAPY[c].name, t), d.slot + 1);
 }
 /** Run until something needs the player (a card) or the slot ends. */
 export function step(g: Game) { const d = g.today!; if (d.phase !== 'run') return; if (d.sub === 'start') beginSlot(g); if (!d.pending.length) endSlot(g); }
@@ -259,12 +269,12 @@ export function evalObj(g: Game, o: Obj): boolean {
 /** VIP rule: the delay between the call and the start of the job (null = not started on the day of the call). */
 function judgeVip(g: Game, id: string, delay: number | null) {
   const d = g.today!; const t = g.tickets[id]; const V = VIPS[t.vip!]; const k = vipOutcome(V, delay); const o = V[k];
-  (d.vip ??= {})[id] = k; g.sat = clampSat(g.sat + o.sat); log(d, o.log);
+  (d.vip ??= {})[id] = k; g.sat = clampSat(g.sat + o.sat); log(d, o.log); (d.story ??= []).push(o.log);
 }
 export function closeDay(g: Game) {
   const d = g.today!; d.phase = 'close';
   for (const [id, t] of Object.entries(g.tickets)) if (t.vip && t.day === d.day && !d.vip?.[id]) judgeVip(g, id, null);
-  for (const c of TEAM) { const cr = d.capys[c.id]; if (cr.job) log(d, `${c.name} n'a pas fini : ${JOBS[g.tickets[cr.job].job].short} revient demain`); cr.job = null; cr.travel = 0; d.plan[c.id] = []; }
+  for (const c of TEAM) { const cr = d.capys[c.id]; if (cr.job) log(d, `${c.name} n'a pas fini (${JOBS[g.tickets[cr.job].job].short} ${rue(g.tickets[cr.job].site)}) : on y retourne demain`); cr.job = null; cr.travel = 0; d.plan[c.id] = []; }
   // missed RDVs: planned too late or not planned at all
   for (const id of d.rdvToday) if (!d.rdvKept.includes(id) && !d.absentOk.includes(id) && !d.rdvMissed.includes(id)) { d.rdvMissed.push(id); g.sat = clampSat(g.sat - 3); const t = g.tickets[id]; if (g.pile.includes(id)) t.rdv = RDV_WINDOWS[(t.num + t.tries + 1) % RDV_WINDOWS.length]; }
   const spec = DAYS_SPEC[d.day]; d.met = spec.objs.map((o) => evalObj(g, o));
@@ -274,6 +284,7 @@ export function closeDay(g: Game) {
   d.stars = stars;
   d.night = g.pile.reduce((s, id) => s + (JOBS[g.tickets[id].job].leak ?? 0), 0) * NIGHT_SLOTS;
   const lost = g.bg + d.m3 + d.night; const y = SECTOR_M3 / (SECTOR_M3 + lost);
+  (g.moments ??= [])[d.day] = dayLine(g);
   g.history.push({ day: d.day, stars, met: d.met, m3: d.m3 + d.night, yield: y, done: d.done.length, incidents: d.incidents, sat: g.sat, rdvKept: d.rdvKept.length, rdvTotal: d.rdvToday.length });
 }
 /** Overnight: deadlines, then the next briefing (or the end of the campaign). */
@@ -287,7 +298,41 @@ export function nextDay(g: Game) {
   if (g.day >= DAYS) { g.over = true; return; }
   startDay(g);
 }
+const cap1 = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
+/** The day in one or two sentences, from what happened (card choices, VIP outcomes), else from the jobs done. */
+export function dayLine(g: Game): string {
+  const d = g.today!; const st = (d.story ?? []).filter(Boolean); const dot = (x: string) => { const y = cap1(x.trim()); return /[.!?…]$/.test(y) ? y : y + '.'; };
+  if (st.length) return [st[0], st.length > 1 ? st[st.length - 1] : ''].filter(Boolean).map(dot).join(' ');
+  const fin = d.log.map((l) => l.split(' · ').slice(1).join(' · ')).filter((l) => /a (réparé|trouvé|posé|changé|fermé|remis|résolu|mis la main)/.test(l));
+  return fin.length ? dot(fin[fin.length - 1]) : 'Une journée calme. Ça arrive aussi !';
+}
 export const totalStars = (g: Game) => g.history.reduce((s, h) => s + h.stars, 0);
 export const yieldNow = (g: Game) => SECTOR_M3 / (SECTOR_M3 + g.bg);
+/** Open leaks keep flowing tonight: m³ they will lose overnight if nobody repairs them. */
+export const nightLoss = (g: Game) => g.pile.reduce((s, id) => { const t = g.tickets[id]; const d = g.today; if (d && (d.done.includes(id) || (t.day === d.day && t.slot > d.slot))) return s; return s + (JOBS[t.job].leak ?? 0); }, 0) * NIGHT_SLOTS;
+/** Rendement de réseau, live: background losses + water lost today + what the open leaks will lose tonight. Equals the day's result at the close. */
+export function yieldLive(g: Game) { const d = g.today; if (!d) return yieldNow(g); if (d.phase === 'close') return g.history.at(-1)?.yield ?? yieldNow(g); return SECTOR_M3 / (SECTOR_M3 + g.bg + d.m3 + nightLoss(g)); }
+/** This morning's yield (saves from before v2 did not store it: rebuilt from the day's fixes). */
+export function yieldMorning(g: Game) { const d = g.today!; if (d.y0 !== undefined) return d.y0;
+  const bg0 = d.bg0 ?? g.bg + d.done.reduce((s, id) => s + (JOBS[g.tickets[id]?.job]?.fix ?? 0), 0);
+  const open0 = Object.values(g.tickets).filter((t) => (JOBS[t.job].leak ?? 0) && (t.day < d.day || t.slot === 0) && (g.pile.includes(t.id) || d.done.includes(t.id)));
+  return SECTOR_M3 / (SECTOR_M3 + bg0 + open0.reduce((s, t) => s + (JOBS[t.job].leak ?? 0), 0) * NIGHT_SLOTS); }
+export interface YieldWhy { text: string; pt: number }
+/** Why the yield moved today, ticket by ticket (exact: the contributions add up to the change). */
+export function yieldWhy(g: Game): { y0: number; y1: number; items: YieldWhy[] } {
+  const d = g.today!; const y0 = yieldMorning(g); const y1 = yieldLive(g); const S = SECTOR_M3; const L0 = S / y0 - S, L1 = S / y1 - S; const k = (dL: number) => (-dL * S) / ((S + L0) * (S + L1)) * 100;
+  const items: YieldWhy[] = []; const night = d.phase === 'close';
+  for (const id of d.done) { const t = g.tickets[id]; if (!t) continue; const J = JOBS[t.job]; const at = rue(t.site);
+    if (J.fix) items.push({ text: J.id === 'debit_nuit' ? `Fuite cachée trouvée ${at} (${J.fix} m³ par jour, pour de bon)` : `${J.short} ${at} : vanne changée (${J.fix} m³ par jour en moins)`, pt: k(-J.fix) });
+    if (J.leak) { const lost = d.leaks?.[id] ?? 0; const wasOpen = t.day < d.day || t.slot === 0; items.push({ text: `${J.short} ${at} réparée${lost ? ` (${Math.round(lost)} m³ perdus avant)` : ''}`, pt: k(lost - (wasOpen ? J.leak * NIGHT_SLOTS : 0)) }); } }
+  for (const id of g.pile) { const t = g.tickets[id]; const J = JOBS[t.job]; if (!J.leak || d.done.includes(id)) continue; const lost = d.leaks?.[id] ?? 0; const isNew = !(t.day < d.day || t.slot === 0);
+    const dL = lost + (isNew ? J.leak * NIGHT_SLOTS : 0); if (dL) items.push({ text: `${J.short} ${rue(t.site)} pas encore réparée (${Math.round(lost)} m³ aujourd'hui${isNew ? `, ${J.leak * NIGHT_SLOTS} cette nuit` : night ? '' : ''})`, pt: k(dL) }); }
+  const sum = items.reduce((s, x) => s + x.pt, 0); const rest = (y1 - y0) * 100 - sum; if (Math.abs(rest) >= 0.05) items.push({ text: 'Autres petites pertes du jour', pt: rest });
+  return { y0, y1, items: items.filter((x) => Math.abs(x.pt) >= 0.005).sort((a, b) => Math.abs(b.pt) - Math.abs(a.pt)) };
+}
 export const avgYield = (g: Game) => (g.history.length ? g.history.reduce((s, h) => s + h.yield, 0) / g.history.length : START_YIELD);
 export const objLabels = (day: number) => DAYS_SPEC[day].objs.map(objText);
+/** The measured value of an objective, shown next to a missed one (« 30 m³ perdus au maximum (34) »). */
+export function objValue(g: Game, o: Obj): string | null {
+  const d = g.today!; switch (o.id) { case 'm3': return `${Math.round(d.m3)}`; case 'done': return `${d.done.length}`; case 'travel': return `${d.travel} h`; case 'rdv': return `${d.rdvKept.length}/${d.rdvToday.length}`; default: return null; }
+}

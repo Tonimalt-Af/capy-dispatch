@@ -1,0 +1,41 @@
+<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="base.css"><style>
+h1{margin:10px 14px 4px;font-size:17px}h1 small{font-weight:400;color:var(--ink2);font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:0 12px}
+.tk{background:#fff;border-radius:14px;border-top:7px solid var(--c);box-shadow:0 3px 0 var(--line);padding:7px 9px;display:flex;flex-direction:column;gap:4px;height:290px}
+.t1{display:flex;justify-content:space-between;align-items:baseline}.t1 b{font-size:17px;color:var(--navy)}
+.sub{font-size:11.5px;color:var(--ink2);margin-top:-3px}
+.who{font-size:12.5px}.who b{font-weight:600}
+.q{font-style:italic;font-size:12.5px;background:#FFF5DE;border-radius:8px;padding:4px 6px;line-height:1.25}
+.fit{display:flex;gap:4px;flex-wrap:wrap}.fit span{font-size:12px;border-radius:7px;padding:1px 6px;font-weight:700;background:#F3ECDF}.fit .b{background:var(--okl);color:var(--ok)}.fit .x{opacity:.55;font-weight:500}
+.rk{display:flex;flex-direction:column;gap:2px}.rk span{font-size:12px}
+.foot{margin-top:auto;display:flex;gap:4px;flex-wrap:wrap}
+.leg{position:absolute;bottom:6px;left:14px;font-size:12px;color:var(--ink2)}
+</style>
+<h1>Recto des tickets v2 <small>tout ce qui compte se lit sans ouvrir la fiche ; le sigle reste le titre</small></h1>
+<div class="grid">
+ <div class="tk" style="--c:var(--icc)"><div class="t1"><b>PRC</b><span class="chip blue">⏰ 9 h–11 h</span></div><div class="sub">Remplacement de compteur · Intra-muros</div>
+  <div class="who">14 rue Carnot · <b>Mme Fabre</b></div>
+  <div class="q">« Venez avant 11 h, après je garde mes petits-enfants. »</div>
+  <div class="fit"><span class="b">Fred 1 h</span><span>Lulu 2 h</span><span class="x">Josette —</span></div>
+  <div class="rk"><span>🐕 <b>Chien</b> : Ulysse, gros et très poli · peut coûter +1 h</span></div>
+  <div class="foot"><span class="chip">1–2 h</span></div></div>
+ <div class="tk" style="--c:var(--reseau)"><div class="t1"><b>Fuite branchement</b><span class="chip red">Urgent</span></div><div class="sub">ATU · Saint-Ruf (extra-muros)</div>
+  <div class="who">27 av. Monclar · <b>riverain</b></div>
+  <div class="q">« Ça fait des bulles sur le trottoir, mon chat est fasciné. »</div>
+  <div class="fit"><span class="b">Lulu 2 h</span><span>Josette 3 h</span><span class="x">Fred —</span></div>
+  <div class="rk"><span>💧 <b>6 m³ perdus par heure</b> tant que personne n'y est</span><span>📞 Appel gaz avant de creuser</span></div>
+  <div class="foot"><span class="chip red">Gaz ?</span><span class="chip">2–3 h</span></div></div>
+ <div class="tk" style="--c:var(--fuite)"><div class="t1"><b>Débit de nuit</b><span class="chip ok">+0,7 pt</span></div><div class="sub">Recherche de fuite · Champfleury</div>
+  <div class="who">Secteur Champfleury · <b>sectorisation</b></div>
+  <div class="q">« 55 m³ par nuit qui partent quelque part. Le capteur ne ment pas. »</div>
+  <div class="fit"><span class="b">Josette 1 h</span><span class="x">Lulu —</span><span class="x">Fred —</span></div>
+  <div class="rk"><span>👂 Seule Josette entend à travers le bitume</span><span>📈 Rendement de réseau +0,7 pt pour de bon</span></div>
+  <div class="foot"><span class="chip">1 h</span><span class="chip warn">J+2</span></div></div>
+ <div class="tk" style="--c:var(--icc)"><div class="t1"><b>Résilié</b><span class="chip">qui consomme</span></div><div class="sub">Enquête · Intra-muros</div>
+  <div class="who">3 rue des Teinturiers · <b>ex-M. Truc</b></div>
+  <div class="q">« Contrat fermé en mars, compteur qui tourne encore. Fantôme ou colocataire ? »</div>
+  <div class="fit"><span class="b">Fred 1 h</span><span>Lulu 2 h</span><span class="x">Josette —</span></div>
+  <div class="rk"><span>🔑 <b>Cave</b> : clé chez le gardien · peut coûter +1 h</span><span>☕ <b>Café</b> : Mme Pons, voisine bavarde</span></div>
+  <div class="foot"><span class="chip">1–3 h</span></div></div>
+</div>
+<div class="leg">Vert = le plus rapide. Le tap sur un sigle (PRC, ATU…) donne sa définition, il ne remplace pas le titre.</div>

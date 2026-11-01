@@ -1,0 +1,15 @@
+@font-face{font-family:F;src:url(../fonts/fredoka-400.woff2)}@font-face{font-family:F;font-weight:600;src:url(../fonts/fredoka-600.woff2)}@font-face{font-family:F;font-weight:700;src:url(../fonts/fredoka-700.woff2)}
+*{box-sizing:border-box}body{margin:0;width:844px;height:390px;overflow:hidden;font-family:F,sans-serif;background:#F6EEDF;color:#3B2416;font-size:13px;position:relative}
+:root{--icc:#F39A2B;--reseau:#2FA4A9;--fuite:#E86A92;--line:#EADBC4;--ink2:#6B5443;--ok:#2E9152;--okl:#E3F4E8;--bad:#C21A34;--badl:#FFE3E7;--warnl:#FFF1D6;--warn:#9A5B00;--green:#A2C617;--navy:#030F40;--blue:#77B7FC;--blued:#2D72C9;--bluel:#E6F1FE}
+.bar{height:44px;display:flex;align-items:center;gap:8px;padding:0 10px;background:#fff;box-shadow:0 2px 0 var(--line)}
+.ib{width:40px;height:34px;border-radius:12px;display:grid;place-items:center;background:#F3ECDF;font-weight:700;color:var(--navy)}
+.pill{display:flex;align-items:center;gap:6px;background:#F6EEDF;border-radius:999px;padding:3px 10px;font-weight:600;white-space:nowrap;font-size:12px}
+.pill small{font-weight:400;color:var(--ink2);font-size:12px}
+.gauge{position:relative;width:64px;height:8px;border-radius:8px;background:#E8E0D2}.gauge i{position:absolute;left:0;top:0;bottom:0;border-radius:8px;background:var(--blue)}.gauge b{position:absolute;top:-3px;width:2px;height:14px;background:var(--navy);border-radius:2px}
+.tap{border-bottom:1.5px dotted var(--blued)}
+.hd{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:15px;border:2.5px solid #fff;box-shadow:0 2px 0 var(--line);flex:none}
+.chip{display:inline-flex;align-items:center;gap:3px;border-radius:999px;padding:1px 7px;font-size:12px;font-weight:600;background:#F3ECDF;white-space:nowrap}
+.chip.red{background:var(--badl);color:var(--bad)}.chip.ok{background:var(--okl);color:var(--ok)}.chip.warn{background:var(--warnl);color:var(--warn)}.chip.blue{background:var(--bluel);color:var(--blued)}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:6px 14px;border-radius:14px;background:#fff;box-shadow:0 4px 0 #E2CFAE;font-weight:700;font-size:14px;color:var(--navy)}
+.btn.primary{background:var(--green);box-shadow:0 4px 0 #7A960C}
+.note{position:absolute;background:#2B2118;color:#fff;font-size:11.5px;border-radius:8px;padding:3px 8px;font-weight:600}

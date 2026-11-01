@@ -173,3 +173,17 @@ describe('Festival d’Avignon', () => {
     if (a >= 0) expect(G.travelCost(g, SITES[0].node, a)).toBe(1);
   });
 });
+
+describe('boucle v2: yield explainer and day lines', () => {
+  it('the per-ticket yield reasons add up to the change of the day, and the live yield equals the close', async () => {
+    const { playDay } = await import('./bot');
+    for (const seed of [2026, 7]) { const g = G.newGame(seed); G.startDay(g);
+      for (let day = 0; day < 4; day++) { playDay(g); const w = G.yieldWhy(g); const sum = w.items.reduce((s, x) => s + x.pt, 0);
+        expect(Math.abs(sum - (w.y1 - w.y0) * 100)).toBeLessThan(0.051); expect(w.y1).toBeCloseTo(g.history.at(-1)!.yield, 10);
+        expect(G.dayLine(g).length).toBeGreaterThan(5); G.nextDay(g); expect(G.yieldLive(g)).toBeCloseTo(g.today!.y0!, 10); } }
+  });
+  it('log lines speak like a person (« 8 h · Fred sonne chez … »)', () => {
+    const g = G.newGame(2026); G.startDay(g); const t = Object.values(g.tickets)[0];
+    expect(G.jobLine('{c} sonne chez {who}, {rue}', 'Fred', t)).toMatch(/^Fred sonne chez .+, [a-zé]/);
+  });
+});

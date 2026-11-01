@@ -1,8 +1,8 @@
 import '@fontsource/fredoka/latin-400.css'; import '@fontsource/fredoka/latin-600.css'; import '@fontsource/fredoka/latin-700.css';
 import './style.css';
-import { JOBS, TEAM, CAPY, RISKS, DAY_CARDS, DAYS_SPEC, WEEKDAYS, SKILL_SHORT, slotsFor, objText, VIPS, type CapyId, type Skill } from './content';
+import { JOBS, TEAM, CAPY, RISKS, DAY_CARDS, DAYS_SPEC, WEEKDAYS, SKILL_SHORT, slotsFor, objText, VIPS, GLOSSARY, CAPY_LINE, type CapyId, type Skill } from './content';
 import { SITES } from './map';
-import { SLOTS, LUNCH_AFTER, DAYS, SAFETY_RULE, YIELD_TARGET, URGENT_TARGET, slotLabel, slotShort, slotEnd, LUNCH_LABEL, DAY_END } from './rules';
+import { SLOTS, LUNCH_AFTER, DAYS, SAFETY_RULE, YIELD_TARGET, START_YIELD, URGENT_TARGET, slotLabel, slotShort, slotEnd, LUNCH_LABEL, DAY_END } from './rules';
 import * as G from './game';
 import type { Game, Ticket } from './game';
 import { load, save as persist, defaults, KEY, type Save } from './storage';
@@ -51,6 +51,23 @@ const me = (cls = '') => (S.player ? who('player', cls) : who('capy', cls));
 const cap1 = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 /** Very short block labels for the timeline (the full name is on the ticket card and in the details). */
 const TAG: Record<string, string> = { fuite_bt: 'Fuite', fuite_pc: 'Fuite cpt', prc: 'PRC', introuvable: 'Perdu', resilie: 'Résilié', coupure: 'Coupure', debit_nuit: 'Débit nuit', purge: 'Purge', poteau: 'Poteau' };
+/** RDV = the window in which the capy must arrive: « 8h–9h » (same text on the ticket, the band and the sheet). */
+const rdvText = (r: [number, number]) => (r[0] === r[1] ? `à ${slotShort(r[0])}` : `${slotShort(r[0])}–${slotShort(r[1])}`);
+const THE: Record<string, string> = { fuite_bt: 'la fuite', fuite_pc: 'la fuite au compteur', prc: 'le compteur', introuvable: 'le compteur introuvable', resilie: 'le résilié', coupure: 'la coupure', debit_nuit: 'le débit de nuit', purge: 'la purge', fontaine: 'la borne-fontaine', poteau: 'le poteau incendie' };
+const chipFx = (ic: string, v: string, cls = '') => `<em class="fx ${cls}">${icon(ic, 'ic xs')}${v}</em>`;
+/** Card effects as icons: « +1 créneau · satisfaction +4 » → [horloge +1 h] [cœur +4]. */
+function hintHtml(h: string) {
+  return h.split(' · ').map((part) => { let m: RegExpMatchArray | null;
+    if ((m = part.match(/^\+(\d+) créneaux?( de trajet)?$/))) return chipFx(m[2] ? 'van' : 'clock', `+${m[1]} h`, 'time');
+    if ((m = part.match(/^[Ss]atisfaction ([+−-]\d+)(?: \((.+)\))?$/))) return chipFx('heart', m[1], m[1].startsWith('+') ? 'up' : 'down') + (m[2] ? `<small>${esc(m[2])}</small>` : '');
+    if (part === 'Pas d’effet') return '<small>Rien ne change</small>';
+    if (part === 'Ticket reporté') return chipFx('clock', 'à demain', 'time');
+    if ((m = part.match(/^(.*?) : ([+−-]\d+)(.*)$/))) return `<small>${esc(cap1(m[1]))}</small>${chipFx('heart', m[2], m[2].startsWith('+') ? 'up' : 'down')}${m[3] ? `<small>${esc(m[3].replace(/^ et /, 'et '))}</small>` : ''}`;
+    if ((m = part.match(/^(.*?) : (.+)$/))) return `<small>${esc(cap1(m[1]))} : ${esc(m[2])}</small>`;
+    return `<small>${esc(part)}</small>`; }).join('');
+}
+const okMsg = (left: number) => left ? `<span class="okmsg todo">${icon('van', 'ic s')} ${left} ticket${left > 1 ? 's' : ''} t'attend${left > 1 ? 'ent' : ''}</span>` : `<span class="okmsg">${glyph('check')} Tout le monde a sa journée</span>`;
+let pauseMsg = '';
 const range = (t: Ticket, c?: CapyId) => { const J = JOBS[t.job]; const base = c ? slotsFor(CAPY[c], J) : J.dur; if (base === null) return '—'; const mx = base + G.maxExtra(t); return mx > base ? `${base}–${mx}` : `${base}`; };
 
 document.body.innerHTML = `<div id="app"><div class="view" id="home"></div><div class="view" id="create"></div><div class="view" id="game"></div></div>
@@ -59,7 +76,7 @@ document.body.innerHTML = `<div id="app"><div class="view" id="home"></div><div 
 
 let toastT = 0;
 function toast(msg: string, ms = 2200, bad = false) { const t = $('#toast'); t.textContent = nb(msg); t.classList.toggle('bad', bad); t.classList.add('show'); clearTimeout(toastT); toastT = window.setTimeout(() => t.classList.remove('show'), ms); }
-function openOv(html: string, cls = '') { const c = $('#card'); c.className = `card ${cls}`; c.innerHTML = html; fillNames(c); $('#ov').classList.add('show'); c.scrollTop = 0; }
+function openOv(html: string, cls = '') { $('#toast').classList.remove('show'); const c = $('#card'); c.className = `card ${cls}`; c.innerHTML = html; fillNames(c); $('#ov').classList.add('show'); c.scrollTop = 0; }
 function closeOv() { $('#ov').classList.remove('show'); }
 const ovOpen = () => $('#ov').classList.contains('show');
 
@@ -204,9 +221,9 @@ function menu() {
 }
 function objectives() {
   const d = today(); const spec = DAYS_SPEC[d.day];
-  openOv(`<h2>Objectifs du jour</h2><p class="muted">Chaque objectif tenu à la clôture = 1 étoile.${d.incidents ? ' <b class="red">Incident sécurité : journée plafonnée à 1 étoile.</b>' : ''}</p>
+  openOv(`<h2>Objectifs du jour</h2><p class="muted">Chaque objectif tenu à ${DAY_END} vaut une étoile.${d.incidents ? ' <b class="red">On a creusé sans appeler le gaz : la journée ne peut pas dépasser 1 étoile.</b>' : ''}</p>
     <ul class="objs">${spec.objs.map((o) => `<li>${icon('star')}<span>${objText(o)}</span></li>`).join('')}</ul>
-    <p class="muted">Rendement (fond) : chaque fuite réparée et chaque débit de nuit traité fait monter le rendement du réseau. Objectif de la quinzaine : ${pct(YIELD_TARGET)}.</p>
+    <p class="muted">Sur 100 litres mis dans les tuyaux d'Avignon, ${Math.round(G.yieldLive(g!) * 100)} arrivent au robinet. Le contrat en demande ${Math.round(YIELD_TARGET * 100)}. Chaque fuite réparée et chaque fuite cachée trouvée fait monter ce chiffre.</p>
     <div class="btns"><button class="btn primary" id="o-ok">OK</button></div>`, 'small');
   $('#o-ok').onclick = () => { closeOv(); resumeAfterOverlay(); };
 }
@@ -228,12 +245,12 @@ function briefing() {
   const d = today(); const spec = DAYS_SPEC[d.day]; const card = DAY_CARDS[spec.card]; snd.music(0);
   const tick = G.tray(g!); const urg = tick.filter((id) => JOBS[g!.tickets[id].job].urgent).length; const rdv = tick.filter((id) => g!.tickets[id].rdv && G.avail(g!, id)).length;
   openOv(`<div class="brief"><div class="b-left"><div class="bubble">${say(spec.chef)}</div><div class="duo">${who('chef', 'chef')}<div class="pl">${me('plc')}<span class="nt">${NM}</span></div></div></div>
-    <div class="b-right"><p class="kicker">Briefing de 7 h 30</p><h2>${dayName(d.day)}</h2>
+    <div class="b-right"><p class="kicker">Le café de 7 h 30</p><h2>${dayName(d.day)}</h2>
       <div class="daycard">${icon(card.icon, 'ic big')}<div><b>${card.title}</b><span>${card.text}</span></div></div>
       ${g!.news.map((n) => `<p class="news">${icon('warn')} ${esc(n)}</p>`).join('')}
-      <p class="sub">Au planning : <b>${tick.length} tickets</b>${urg ? ` · <b class="red">${urg} urgence${urg > 1 ? 's' : ''}</b>` : ''}${rdv ? ` · ${rdv} RDV` : ''}</p>
+      <p class="sub">Aujourd'hui : <b>${tick.length} tickets</b>${urg ? ` · <b class="red">${urg} urgence${urg > 1 ? 's' : ''}</b>` : ''}${rdv ? ` · ${rdv} RDV` : ''}</p>
       <ul class="objs">${spec.objs.map((o) => `<li>${icon('star')}<span>${objText(o)}</span></li>`).join('')}</ul>
-      <button class="btn primary big" id="b-go">Planifier la journée ${glyph('right')}</button></div></div>`, 'wide');
+      <button class="btn primary big" id="b-go">On prépare la journée ${glyph('right')}</button></div></div>`, 'wide');
   $('#b-go').onclick = () => { closeOv(); d.phase = 'plan'; save(); render(); snd.play('click'); };
 }
 
@@ -261,10 +278,10 @@ function panel() {
     const can = selT ? slotsFor(c, JOBS[selT.job]) !== null : true;
     if (selT && can && edit && !pv.some((s) => s.id === sel)) { const at = Math.max(pv.length ? pv[pv.length - 1].end : fa.at, d.phase === 'run' ? d.slot : 0); const du = slotsFor(c, JOBS[selT.job])!;
       if (at < SLOTS) html += `<div class="gslot" style="left:${xs(at)}%;width:${xe(Math.min(at + du, SLOTS)) - xs(at)}%"><span class="gl-l">Toucher ici · ${slotShort(at)}</span><span class="gl-s">Ici</span></div>`; }
-    const rdvBand = selT?.rdv ? `<div class="rdvband" style="left:${xs(selT.rdv[0])}%;width:${xe(selT.rdv[1] + 1) - xs(selT.rdv[0])}%"><span>RDV</span></div>` : '';
+    const rdvBand = selT?.rdv && can ? `<div class="rdvband" style="left:${xs(selT.rdv[0])}%;width:${xe(selT.rdv[1] + 1) - xs(selT.rdv[0])}%" aria-hidden="true"><span>RDV ${rdvText(selT.rdv)}</span></div>` : '';
     const now = d.phase === 'run' ? `<div class="nowl" style="left:${xs(d.slot)}%"></div>` : '';
     return `<div class="row${selT ? (can ? ' can' : ' cannot') : ''}" data-capy="${c.id}">
-      <div class="who"><span class="hd">${who(c.id)}</span><div><b style="color:${c.color}">${c.name}</b><span class="sk"><i style="background:${SK_COL[c.main]}">${SKILL_SHORT[c.main]}</i>${c.second ? `<i class="s2" style="--k:${SK_COL[c.second]}" title="Métier secondaire : +1 h">${SKILL_SHORT[c.second]}</i>` : ''}</span></div></div>
+      <div class="who" data-who="${c.id}" role="button" tabindex="0" aria-label="${c.name} : qui est-ce ?"><span class="hd">${who(c.id)}</span><div><b style="color:${c.color}">${c.name}</b><span class="sk"><i style="background:${SK_COL[c.main]}">${SKILL_SHORT[c.main]}</i>${c.second ? `<i class="s2" style="--k:${SK_COL[c.second]}" title="Métier secondaire : +1 h">${SKILL_SHORT[c.second]}</i>` : ''}</span></div></div>
       <div class="tl" data-capy="${c.id}"><div class="grid">${Array.from({ length: SLOTS }, (_, s) => `<i style="left:${xs(s)}%;width:${xe(s + 1) - xs(s)}%"${s < d.slot && d.phase === 'run' ? ' class="past"' : ''}></i>`).join('')}<em style="left:${xe(LUNCH_AFTER)}%;width:${(GAP / U) * 100}%"></em></div>${rdvBand}${html}${now}</div></div>`;
   }).join('');
   const w = G.warnings(g!); const red = w.filter((x) => x.level === 'red').length;
@@ -272,7 +289,7 @@ function panel() {
   if (planning) {
     const tr = G.tray(g!);
     bottom = `<div class="tray" id="tray">${tr.length ? tr.map(card).join('') : `<p class="empty">${d.phase === 'plan' ? 'Tous les tickets sont placés.' : 'Rien en attente.'}</p>`}</div>
-      <div class="acts">${w.length ? `<button class="warnbtn ${red ? 'red' : ''}" id="p-warn">${icon('warn', 'ic s')}<span>${w.length} alerte${w.length > 1 ? 's' : ''}</span></button>` : `<span class="okmsg">${glyph('check')} Planning OK</span>`}
+      <div class="acts">${w.length && Object.values(d.plan).flat().length ? `<button class="warnbtn ${red ? 'red' : ''}" id="p-warn">${icon('warn', 'ic s')}<span>${w.length} alerte${w.length > 1 ? 's' : ''}</span></button>` : okMsg(tr.filter((id) => G.avail(g!, id)).length)}
       <button class="btn primary go" id="p-go">${glyph('play')}<span>${d.phase === 'plan' ? 'Lancer la journée' : 'Reprendre'}</span></button></div>`;
   } else {
     bottom = `<div class="feed">${d.log.slice(-3).map((l) => `<p>${esc(l)}</p>`).join('') || '<p class="muted">La tournée commence…</p>'}</div>
@@ -287,14 +304,15 @@ function panel() {
 }
 function card(id: string) {
   const t = g!.tickets[id]; const J = JOBS[t.job]; const ok = G.avail(g!, id);
-  const age = g!.day - t.day; const rdv = t.rdv ? `${slotShort(t.rdv[0])}–${slotEnd(t.rdv[1], true)}` : '';
+  const age = g!.day - t.day; const rdv = t.rdv ? rdvText(t.rdv) : '';
   return `<div class="tk${J.urgent ? ' urg' : ''}${sel === id ? ' sel' : ''}${ok ? '' : ' wait'}" data-t="${id}" style="--c:${SK_COL[J.skill]}" role="button" tabindex="0" aria-label="${J.short}${J.urgent ? ', urgent' : ''}">
     <div class="tk-h">${icon(J.icon)}<b>${J.short}</b><span class="dur" title="Durée (1 créneau = 1 h)">${range(t)} h</span></div>
     <div class="tk-s">${J.urgent ? '<span class="chip red">Urgent</span>' : ''}${t.vip ? `<span class="chip vip">${VIPS[t.vip].tag}</span>` : ''}${!ok && G.festivalBlocked(g!, id) ? '<span class="chip">Arrêté Festival</span>' : !ok && t.avail !== null ? `<span class="chip">Possible ${WEEKDAYS[t.avail % 5].toLowerCase()}</span>` : `<span class="ad">${esc(addr(t))}</span>`}</div>
-    <div class="tk-r"><span class="sk-dot">${SKILL_SHORT[J.skill]}</span>${t.rdv ? `<span class="chip">${icon('clock', 'ic xs')}${rdv}</span>` : ''}${t.risks.filter((r) => r !== 'absent').map((r) => `<span class="rk" title="${RISKS[r].name}">${icon(RISKS[r].icon, 'ic xs')}</span>`).join('')}${t.risks.includes('absent') ? `<span class="rk" title="Abonné peut-être absent">${icon('clock', 'ic xs')}</span>` : ''}${age > 0 ? `<span class="chip">J+${age}</span>` : ''}
+    <div class="tk-r"><span class="sk-dot">${SKILL_SHORT[J.skill]}</span>${t.rdv ? `<span class="chip" title="Arrivée entre ${slotLabel(t.rdv[0])} et ${slotLabel(t.rdv[1])}">${icon('clock', 'ic xs')}${rdv}</span>` : ''}${t.risks.filter((r) => r !== 'absent').map((r) => `<span class="rk" title="${RISKS[r].name}">${icon(RISKS[r].icon, 'ic xs')}</span>`).join('')}${t.risks.includes('absent') ? `<span class="rk" title="Abonné peut-être absent">${icon('clock', 'ic xs')}</span>` : ''}${age > 0 ? `<span class="chip">J+${age}</span>` : ''}
       ${J.dig ? `<button class="chip act ${t.gas ? 'green' : 'red'}" data-gas="${id}" aria-label="${t.gas ? 'Exploitant gaz appelé' : 'Appeler l’exploitant gaz'}">${icon(t.gas ? 'phone' : 'phoneX', 'ic xs')}${t.gas ? 'Gaz OK' : 'Gaz ?'}</button>` : ''}${t.avail === null ? `<button class="chip act blue" data-avis="${id}">${icon('mail', 'ic xs')}Avis 48 h</button>` : ''}</div></div>`;
 }
 function coach() {
+  if (g?.today?.replan && pauseMsg) return `<div class="coach pause" role="status">${icon('clock', 'ic s')}<p>${say(pauseMsg)}</p></div>`;
   if (S.seenTuto || !g || g.day > 0) return '';
   const d = today(); let msg = '';
   if (d.phase === 'plan') { const tr = G.tray(g); msg = tr.length ? (sel ? 'Touche maintenant la ligne d’un capy qui a la bonne pastille de métier.' : (!Object.values(d.plan).flat().length ? '{nom}, touche un ticket en bas pour le choisir (ou fais-le glisser).' : 'Touche le ticket suivant, puis la ligne d’un capy.')) : 'Tout est placé ! Les bandes hachurées « +1 h ? » montrent le temps en plus si un risque tombe. Lance la journée.'; }
@@ -313,6 +331,8 @@ function bindPanel() {
   $('#r-skip', p)?.addEventListener('click', skipToDecision);
   p.querySelectorAll<HTMLElement>('[data-avis]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); if (G.sendAvis(g!, b.dataset.avis!)) { snd.play('place'); toast(`Avis de coupure envoyé : chantier possible ${WEEKDAYS[(g!.day + 2) % 5].toLowerCase()}.`); save(); render(); } }));
   p.querySelectorAll<HTMLElement>('[data-gas]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); G.toggleGas(g!, b.dataset.gas!); snd.play(g!.tickets[b.dataset.gas!].gas ? 'place' : 'click'); save(); render(); }));
+  p.querySelectorAll<HTMLElement>('[data-who]').forEach((w) => w.addEventListener('click', (e) => { if (sel) return; e.stopPropagation(); const c = CAPY[w.dataset.who as CapyId];
+    toast(`${CAPY_LINE[c.id]} ${GLOSSARY[SKILL_SHORT[c.main]] ?? ''}`.trim(), 4200); }));
   if (!editable() && !(d.phase === 'run' && d.replan)) return;
   p.querySelectorAll<HTMLElement>('.tk').forEach((el) => {
     el.addEventListener('click', () => { if (suppressClick) return; tapTicket(el.dataset.t!); });
@@ -375,34 +395,47 @@ function blockMenu(id: string, el: HTMLElement) {
     snd.play('place'); save(); render(); });
   setTimeout(() => addEventListener('pointerdown', function off(ev) { if (!m.contains(ev.target as Node)) { m.remove(); removeEventListener('pointerdown', off, true); } }, true), 0);
 }
+/** Trade words found in a job's name, with their one-line definition. */
+const glossFor = (txt: string) => Object.entries(GLOSSARY).filter(([k]) => txt.toLowerCase().includes(k.toLowerCase())).map(([, v]) => v);
+const whoName = (t: Ticket) => t.who.split(' (')[0].split(' · ')[0];
+function capyFit(t: Ticket, c: typeof TEAM[number]) { const J = JOBS[t.job]; const r = range(t, c.id);
+  if (r === '—') return `<p class="fit no">${c.name} : pas son métier</p>`;
+  if (c.main === J.skill) return `<p class="fit">${c.name} : <b>${r} h</b>, c'est son métier</p>`;
+  return `<p class="fit">${c.name} le fait aussi, en un peu plus long (<b>${r} h</b>)</p>`; }
 function detail(id: string) {
   const t = g!.tickets[id]; const J = JOBS[t.job]; const d = today(); const planned = Object.values(d.plan).flat().includes(id); const ed = editable() || d.replan;
-  openOv(`<div class="det"><div class="det-h" style="--c:${SK_COL[J.skill]}">${icon(J.icon, 'ic big')}<div><h2>${J.name}</h2><p>${esc(addr(t))} · ${t.prefet || t.vip ? esc(t.who) : 'Abonné : ' + esc(t.who)}</p></div></div>
+  const gl = glossFor(J.name);
+  openOv(`<div class="det"><div class="det-h" style="--c:${SK_COL[J.skill]}">${icon(J.icon, 'ic big')}<div><h2>${J.name}</h2><p>${esc(addr(t))} · ${t.prefet || t.vip ? esc(t.who) : 'chez ' + esc(t.who)}</p></div></div>
+    ${gl.map((x) => `<p class="gloss">${glyph('info')}<span>${esc(x)}</span></p>`).join('')}
     <p>${J.desc}</p>${t.vip ? `<p class="vipr">${icon('star', 'ic s')} <b>${VIPS[t.vip].tag}</b> · ${VIPS[t.vip].rule}</p>` : ''}
-    <div class="det-g"><div><h3>Durée</h3>${TEAM.map((c) => `<p>${c.name} : <b>${range(t, c.id) === '—' ? 'ne sait pas faire' : range(t, c.id) + ' h'}</b></p>`).join('')}<p class="muted">Métier ${SKILL_SHORT[J.skill]}. Métier secondaire : +1 h.</p></div>
-    <div><h3>Risques annoncés</h3>${t.risks.length || J.minigame ? '' : '<p class="muted">Aucun.</p>'}${t.risks.map((r) => `<p>${icon(r === 'absent' ? 'clock' : RISKS[r].icon, 'ic s')} <b>${r === 'absent' ? 'Abonné peut-être absent' : RISKS[r].name}</b> · ${RISKS[r].tip} <i>(tu choisiras : +1 h ou autre option)</i></p>`).join('')}${J.minigame ? `<p>${icon('search', 'ic s')} <b>Compteur à trouver</b> · 0 ou +1 h selon ta recherche</p>` : ''}
-    ${t.rdv ? `<p>${icon('clock', 'ic s')} <b>RDV</b> : ${slotLabel(t.rdv[0])} – ${slotEnd(t.rdv[1])} (arriver au plus tard à ${slotLabel(t.rdv[1])})</p>` : ''}${J.urgent ? `<p class="red">${icon('drop', 'ic s')} <b>Urgent</b> : à commencer dans les ${URGENT_TARGET} h après l'appel. ${J.leak} m³ perdus par heure.</p>` : ''}</div></div>
-    ${J.dig ? `<button class="btn ${t.gas ? 'ok' : 'danger'}" id="d-gas">${icon(t.gas ? 'phone' : 'phoneX')}<span>${t.gas ? 'Exploitant gaz appelé ✓' : 'Appeler l’exploitant gaz avant de creuser'}</span></button>` : ''}
-    ${J.coupure && t.avail === null ? `<button class="btn" id="d-avis">${icon('mail')}<span>Envoyer l'avis de coupure 48 h</span></button>` : ''}
+    <div class="det-g"><div><h3>Qui peut y aller ?</h3>${TEAM.map((c) => capyFit(t, c)).join('')}</div>
+    <div><h3>À savoir</h3>${t.risks.length || J.minigame || t.rdv || J.urgent ? '' : '<p class="muted">Rien de spécial : une intervention tranquille.</p>'}
+    ${t.rdv ? `<p>${icon('clock', 'ic s')} <b>RDV</b> : arrivée entre ${slotLabel(t.rdv[0])} et ${slotLabel(t.rdv[1])}${t.rdv[0] === t.rdv[1] ? '' : ''}</p>` : ''}${J.urgent ? `<p class="red">${icon('drop', 'ic s')} <b>Urgent</b> : à commencer dans les ${URGENT_TARGET} h après l'appel. Elle perd ${J.leak} m³ par heure.</p>` : ''}
+    ${t.risks.map((r) => `<p>${icon(r === 'absent' ? 'clock' : RISKS[r].icon, 'ic s')} <b>${r === 'absent' ? 'Abonné peut-être absent' : RISKS[r].name}</b> · ${RISKS[r].tip} <i>(si ça arrive, tu choisiras quoi faire)</i></p>`).join('')}${J.minigame ? `<p>${icon('search', 'ic s')} <b>Compteur à trouver</b> · trouvé vite, pas de retard ; sinon +1 h</p>` : ''}</div></div>
+    ${J.dig ? `<button class="btn ${t.gas ? 'ok' : 'danger'}" id="d-gas">${icon(t.gas ? 'phone' : 'phoneX')}<span>${t.gas ? 'Gaz appelé ✓' : 'Appeler le gaz avant de creuser'}</span></button>` : ''}
+    ${J.coupure && t.avail === null ? `<button class="btn" id="d-avis">${icon('mail')}<span>Prévenir les voisins (avis 48 h)</span></button>` : ''}
     <div class="btns">${ed && G.avail(g!, id) ? TEAM.filter((c) => G.canDo(c.id, id, g!)).map((c) => `<button class="btn" data-put="${c.id}">Donner à ${c.name}</button>`).join('') : ''}${ed && planned ? '<button class="btn" id="d-del">Retirer du planning</button>' : ''}<button class="btn primary" id="d-ok">OK</button></div></div>`, 'wide');
   $('#d-ok').onclick = () => { closeOv(); resumeAfterOverlay(); };
-  $('#d-gas')?.addEventListener('click', () => { if (!ed && d.phase !== 'plan') { toast('Pendant la tournée, l’appel se fait à l’arrivée du capy.'); return; } G.toggleGas(g!, id); save(); render(); detail(id); });
+  $('#d-gas')?.addEventListener('click', () => { if (!ed && d.phase !== 'plan') { toast('Pendant la tournée, le capy appelle en arrivant.'); return; } G.toggleGas(g!, id); save(); render(); detail(id); });
   $('#d-avis')?.addEventListener('click', () => { G.sendAvis(g!, id); save(); render(); detail(id); snd.play('place'); });
   $('#d-del')?.addEventListener('click', () => { G.unassign(g!, id); save(); closeOv(); render(); });
   document.querySelectorAll<HTMLElement>('[data-put]').forEach((b) => b.addEventListener('click', () => { closeOv(); G.unassign(g!, id); G.assign(g!, b.dataset.put as CapyId, id); sel = null; snd.play('place'); save(); render(); }));
 }
+/** Make a planned block blink (alerts « Montrer »). */
+function flash(id: string) { const el = document.querySelector<HTMLElement>(`.blk[data-b="${id}"], .tk[data-t="${id}"]`); if (!el) return; el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
 function showWarnings(launching: boolean) {
   const w = G.warnings(g!); const red = w.some((x) => x.level === 'red'); const block = !G.canLaunch(g!);
-  openOv(`<h2>${launching ? 'Avant de lancer…' : 'Alertes du planning'}</h2><ul class="warns">${w.map((x) => `<li class="${x.level}">${icon('warn', 'ic s')} ${esc(x.text)}</li>`).join('')}</ul>
-    ${block ? '<p class="red"><b>Règle de sécurité : la journée ne peut pas démarrer sans l’appel à l’exploitant gaz.</b></p>' : ''}
-    <div class="btns">${block ? '<button class="btn primary" id="w-call">Appeler pour tous les chantiers</button>' : ''}<button class="btn" id="w-fix">Corriger</button>${launching && !block ? `<button class="btn ${red ? 'danger' : 'primary'}" id="w-go">Lancer quand même</button>` : ''}</div>`, 'small');
+  openOv(`<h2>${launching ? 'Avant de lancer…' : 'Ce qui coince'}</h2><ul class="warns">${w.map((x, i) => `<li class="${x.level}">${icon('warn', 'ic s')}<span>${esc(nb(x.text))}</span>${x.id ? `<button class="chip act" data-show="${i}">Montrer</button>` : ''}</li>`).join('')}</ul>
+    ${block ? '<p class="red"><b>Sécurité : on ne creuse jamais sans avoir appelé le gaz.</b></p>' : ''}
+    <div class="btns">${block ? '<button class="btn primary" id="w-call">Appeler le gaz pour tous</button>' : ''}<button class="btn" id="w-fix">Je corrige</button>${launching && !block ? `<button class="btn ${red ? 'danger' : 'primary'}" id="w-go">Lancer quand même</button>` : ''}</div>`, 'small');
   $('#w-fix').onclick = closeOv;
+  document.querySelectorAll<HTMLElement>('[data-show]').forEach((b) => b.addEventListener('click', () => { const x = w[Number(b.dataset.show)]; closeOv(); if (DRAWER.matches && mapOpen) setMap(false); requestAnimationFrame(() => flash(x.id!)); }));
   $('#w-call')?.addEventListener('click', () => { for (const c of TEAM) for (const id of today().plan[c.id]) if (JOBS[g!.tickets[id].job].dig) g!.tickets[id].gas = true; save(); closeOv(); render(); });
   $('#w-go')?.addEventListener('click', () => { closeOv(); doLaunch(); });
 }
 function launchDay() {
   const d = today(); sel = null;
-  if (d.phase === 'run') { d.replan = false; save(); play(); return; }
+  if (d.phase === 'run') { d.replan = false; pauseMsg = ''; save(); play(); return; }
   if (!Object.values(d.plan).some((q) => q.length)) { toast('Place au moins un ticket sur une ligne de capy.'); snd.play('invalid'); return; }
   const w = G.warnings(g!); if (w.some((x) => x.level === 'red') || !G.canLaunch(g!)) { showWarnings(true); return; }
   doLaunch();
@@ -441,11 +474,11 @@ function showPending() {
   snd.play(p.kind === 'safety' || c.choices.some((x) => x.fx.addTicket && JOBS[x.fx.addTicket].urgent) ? 'alert' : 'card');
   const ctx = [p.capy ? CAPY[p.capy].name : '', t ? `${JOBS[t.job].short}, ${addr(t)}` : '', slotLabel(Math.min(d.slot, SLOTS - 1))].filter(Boolean).join(' · ');
   openOv(`<div class="ecard${p.kind === 'safety' ? ' safety' : ''}"><div class="e-art">${who(w)}</div><div class="e-body"><p class="kicker">${esc(ctx)}</p><h2>${c.title}</h2><p>${c.text}</p>
-    <div class="choices">${c.choices.map((ch, i) => `<button class="choice" data-i="${i}"><b>${ch.label}</b><span>${ch.hint}</span></button>`).join('')}</div></div></div>`, 'wide');
+    <div class="choices">${c.choices.map((ch, i) => `<button class="choice" data-i="${i}"><b>${ch.label}</b><span class="fxs">${hintHtml(ch.hint)}</span></button>`).join('')}</div></div></div>`, 'wide');
   document.querySelectorAll<HTMLElement>('.choice').forEach((b) => b.addEventListener('click', () => {
     const nt = G.choose(g!, Number(b.dataset.i)); snd.play('click'); save(); closeOv();
     if (p.capy && t) { const cr = today().capys[p.capy]; if (!cr.job && !cr.travel) mv?.moveCapy(p.capy, SITES[t.site].node); }
-    if (nt) { const J = JOBS[nt.job]; today().replan = true; sel = nt.id; render(); mv?.focus(nt.site); toast(`Nouveau ticket : ${J.short}. Le temps est arrêté, place-le puis « Reprendre ▶ ».`, 3600); snd.play(J.urgent ? 'alert' : 'select'); return; }
+    if (nt) { const J = JOBS[nt.job]; today().replan = true; sel = nt.id; render(); mv?.focus(nt.site); pauseMsg = `Pause ! Place ${THE[J.id] ?? 'le nouveau ticket'}, puis ▶`; render(); snd.play(J.urgent ? 'alert' : 'select'); return; }
     if (today().pending.length) showPending(); else play();
   }));
 }
@@ -454,14 +487,14 @@ function miniGame(id: string, capy: CapyId) {
   const draw = () => {
     openOv(`<div class="mini-l"><div class="facade">${f.svg.replace('</svg>', (done ? meterSvg(f.spots[f.meter]) : '') + '</svg>')}${f.spots.map((s) => `<button class="spot${hint && !f.hintSpots.includes(s.id) ? ' dim' : ''}${missed.has(s.id) ? ' miss' : ''}" ${missed.has(s.id) ? 'disabled ' : ''}data-s="${s.id}" style="left:${(s.x / 400) * 100}%;top:${(s.y / 240) * 100}%;width:${((s.r * 2.2) / 400) * 100}%" aria-label="Chercher ici"></button>`).join('')}</div></div>
       <div class="mini-r"><p class="kicker">${CAPY[capy].name} · ${esc(addr(t))}</p><h2>Trouver le compteur</h2>
-        <div class="say" id="say">${done ? '' : 'Touche l’endroit où tu penses trouver le compteur. Pas de chrono.'}</div>
-        <div class="mini-k"><span>Fausses pistes</span><b>${wrong}</b>${hint ? '<em>indice utilisé</em>' : ''}</div>
-        <p class="rule">0 ou 1 fausse piste (l’indice compte pour une) : pas de retard. Au-delà : +1 h.</p>
-        <div class="col">${done ? '' : `<button class="btn" id="mg-hint" ${hint ? 'disabled' : ''}>${icon('search')}<span>Indice du SIG</span></button><button class="btn" id="mg-auto">Laisser faire ${CAPY[capy].name} <small>+1 h</small></button>`}</div></div>
+        <div class="say" id="say">${done ? '' : 'Où se cache le compteur ? Touche la façade. Pas de chrono.'}</div>
+        <div class="mini-k"><span>Ratés</span><b>${wrong}</b>${hint ? '<em>plan regardé</em>' : ''}</div>
+        <p class="rule">Trouve-le en deux essais et ${CAPY[capy].name} ne perd pas de temps. (Regarder le plan compte pour un essai.)</p>
+        <div class="col">${done ? '' : `<button class="btn" id="mg-hint" ${hint ? 'disabled' : ''}>${icon('search')}<span>Regarder le plan</span></button><button class="btn" id="mg-auto">Laisser faire ${CAPY[capy].name} <small>+1 h</small></button>`}</div></div>
 `, 'wide mini');
     document.querySelectorAll<HTMLButtonElement>('.spot').forEach((b) => b.addEventListener('click', () => {
       if (done) return; const s = Number(b.dataset.s);
-      if (s === f.meter) { done = true; snd.play('star'); const extra = miniScore(wrong, hint); draw(); $('#say').innerHTML = `<b>Trouvé ${foundText(f.spots[s].kind)} !</b> ${extra ? '+1 h de recherche.' : 'Aucun retard, bravo.'}`; setTimeout(() => finish(extra, `a trouvé le compteur ${foundText(f.spots[s].kind)}`), 1500); }
+      if (s === f.meter) { done = true; snd.play('star'); const extra = miniScore(wrong, hint); draw(); $('#say').innerHTML = `<b>Trouvé ${foundText(f.spots[s].kind)} !</b> ${extra ? 'Ça a pris un peu de temps : +1 h.' : 'Pile à l’heure, bravo !'}`; setTimeout(() => finish(extra, `a trouvé le compteur ${foundText(f.spots[s].kind)}`), 1500); }
       else { wrong++; missed.add(s); snd.play('invalid'); b.classList.add('miss'); b.disabled = true; $('#say').textContent = wrongText(f, s, t.num); const k = $('.mini-k b'); if (k) k.textContent = String(wrong); }
     }));
     $('#mg-hint')?.addEventListener('click', () => { hint = true; snd.play('hint'); draw(); $('#say').textContent = f.hint; });
@@ -487,41 +520,50 @@ function mapUpdate() {
 }
 
 // ---------------------------------------------------------------- day close & campaign end
+const ptText = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1).replace('.', ',')}\u202Fpt`;
 function closeScreen() {
-  const d = today(); const spec = DAYS_SPEC[d.day]; const h = g!.history[g!.history.length - 1]; snd.music(0); snd.play(d.stars ? 'win' : 'lose');
-  const dsat = Math.round(g!.sat - d.satStart);
-  const line = ['Journée compliquée, {nom}… On repart {motivé|motivée} demain !', 'On a tenu le coup, {nom}.', 'Belle journée, {nom} !', 'Journée parfaite, {nom} ! L’équipe est ravie.'][d.stars!];
-  const kpi = (ic: string, v: string, l: string) => `<div>${icon(ic, 'ic s')}<b>${v}</b><span>${l}</span></div>`;
-  openOv(`<div class="close"><div class="c-left"><p class="kicker">Clôture de ${DAY_END}</p><h2>${dayName(d.day)}</h2>
-      <div class="c-stars"><div class="stars">${[0, 1, 2].map((i) => `<span class="st${i < d.stars! ? ' on' : ''}" style="animation-delay:${0.2 + i * 0.25}s">${ICONS[i < d.stars! ? 'star' : 'starOff']}</span>`).join('')}</div><div class="c-me">${me()}</div></div>
-      <p class="c-line">${say(line)}</p>
-      <ul class="objs">${spec.objs.map((o, i) => `<li class="${d.met![i] ? 'ok' : 'ko'}">${glyph(d.met![i] ? 'check' : 'cross')} <span>${objText(o)}</span></li>`).join('')}</ul>
-      ${d.incidents ? '<p class="red"><b>Incident sécurité</b> (pas d’appel gaz avant de creuser) : journée plafonnée à 1 étoile.</p>' : ''}</div>
-    <div class="c-right"><div class="kpis">
-      ${kpi('van', String(d.done.length), 'tickets traités')}${kpi('clock', `${d.rdvKept.length}/${d.rdvToday.length}`, 'RDV tenus')}
-      ${kpi('drop', `${Math.round(d.m3)} + ${Math.round(d.night)} m³`, 'perdus jour + nuit')}${kpi('meter', pct(h.yield), 'rendement')}
-      <div>${icon('heart', 'ic s')}<b>${Math.round(g!.sat)} <small class="${dsat >= 0 ? 'green' : 'red'}">${dsat >= 0 ? '+' : ''}${dsat}</small></b><span>satisfaction</span></div>${kpi('lane', String(d.travel), 'h de trajet')}</div>
-      <details><summary>Journal de la journée</summary><div class="log">${d.log.map((l) => `<p>${esc(l)}</p>`).join('')}</div></details>
-      <button class="btn primary big" id="c-next">${d.day + 1 >= DAYS ? 'Bilan de la quinzaine' : 'Journée suivante'} ${glyph('right')}</button></div></div>`, 'wide');
+  const d = today(); const spec = DAYS_SPEC[d.day]; snd.music(0); snd.play(d.stars ? 'win' : 'lose');
+  const dsat = Math.round(g!.sat - d.satStart); const yw = G.yieldWhy(g!); const dy = (yw.y1 - yw.y0) * 100; const lost = Math.round(d.m3 + d.night);
+  const last = d.day + 1 >= DAYS; const next = last ? 'Le pot du vendredi' : `Au lit ! ${WEEKDAYS[(d.day + 1) % 5]}`;
+  const tile = (id: string, v: string, l: string, cls = '') => `<button class="ctile ${cls}" id="${id}"><b>${v}</b><span>${l}</span></button>`;
+  const row = (ic: string, v: string, l: string) => `<div>${icon(ic, 'ic s')}<b>${v}</b><span>${l}</span></div>`;
+  openOv(`<div class="close v2"><div class="c-main"><div class="c-top">
+      <div class="c-head"><div><p class="kicker">${DAY_END} · ${esc(dayName(d.day))}</p><h2>On range les fourgons</h2></div><div class="c-me">${me()}</div></div>
+      <div class="stars">${[0, 1, 2].map((i) => `<span class="st${i < d.stars! ? ' on' : ''}" style="animation-delay:${0.2 + i * 0.25}s">${ICONS[i < d.stars! ? 'star' : 'starOff']}</span>`).join('')}</div>
+      <p class="c-quote">« ${esc(nb(G.dayLine(g!)))} »</p>
+      </div><div class="c-side"><ul class="objs">${spec.objs.map((o, i) => { const v = G.objValue(g!, o); return `<li class="${d.met![i] ? 'ok' : 'ko'}">${glyph(d.met![i] ? 'check' : 'cross')} <span>${objText(o)}${!d.met![i] && v ? ` <em>(${v})</em>` : ''}</span></li>`; }).join('')}</ul>
+      ${d.incidents ? '<p class="red"><b>On a creusé sans appeler le gaz</b> : pas plus d’une étoile aujourd’hui.</p>' : ''}
+      <div class="ctiles">${tile('c-y', ptText(dy), 'rendement de réseau', dy >= 0 ? 'up' : 'down')}${tile('c-m3', `${lost} m³`, d.night ? 'perdus (avec la nuit)' : 'perdus aujourd’hui', 'm3')}</div>
+      </div>
+      <div class="c-more" id="c-det" hidden><div class="kpis">${row('van', String(d.done.length), 'tickets traités')}${row('clock', `${d.rdvKept.length}/${d.rdvToday.length}`, 'RDV tenus')}
+        ${row('heart', `${Math.round(g!.sat)} (${dsat >= 0 ? '+' : ''}${dsat})`, 'abonnés')}${row('lane', `${d.travel} h`, 'de route')}</div>
+        <div class="log">${d.log.map((l) => `<p>${esc(nb(l))}</p>`).join('')}</div></div>
+      <div class="btns"><button class="btn" id="c-more" aria-expanded="false" aria-controls="c-det"><span>Détails</span><i class="arr">${glyph('right')}</i></button><button class="btn primary" id="c-next">${next} ${glyph('right')}</button></div></div></div>`, 'wide close-ov');
+  fillNames($('#card'));
+  $('#c-more').onclick = () => { const det = $('#c-det'); const open = det.hidden; det.hidden = !open; $('#c-more').setAttribute('aria-expanded', String(open)); if (open) det.scrollIntoView({ block: 'nearest' }); };
   $('#c-next').onclick = () => { if (!S.seenTuto) { S.seenTuto = true; } G.nextDay(g!); sel = null; save(); closeOv(); if (g!.over) bilan(); else { mv?.resetCapys(); for (const c of TEAM) mv?.moveCapy(c.id, today().capys[c.id].pos); render(); briefing(); } };
 }
 function bilan() {
   const tot = G.totalStars(g!); const y = g!.history.length ? g!.history[g!.history.length - 1].yield : G.yieldNow(g!); const inc = g!.history.reduce((s, h) => s + h.incidents, 0);
-  const rdvK = g!.history.reduce((s, h) => s + h.rdvKept, 0), rdvT = g!.history.reduce((s, h) => s + h.rdvTotal, 0);
   const tier = say(tot >= 25 ? '{nom}, {ordonnanceur|ordonnanceuse} de l’année ! Le directeur régional veut te cloner.' : tot >= 18 ? 'Très belle quinzaine, {nom}. L’équipe est fière de toi (et un peu fatiguée).' : tot >= 10 ? 'Une quinzaine honnête, {nom}. On fera mieux après un bon café.' : 'Quinzaine difficile, {nom}… Mais personne n’a dit que l’eau, c’était simple. {Prêt|Prête} pour la revanche ?');
   if (!g!.history.length) { home(); return; }
   if (!S.best.runs || tot > S.best.stars || (tot === S.best.stars && y > S.best.yield)) { S.best.stars = Math.max(S.best.stars, tot); S.best.yield = Math.max(S.best.yield, y); }
   if (!(g as Game & { counted?: boolean }).counted) { S.best.runs++; (g as Game & { counted?: boolean }).counted = true; }
   save(); snd.play('legend');
-  openOv(`<div class="brief"><div class="b-left"><div class="bubble">${tier}</div><div class="duo">${who('chef', 'chef')}<div class="pl">${me('plc')}<span class="nt">${NM}</span></div></div></div><div class="b-right"><p class="kicker">Bilan avec le chef</p><h2>Fin de la quinzaine</h2>
-    <div class="kpis"><div><b>${tot} ★</b><span>sur ${DAYS * 3}</span></div><div><b class="${y >= YIELD_TARGET ? 'green' : ''}">${pct(y)}</b><span>rendement (objectif ${pct(YIELD_TARGET)})</span></div>
-    <div><b>${rdvK}/${rdvT}</b><span>RDV tenus</span></div><div><b>${Math.round(g!.sat)}</b><span>satisfaction</span></div><div><b class="${inc ? 'red' : 'green'}">${inc}</b><span>incident${inc > 1 ? 's' : ''} sécurité</span></div>
-    <div class="${g!.stickers.includes('capydindon') ? 'got' : 'miss'}"><span class="stk">${who('capydindon')}</span><span>${g!.stickers.includes('capydindon') ? 'capydindon doré : vu !' : 'capydindon doré : pas vu'}</span></div></div>
+  const fixed = Object.values(g!.tickets).filter((t) => !g!.pile.includes(t.id) && (JOBS[t.job].leak || JOBS[t.job].fix)).length;
+  const moments = (g!.moments ?? []).filter((m) => m && !/^Une journée calme/.test(m)); const fun = moments.length ? moments[(g!.seed + moments.length) % moments.length] : '';
+  const din = g!.stickers.includes('capydindon'); const p0 = Math.round(START_YIELD * 100), p1 = Math.round(y * 100);
+  openOv(`<div class="brief pot"><div class="b-left"><div class="bubble">${tier}</div><div class="duo">${who('chef', 'chef')}<div class="pl">${me('plc')}<span class="nt">${NM}</span></div></div></div><div class="b-right"><p class="kicker">Fin de la quinzaine</p><h2>Le pot du vendredi</h2>
+    <div class="pot-top"><div class="pot-stars">${icon('star')}<b>${tot}</b><span>étoiles<br>sur ${DAYS * 3}</span></div><div class="stickers" title="Autocollants"><span class="stk ${din ? 'got' : 'miss'}">${who('capydindon')}</span><span>${nb(din ? 'Capydindon doré : trouvé !' : 'Capydindon doré : pas encore vu…')}</span></div></div>
+    <ul class="pot-l"><li>${icon('drop', 'ic s')}<span><b>${fixed} fuite${fixed > 1 ? 's' : ''}</b> bouchée${fixed > 1 ? 's' : ''}</span></li>
+      <li>${icon('meter', 'ic s')}<span>Avignon perd ${p1 >= p0 ? 'moins' : 'plus'} d’eau : <b>${p0}\u202F% → <em class="${y >= YIELD_TARGET ? 'green' : ''}">${p1}\u202F%</em></b>${y >= YIELD_TARGET ? ' (contrat tenu !)' : ` (le contrat demande ${Math.round(YIELD_TARGET * 100)}\u202F%)`}</span></li>
+      <li>${icon('heart', 'ic s')}<span>Abonnés : <b>${Math.round(g!.sat)}</b> sur 100</span></li>
+      ${inc ? `<li class="red">${icon('warn', 'ic s')}<span>${inc} chantier${inc > 1 ? 's' : ''} sans appel au gaz : à ne jamais refaire</span></li>` : ''}</ul>
+    ${fun ? `<p class="c-quote">« ${esc(nb(fun))} »</p>` : ''}
     <div class="btns"><button class="btn" id="bi-home">${glyph('home')}<span>Accueil</span></button><button class="btn primary" id="bi-new">${glyph('play')}<span>Nouvelle quinzaine</span></button></div></div></div>`, 'wide');
   $('#bi-home').onclick = home; $('#bi-new').onclick = newRun;
 }
 
-// ---------------------------------------------------------------- audio unlock, landscape, keyboard, service worker
 let unlocked = false;
 const gesture = () => { snd.ensure(); if (!unlocked && snd.ctx) { unlocked = true; snd.music(view() === 'game' && g?.today?.phase === 'run' ? 1 : 0); } };
 for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) addEventListener(ev, gesture, { capture: true, passive: true });

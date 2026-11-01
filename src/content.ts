@@ -12,19 +12,20 @@ export interface JobType {
   urgent?: boolean; /** digging under the road: ATU + gas call before starting */ dig?: boolean;
   /** m³ lost per slot while not repaired */ leak?: number; /** background loss removed for good once done (m³/day) */ fix?: number;
   minigame?: 'compteur'; /** needs a 48 h cut notice */ coupure?: boolean; icon: string; desc: string;
+  /** day log lines: {c} capy, {who} subscriber, {rue} « rue du Roi René » */ go: string; fin: string;
   /** phase 2 hooks (data only, no UI yet) */ side: 'avant' | 'apres' | 'na'; habilitation: string | null;
 }
 export const JOBS: Record<JobId, JobType> = {
-  fuite_bt: { id: 'fuite_bt', name: 'Fuite sur branchement', short: 'Fuite branchement', skill: 'reseau', dur: 2, urgent: true, dig: true, leak: 6, icon: 'drop', side: 'avant', habilitation: 'AIPR', desc: "De l'eau sort du trottoir. Il faut ouvrir la chaussée (ATU) et réparer le branchement. Appel à l'exploitant gaz avant de creuser." },
-  fuite_pc: { id: 'fuite_pc', name: 'Fuite au poste de comptage', short: 'Fuite compteur', skill: 'icc', dur: 1, leak: 1, icon: 'meterdrop', side: 'avant', habilitation: null, desc: 'Le joint du compteur goutte dans le regard. Changer les joints, contrôler le robinet avant compteur.' },
-  prc: { id: 'prc', name: 'Remplacement de compteur (PRC)', short: 'PRC', skill: 'icc', dur: 1, icon: 'meter', side: 'na', habilitation: null, desc: "Compteur de plus de 15 ans à remplacer. Rendez-vous pris avec l'abonné : relever l'index, poser, plomber, photo." },
-  introuvable: { id: 'introuvable', name: 'Compteur introuvable', short: 'Introuvable', skill: 'icc', dur: 1, minigame: 'compteur', icon: 'search', side: 'na', habilitation: null, desc: "La télérelève ne répond plus et personne ne sait où est le compteur. Le SIG donne une piste, à toi de le trouver sur la façade." },
-  resilie: { id: 'resilie', name: '« Résilié qui consomme »', short: 'Résilié', skill: 'icc', dur: 1, icon: 'ghost', side: 'na', habilitation: null, desc: "Contrat résilié mais l'index continue de tourner. Enquête : nouvel occupant, fuite, ou branchement oublié ?" },
-  coupure: { id: 'coupure', name: 'Réparation programmée avec coupure', short: 'Coupure programmée', skill: 'reseau', dur: 2, dig: true, coupure: true, fix: 25, icon: 'valve', side: 'avant', habilitation: 'AIPR', desc: "Remplacer une vanne fatiguée. Les riverains doivent recevoir l'avis de coupure 48 h avant : envoie-le, le chantier sera possible 2 jours plus tard." },
-  debit_nuit: { id: 'debit_nuit', name: 'Débit de nuit anormal', short: 'Débit de nuit', skill: 'fuite', dur: 1, fix: 55, icon: 'ear', side: 'avant', habilitation: null, desc: "La sectorisation voit un débit de nuit trop haut : une fuite invisible. Écoute au sol, prélocalisateurs, puis réparation sans ouvrir grand." },
-  purge: { id: 'purge', name: 'Purge (eau colorée)', short: 'Purge', skill: 'reseau', dur: 1, icon: 'tap', side: 'avant', habilitation: null, desc: "Après une manœuvre, l'eau sort couleur thé. Ouvrir la purge jusqu'à ce qu'elle redevienne claire, contrôler le chlore." },
-  fontaine: { id: 'fontaine', name: 'Borne-fontaine en panne', short: 'Borne-fontaine', skill: 'reseau', dur: 1, icon: 'tap', side: 'avant', habilitation: null, desc: "La borne-fontaine publique ne donne plus qu'un filet : robinet fatigué ou filtre entartré. Démonter, nettoyer, remonter, contrôler le débit (et goûter, c'est le métier)." },
-  poteau: { id: 'poteau', name: 'Poteau incendie heurté', short: 'Poteau incendie', skill: 'reseau', dur: 1, urgent: true, leak: 8, icon: 'hydrant', side: 'avant', habilitation: null, desc: "Une camionnette de livraison a couché un poteau incendie. Fermer la vanne et sécuriser, l'eau jaillit !" },
+  fuite_bt: { id: 'fuite_bt', name: 'Fuite sur branchement', short: 'Fuite branchement', skill: 'reseau', dur: 2, urgent: true, dig: true, leak: 6, icon: 'drop', side: 'avant', habilitation: 'AIPR', go: "{c} ouvre la chaussée {rue}", fin: "{c} a réparé le branchement {rue} : plus une goutte !", desc: "De l'eau sort du trottoir. Il faut ouvrir la chaussée (ATU) et réparer le branchement. Appel à l'exploitant gaz avant de creuser." },
+  fuite_pc: { id: 'fuite_pc', name: 'Fuite au poste de comptage', short: 'Fuite compteur', skill: 'icc', dur: 1, leak: 1, icon: 'meterdrop', side: 'avant', habilitation: null, go: "{c} file au compteur qui goutte chez {who}", fin: "{c} a changé le joint chez {who}", desc: 'Le joint du compteur goutte dans le regard. Changer les joints, contrôler le robinet avant compteur.' },
+  prc: { id: 'prc', name: 'Remplacement de compteur (PRC)', short: 'PRC', skill: 'icc', dur: 1, icon: 'meter', side: 'na', habilitation: null, go: "{c} sonne chez {who}, {rue}", fin: "{c} a posé le compteur neuf chez {who}", desc: "Compteur de plus de 15 ans à remplacer. Rendez-vous pris avec l'abonné : relever l'index, poser, plomber, photo." },
+  introuvable: { id: 'introuvable', name: 'Compteur introuvable', short: 'Introuvable', skill: 'icc', dur: 1, minigame: 'compteur', icon: 'search', side: 'na', habilitation: null, go: "{c} part à la chasse au compteur {rue}", fin: "{c} a mis la main sur le compteur {rue}", desc: "La télérelève ne répond plus et personne ne sait où est le compteur. Le SIG donne une piste, à toi de le trouver sur la façade." },
+  resilie: { id: 'resilie', name: '« Résilié qui consomme »', short: 'Résilié', skill: 'icc', dur: 1, icon: 'ghost', side: 'na', habilitation: null, go: "{c} mène l'enquête sur le résilié {rue}", fin: "{c} a résolu le mystère du résilié {rue}", desc: "Contrat résilié mais l'index continue de tourner. Enquête : nouvel occupant, fuite, ou branchement oublié ?" },
+  coupure: { id: 'coupure', name: 'Réparation programmée avec coupure', short: 'Coupure programmée', skill: 'reseau', dur: 2, dig: true, coupure: true, fix: 25, icon: 'valve', side: 'avant', habilitation: 'AIPR', go: "{c} coupe l'eau {rue} pour changer la vanne", fin: "{c} a changé la vanne {rue}, l'eau revient", desc: "Remplacer une vanne fatiguée. Les riverains doivent recevoir l'avis de coupure 48 h avant : envoie-le, le chantier sera possible 2 jours plus tard." },
+  debit_nuit: { id: 'debit_nuit', name: 'Débit de nuit anormal', short: 'Débit de nuit', skill: 'fuite', dur: 1, fix: 55, icon: 'ear', side: 'avant', habilitation: null, go: "{c} écoute le sol {rue}, casque sur les oreilles", fin: "{c} a trouvé la fuite cachée {rue} !", desc: "La sectorisation voit un débit de nuit trop haut : une fuite invisible. Écoute au sol, prélocalisateurs, puis réparation sans ouvrir grand." },
+  purge: { id: 'purge', name: 'Purge (eau colorée)', short: 'Purge', skill: 'reseau', dur: 1, icon: 'tap', side: 'avant', habilitation: null, go: "{c} ouvre la purge {rue}", fin: "{c} : l'eau est redevenue claire {rue}", desc: "Après une manœuvre, l'eau sort couleur thé. Ouvrir la purge jusqu'à ce qu'elle redevienne claire, contrôler le chlore." },
+  fontaine: { id: 'fontaine', name: 'Borne-fontaine en panne', short: 'Borne-fontaine', skill: 'reseau', dur: 1, icon: 'tap', side: 'avant', habilitation: null, go: "{c} démonte la borne-fontaine {rue}", fin: "{c} a remis en route la borne-fontaine {rue}", desc: "La borne-fontaine publique ne donne plus qu'un filet : robinet fatigué ou filtre entartré. Démonter, nettoyer, remonter, contrôler le débit (et goûter, c'est le métier)." },
+  poteau: { id: 'poteau', name: 'Poteau incendie heurté', short: 'Poteau incendie', skill: 'reseau', dur: 1, urgent: true, leak: 8, icon: 'hydrant', side: 'avant', habilitation: null, go: "{c} fonce fermer le poteau incendie {rue}", fin: "{c} a fermé le poteau incendie {rue} : fin du geyser", desc: "Une camionnette de livraison a couché un poteau incendie. Fermer la vanne et sécuriser, l'eau jaillit !" },
 };
 
 export type CapyId = 'josette' | 'momo' | 'lulu';
@@ -195,14 +196,34 @@ export const DAY_CARDS: Record<string, DayCard> = {
 export type ObjId = 'urgent' | 'rdv' | 'done' | 'm3' | 'backlog' | 'travel' | 'sat';
 export interface Obj { id: ObjId; n?: number }
 export const objText = (o: Obj): string => ({
-  urgent: `Urgences commencées en ${'2'} créneaux max après l'appel`,
-  rdv: 'Tous les RDV du jour tenus',
-  done: `Traiter au moins ${o.n} tickets`,
-  m3: `Moins de ${o.n} m³ perdus par les fuites`,
-  backlog: 'Aucun ticket de plus de 2 jours à la clôture',
-  travel: `Pas plus de ${o.n} créneaux de trajet`,
-  sat: 'Satisfaction en hausse sur la journée',
+  urgent: 'Urgences prises en moins de 2 h',
+  rdv: 'Tous les RDV tenus',
+  done: `${o.n} interventions bouclées`,
+  m3: `${o.n} m³ perdus au maximum`,
+  backlog: 'Rien qui traîne depuis plus de 2 jours',
+  travel: `${o.n} h de route au maximum`,
+  sat: "Des abonnés plus contents qu'au matin",
 }[o.id]);
+/** Acronyms and trade words, defined on tap (the tickets keep the real jargon as titles). */
+export const GLOSSARY: Record<string, string> = {
+  PRC: 'PRC : remplacement de compteur. Le vieux compteur part, le neuf arrive (index relevé, plomb, photo).',
+  ICC: 'ICC : interventions chez le client (compteurs, joints, enquêtes). Le métier de Fred.',
+  ATU: "ATU : autorisation de travaux d'urgence, pour ouvrir la chaussée.",
+  SIG: "SIG : le plan informatique du réseau (tuyaux, vannes, compteurs).",
+  'Débit de nuit': "Débit de nuit : la nuit, presque personne ne consomme. Si l'eau coule quand même, c'est une fuite cachée.",
+  'Résilié': 'Résilié qui consomme : le contrat est fermé mais le compteur tourne. Qui boit cette eau ?',
+  Branchement: "Branchement : le petit tuyau qui relie la conduite de la rue à la maison.",
+  'Poste de comptage': 'Poste de comptage : le compteur et ses robinets, souvent dans une niche ou un regard.',
+  Purge: "Purge : on ouvre une vanne en bout de tuyau jusqu'à ce que l'eau redevienne claire.",
+  Coupure: "Coupure programmée : on prévient les voisins 48 h avant (c'est la loi), puis on coupe l'eau le temps du chantier.",
+  Introuvable: 'Compteur introuvable : la télérelève ne répond plus et personne ne sait où il est.',
+};
+/** One-line portrait of each capy, shown on its row and in the calls. */
+export const CAPY_LINE: Record<CapyId, string> = {
+  josette: "Josette entend les fuites cachées (débits de nuit). Elle fait aussi le réseau, en un peu plus long.",
+  momo: 'Fred, c’est les abonnés : compteurs, joints, enquêtes. Tout le monde lui offre le café.',
+  lulu: 'Lulu va partout, réseau et abonnés, mais plus lentement chez les abonnés.',
+};
 
 /** Scripted days. `jobs`: tickets created at the briefing (with optional forced risks / RDV). `events`: [slot, event id]. */
 export interface DaySpec { card: string; jobs: (JobId | [JobId, ...Risk[]])[]; rdv: number; events: [number, string][]; objs: Obj[]; chef: string }
