@@ -202,7 +202,11 @@ function enterGame() {
   else if (d.phase === 'run') { snd.music(1); if (d.pending.length) showPending(); else if (!d.replan) play(); }
   else snd.music(0);
 }
-function render() { if (!g?.today) return; topbar(); panel(); mapUpdate(); }
+function render() { if (!g?.today) return; topbar(); panel(); mapUpdate(); fitBlocks(); }
+/** Narrow planning: a block whose name would be cut shows only its icon and duration (the name stays in aria-label and title). */
+function fitBlocks() { document.querySelectorAll<HTMLElement>('#game .blk').forEach((el) => { el.classList.remove('cut'); const b = el.querySelector<HTMLElement>('.b1 b'); if (!b || b.offsetParent === null) return;
+  if (b.scrollWidth > b.clientWidth + 1 || b.scrollHeight > b.clientHeight + 1) { el.classList.add('cut'); el.title = el.getAttribute('aria-label') ?? ''; } }); }
+addEventListener('resize', () => { if (g?.today) fitBlocks(); });
 function topbar() {
   const d = today(); const card = DAY_CARDS[DAYS_SPEC[d.day].card]; const y = G.yieldLive(g!);
   const cur = { y: Math.round(y * 1000), m3: Math.round(d.m3), sat: Math.round(g!.sat), day: d.day }; const bump = { y: '', m3: '', sat: '' };
