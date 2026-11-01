@@ -1,4 +1,4 @@
-# Écran de planning : proposition de refonte mobile (à valider, rien n'est implémenté)
+# Écran de planning : refonte mobile (option A + mini-carte de l’option B, implémentée)
 
 Cible principale : smartphone en paysage (iPhone 844×390, 932×430, 667×375, et beaucoup moins de hauteur
 quand Safari affiche ses barres, environ 320 à 340 px). Aujourd'hui l'en-tête prend environ 52 px, la carte occupe 37 % de la largeur
@@ -54,6 +54,6 @@ qu'en dessous de 600 px de haut.
 
 L'**option A** pour la phase de planification (la frise passe avant tout), avec la mini-carte de l'option B
 réutilisée pendant la journée en cours (le bac est alors remplacé par le fil d'événements et les contrôles x1/x2).
-À valider avant toute implémentation.
+Validée par Maxime et implémentée : barre fine, planning pleine largeur, carte en tiroir (bouton « Carte »), bac de tickets toujours visible, créneau fantôme « Toucher ici », tutoriel en bandeau au-dessus du planning, mini-carte pendant la journée (bouton pour l’agrandir). Tablette et ordinateur gardent la carte à gauche.
 
 Maquettes HTML : `docs/mockups/option-a.html`, `docs/mockups/option-b.html` (rendu WebKit 844×390).

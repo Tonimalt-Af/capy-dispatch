@@ -47,7 +47,7 @@ export class MapView {
       <path d="${MAP.paths.pont}" fill="#E8C793" stroke="#fff" stroke-width="7" stroke-linejoin="round" paint-order="stroke"/>
       <g class="routes"></g><g class="labels"></g><g class="pins"></g><g class="capys"></g></svg>
       <div class="map-ui"><button class="mbtn" data-z="in" aria-label="Zoomer">${glyph('plus')}</button><button class="mbtn" data-z="out" aria-label="Dézoomer">${glyph('minus')}</button><button class="mbtn" data-z="home" aria-label="Recentrer">${glyph('target')}</button></div>
-      <a class="osm" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© les contributeurs d'OpenStreetMap</a>`;
+      <a class="osm" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener"><span class="osm-l">© les contributeurs d'OpenStreetMap</span><span class="osm-s">© OpenStreetMap</span></a>`;
     host.appendChild(this.el);
     this.svg = this.el.querySelector('svg')!;
     this.routes = this.svg.querySelector('.routes')!; this.pins = this.svg.querySelector('.pins')!; this.capys = this.svg.querySelector('.capys')!; this.labels = this.svg.querySelector('.labels')!;
@@ -61,6 +61,8 @@ export class MapView {
     this.vb = { x: Math.min(MAP.w + 200 - w / 2, Math.max(-200 - w / 2, cx - w / 2)), y: Math.min(MAP.h + 200 - h / 2, Math.max(-200 - h / 2, cy - h / 2)), w, h }; this.applyVB(); }
   private applyVB() { const v = this.vb; this.svg.setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`); this.drawPins(this.lastPins); this.drawRoutes(this.lastRoutes); this.drawLabels(); this.drawCapys(); }
   zoom(f: number, cx = this.vb.x + this.vb.w / 2, cy = this.vb.y + this.vb.h / 2) { const w = this.vb.w * f, h = this.vb.h * f; this.setVB({ x: cx - (cx - this.vb.x) * f, y: cy - (cy - this.vb.y) * f, w, h }); }
+  /** Back to the whole-city view. */
+  home() { this.setVB({ ...HOME }); }
   /** Centre the view on a site, zooming in a little if we are zoomed out. */
   focus(site: number) { const s = SITES[site]; if (this.vb.w > HOME.w * 0.75) return; this.setVB({ x: s.x - this.vb.w / 2, y: s.y - this.vb.h / 2, w: this.vb.w, h: this.vb.h }); }
   private toUser(cx: number, cy: number) { const r = this.svg.getBoundingClientRect(); const k = this.k(); const ox = (r.width * k - this.vb.w) / 2, oy = (r.height * k - this.vb.h) / 2; return [this.vb.x - ox + (cx - r.left) * k, this.vb.y - oy + (cy - r.top) * k]; }

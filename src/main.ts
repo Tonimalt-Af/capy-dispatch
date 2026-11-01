@@ -167,9 +167,12 @@ function enterGame() {
   if (g.over) { bilan(); return; }
   const root = $('#game');
   if (!mv) {
-    root.innerHTML = `<header class="top"></header><main class="main"><section class="mapbox"></section><section class="panel"></section></main>`;
+    root.innerHTML = `<header class="top"></header><main class="main"><section class="mapbox" id="mapbox" aria-label="Carte"></section><div class="scrim" id="scrim"></div><section class="panel"></section></main>`;
     mv = new MapView($('.mapbox', root)); mv.onPin = (id) => pinTap(id);
+    $('.mapbox', root).insertAdjacentHTML('beforeend', `<button class="mbtn mclose" id="m-close" aria-label="Fermer la carte">${glyph('close')}</button><button class="mbtn mexp" id="m-exp" aria-label="Agrandir la carte">${glyph('expand')}</button>`);
+    $('#m-close').onclick = () => setMap(false); $('#m-exp').onclick = () => { setMap(true); snd.play('click'); }; $('#scrim').onclick = () => setMap(false);
   }
+  setMap(false);
   mv.resetCapys(); const d = today(); for (const c of TEAM) mv.moveCapy(c.id, d.capys[c.id].pos);
   render();
   if (d.phase === 'briefing') briefing();
@@ -187,10 +190,12 @@ function topbar() {
     <div class="t-kpis">
       <div class="kpi k-y" title="Rendement du réseau"><span class="lbl">Rendement</span><span class="kv"><span class="gauge"><i style="width:${f(y)}%"></i><em style="left:${f(YIELD_TARGET)}%"></em></span><b>${pct(y)}</b></span></div>
       <div class="kpi" title="Eau perdue aujourd'hui"><span class="lbl">Pertes</span><span class="kv">${icon('drop', 'ic xs')}<b>${Math.round(d.m3)} m³</b></span></div>
-      <div class="kpi k-sat" title="Satisfaction des abonnés"><span class="lbl">Abonnés</span><span class="kv">${icon('heart', 'ic xs')}<b>${Math.round(g!.sat)}</b></span></div></div>`;
+      <div class="kpi k-sat" title="Satisfaction des abonnés"><span class="lbl">Abonnés</span><span class="kv">${icon('heart', 'ic xs')}<b>${Math.round(g!.sat)}</b></span></div></div>
+    <button class="t-map" id="t-map" aria-controls="mapbox" aria-expanded="${mapOpen}">${glyph('map')}<span>Carte</span></button>`;
   fillNames($('#game .top'));
   $('#t-menu').onclick = () => { pauseRun(); menu(); };
   $('#t-obj').onclick = () => { pauseRun(); objectives(); };
+  $('#t-map').onclick = () => { setMap(!mapOpen); snd.play('click'); };
 }
 function menu() {
   openOv(`<h2>Pause</h2><p class="muted">${dayName(today().day)}</p><div class="col">
@@ -208,6 +213,15 @@ function objectives() {
 function resumeAfterOverlay() { const d = g?.today; if (!d) return; if (d.phase === 'run' && d.pending.length) showPending(); else if (d.phase === 'run' && wasRunning) play(); wasRunning = false; }
 let wasRunning = false;
 function pauseRun() { if (running) { wasRunning = true; stop(); } }
+
+// ---- phones (Option A): the map is a pull-out drawer while planning, a mini-map column while the day runs
+const DRAWER = matchMedia('(max-height:560px), (max-width:899px)');
+let mapOpen = false;
+function setMap(open: boolean) {
+  mapOpen = open; const m = document.querySelector('#game .main'); if (!m) return; m.classList.toggle('map-open', open);
+  $('#t-map')?.setAttribute('aria-expanded', String(open)); $('#mapbox')?.toggleAttribute('inert', DRAWER.matches && !open && !m.classList.contains('run'));
+}
+DRAWER.addEventListener?.('change', () => setMap(false));
 
 // ---------------------------------------------------------------- briefing
 function briefing() {
@@ -244,6 +258,8 @@ function panel() {
       const cls = ['blk', 'q', s.late ? 'late' : '', s.overflow ? 'over' : '', J.urgent ? 'urg' : '', sel === s.id ? 'sel' : ''].join(' ');
       html += `<div class="${cls}" data-b="${s.id}" style="left:${xs(s.start)}%;width:${xe(Math.min(s.end, SLOTS)) - xs(s.start)}%;--c:${SK_COL[J.skill]}" aria-label="${J.short}, ${s.end - s.start} h"><div class="b1">${icon(J.icon, 'ic s')}<b>${TAG[J.id]}</b></div><div class="b2"><span class="bd">${s.end - s.start} h</span>${t.rdv ? icon('clock', 'ic xs') : ''}${t.risks.filter((r) => r !== 'absent').map((r) => icon(RISKS[r].icon, 'ic xs')).join('')}${J.dig ? icon(t.gas ? 'phone' : 'phoneX', 'ic xs') : ''}</div>${s.overflow ? `<i class="ovf" title="Déborde après 17 h">${glyph('right')}</i>` : ''}</div>`; });
     const can = selT ? slotsFor(c, JOBS[selT.job]) !== null : true;
+    if (selT && can && edit && !pv.some((s) => s.id === sel)) { const at = Math.max(pv.length ? pv[pv.length - 1].end : fa.at, d.phase === 'run' ? d.slot : 0); const du = slotsFor(c, JOBS[selT.job])!;
+      if (at < SLOTS) html += `<div class="gslot" style="left:${xs(at)}%;width:${xe(Math.min(at + du, SLOTS)) - xs(at)}%"><span class="gl-l">Toucher ici · ${slotLabel(at).replace(' ', '')}</span><span class="gl-s">Ici</span></div>`; }
     const rdvBand = selT?.rdv ? `<div class="rdvband" style="left:${xs(selT.rdv[0])}%;width:${xe(selT.rdv[1] + 1) - xs(selT.rdv[0])}%"><span>RDV</span></div>` : '';
     const now = d.phase === 'run' ? `<div class="nowl" style="left:${xs(d.slot)}%"></div>` : '';
     return `<div class="row${selT ? (can ? ' can' : ' cannot') : ''}" data-capy="${c.id}">
@@ -261,8 +277,10 @@ function panel() {
     bottom = `<div class="feed">${d.log.slice(-3).map((l) => `<p>${esc(l)}</p>`).join('') || '<p class="muted">La tournée commence…</p>'}</div>
       <div class="ctrl"><button class="cbtn" id="r-pause" aria-label="Pause et modifier">${glyph('pause')}</button><button class="cbtn ${speed === 1 ? 'on' : ''}" id="r-x1" aria-pressed="${speed === 1}">x1</button><button class="cbtn ${speed === 2 ? 'on' : ''}" id="r-x2" aria-pressed="${speed === 2}">x2</button><button class="cbtn wide" id="r-skip">${glyph('skip')}<span>Prochaine décision</span></button></div>`;
   }
-  p.innerHTML = `<div class="scale"><div class="who-h"></div><div class="hours">${hours}</div></div><div class="rows">${rows}</div><div class="bottom">${bottom}</div>`;
-  const co = coach(); const host = $('#game .mapbox'); host.querySelector('.coach')?.remove(); if (co) { host.insertAdjacentHTML('beforeend', co); fillNames(host); }
+  const main = $('#game .main'); const wasRun = main.classList.contains('run'); main.classList.toggle('run', !planning); if (wasRun !== !planning) { setMap(mapOpen); if (!planning && DRAWER.matches && !mapOpen) requestAnimationFrame(() => mv?.home()); }
+  const co = coach();
+  p.innerHTML = `${co}<div class="scale"><div class="who-h"></div><div class="hours">${hours}</div></div><div class="rows">${rows}</div><div class="bottom">${bottom}</div>`;
+  if (co) fillNames(p);
   p.classList.toggle('editing', edit);
   bindPanel();
 }
@@ -305,12 +323,13 @@ function bindPanel() {
   });
   p.querySelectorAll<HTMLElement>('.row').forEach((row) => row.addEventListener('click', (e) => { if (suppressClick || !sel) return; tapRow($('.tl', row), e.clientX); }));
 }
-function tapTicket(id: string) {
-  if (sel === id) { detail(id); return; }
+function tapTicket(id: string, fromMap = false) {
+  if (sel === id) { if (fromMap && mapOpen && DRAWER.matches) { setMap(false); return; } detail(id); return; }
+  if (fromMap && mapOpen && DRAWER.matches) setMap(false);
   sel = id; snd.play('select'); mv?.focus(g!.tickets[id].site); render();
   const t = g!.tickets[id]; if (!G.avail(g!, id)) toast(t.avail === null ? 'Envoie d’abord l’avis de coupure 48 h.' : 'Pas encore possible aujourd’hui.');
 }
-function pinTap(id: string) { if (!g?.today) return; const d = today(); if (Object.values(d.plan).flat().includes(id) || !G.tray(g).includes(id)) { detail(id); return; } if (editable() || d.replan) tapTicket(id); else detail(id); }
+function pinTap(id: string) { if (!g?.today) return; const d = today(); if (Object.values(d.plan).flat().includes(id) || !G.tray(g).includes(id)) { detail(id); return; } if (editable() || d.replan) tapTicket(id, true); else detail(id); }
 function slotAt(tl: HTMLElement, clientX: number) { const r = tl.getBoundingClientRect(); const u = ((clientX - r.left) / r.width) * U; return u >= LUNCH_AFTER + 0.35 ? Math.floor(u - 0.35) : Math.floor(Math.min(u, LUNCH_AFTER - 0.01)); }
 function place(c: CapyId, id: string, slot: number) {
   const t = g!.tickets[id]; const J = JOBS[t.job];
@@ -512,7 +531,7 @@ addEventListener('pointerup', async () => { if (triedLand || !matchMedia('(point
 const portrait = matchMedia('(orientation:portrait) and (pointer:coarse)');
 portrait.addEventListener?.('change', () => { if (portrait.matches) pauseRun(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) pauseRun(); });
-addEventListener('keydown', (e) => { if (e.key === 'Escape' && ovOpen() && $('#d-ok')) { closeOv(); resumeAfterOverlay(); } });
+addEventListener('keydown', (e) => { if (e.key !== 'Escape') return; if (ovOpen() && $('#d-ok')) { closeOv(); resumeAfterOverlay(); } else if (!ovOpen() && mapOpen) setMap(false); });
 if (import.meta.env.PROD && 'serviceWorker' in navigator) addEventListener('load', () => {
   let reloading = false; const hadCtl = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadCtl && !reloading) { reloading = true; location.reload(); } });

@@ -448,6 +448,8 @@ const GLYPH: Record<string, string> = {
   gear: '<circle cx="12" cy="12" r="3.2"/><path d="M12 3.5v2.4M12 18.1v2.4M3.5 12h2.4M18.1 12h2.4M6 6l1.7 1.7M16.3 16.3 18 18M6 18l1.7-1.7M16.3 7.7 18 6"/>',
   home: '<path d="M4.5 11 12 4.5 19.5 11M6.5 9.5V19h11V9.5"/>', edit: '<path d="M5 19l1-4L16 5l3 3L9 18z"/>', back: '<path d="M10 6 4 12l6 6M4.5 12H20"/>',
   bolt: '<path d="M13 3 6 13.5h5L10 21l7-10.5h-5z" fill="currentColor"/>',
+  map: '<path d="M3.5 6.5 9 4.5l6 2 5.5-2v13l-5.5 2-6-2-5.5 2z"/><path d="M9 4.5v13M15 6.5v13"/>',
+  expand: '<path d="M14 4.5h5.5V10M10 19.5H4.5V14M19.5 4.5 13.5 10.5M4.5 19.5l6-6"/>',
 };
 export const glyph = (k: string, cls = 'gl') => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${GLYPH[k] ?? ''}</svg>`;
 

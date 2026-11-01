@@ -51,7 +51,7 @@ test('the character is editable later from the settings, and the save migrates o
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('capy-dispatch-v1')!).player.name)).toBe('Inès-Lou');
 });
 
-for (const [w, h] of [[844, 390], [667, 375], [932, 430]]) {
+for (const [w, h] of [[844, 390], [667, 375], [932, 430], [667, 325], [844, 340]]) {
   test(`touch targets ≥ 44 px and no overlapping layout at ${w}×${h}`, async ({ page }) => {
     test.skip(test.info().project.name !== 'mobile-landscape', 'phone sizes only');
     await page.setViewportSize({ width: w, height: h });
@@ -63,12 +63,19 @@ for (const [w, h] of [[844, 390], [667, 375], [932, 430]]) {
     await page.click('#h-new'); expect(await smallTargets(page), 'briefing').toEqual([]); expect(await tinyText(page), 'briefing').toEqual([]); expect(await overlaps(page, ['#card']), 'briefing').toEqual([]);
     await page.click('#b-go'); await page.locator('.tk').first().click();
     expect(await smallTargets(page), 'planning').toEqual([]); expect(await tinyText(page), 'planning').toEqual([]);
-    expect(await overlaps(page, ['.top', '.mapbox', '.panel']), 'planning').toEqual([]);
+    expect(await overlaps(page, ['.top', '.panel']), 'planning').toEqual([]);
+    // Option A: full-width planning, the map is a drawer behind the « Carte » button; the tutorial never sits on the rows
+    await expect(page.locator('.mapbox')).toBeHidden(); expect(await overlaps(page, ['.coach', '.scale', '.row', '.bottom']), 'coach').toEqual([]);
+    await page.click('#t-map'); await expect(page.locator('.mapbox')).toBeVisible(); await expect(page.locator('#t-map')).toHaveAttribute('aria-expanded', 'true');
+    expect(await smallTargets(page), 'map drawer').toEqual([]); expect(await overlaps(page, ['.mapbox']), 'map drawer').toEqual([]);
+    await page.click('#m-close'); await expect(page.locator('.mapbox')).toBeHidden();
     expect(await overlaps(page, ['.t-day', '.t-obj', '.t-kpis', '#t-menu']), 'HUD').toEqual([]);
     expect(await overlaps(page, ['.row', '.bottom', '.scale']), 'panel').toEqual([]);
     expect(await overlaps(page, ['.tray', '.acts']), 'bottom bar').toEqual([]);
     for (let i = 0; i < 6; i++) { const t = page.locator('.tk').first(); if (!(await t.count())) break; if (!(await t.evaluate((x) => x.classList.contains('sel')))) await t.click(); await page.locator('.row.can .tl').first().click(); }
     await page.click('#p-go'); expect(await smallTargets(page), 'run').toEqual([]); expect(await tinyText(page), 'run').toEqual([]); expect(await overlaps(page, ['.feed', '.ctrl']), 'run').toEqual([]);
+    // while the day runs: mini-map column beside the read-only planning, expandable
+    await expect(page.locator('.mapbox')).toBeVisible(); expect(await overlaps(page, ['.mapbox', '.panel', '.top']), 'mini-map').toEqual([]);
     await page.click('#t-menu'); expect(await smallTargets(page), 'menu').toEqual([]); await page.click('#m-set'); expect(await smallTargets(page), 'settings').toEqual([]);
     expect(await tinyText(page), 'settings text').toEqual([]);
   });

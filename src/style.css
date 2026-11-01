@@ -118,9 +118,13 @@ a{color:var(--ldr-blue-d)}
 .pin .pulse{fill:#E8344E;opacity:.35;transform-box:fill-box;transform-origin:center;animation:pulse 1.6s ease-out infinite}
 @keyframes pulse{from{transform:scale(.6);opacity:.55}to{transform:scale(2.1);opacity:0}}
 .mcapy{pointer-events:none}
-.coach{position:absolute;left:6px;right:6px;bottom:22px;max-width:420px;display:flex;align-items:center;gap:var(--sp-2);background:var(--ldr-navy);color:#fff;border-radius:var(--r-m);padding:var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-1);font-size:var(--fs-s);line-height:1.25;z-index:20;pointer-events:none;box-shadow:0 4px 12px #0003;animation:coachin .4s cubic-bezier(.3,1.4,.6,1)}
-.coach::after{content:'';position:absolute;right:-7px;top:50%;margin-top:-7px;border:7px solid transparent;border-left-color:var(--ldr-navy);border-right:0}
-.coach svg{width:40px;flex:none}.coach p{margin:0}.coach .pname{color:var(--ldr-green);font-weight:700}
+.osm-s,.t-map,.mclose,.mexp,.scrim{display:none}
+/* tap-to-place: a ghost slot shows where the chosen ticket lands on each compatible row */
+.gslot{position:absolute;top:2px;bottom:2px;z-index:1;border:2.5px dashed var(--ldr-blue-d);border-radius:var(--r-s);background:#77B7FC26;display:flex;align-items:center;justify-content:center;overflow:hidden;pointer-events:none;container-type:inline-size;animation:fadein .25s}
+.gslot span{font-size:var(--fs-xs);font-weight:700;color:var(--ldr-blue-d);white-space:nowrap}
+.gslot .gl-s{display:none}@container (max-width:84px){.gslot .gl-l{display:none}.gslot .gl-s{display:inline}}
+.coach{flex:none;display:flex;align-items:center;gap:var(--sp-2);background:var(--ldr-navy);color:#fff;border-radius:var(--r-m);padding:2px var(--sp-3) 2px 2px;font-size:var(--fs-s);line-height:1.2;pointer-events:none;animation:coachin .4s cubic-bezier(.3,1.4,.6,1);overflow:hidden}
+.coach svg{width:30px;height:30px;flex:none;object-fit:cover}.coach p{margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.coach .pname{color:var(--ldr-green);font-weight:700}
 @keyframes coachin{from{transform:translateY(8px);opacity:0}}
 /* ---------------------------------------------------------------- planning panel */
 .panel{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;padding:var(--sp-1) var(--sp-2) 6px 6px;gap:var(--sp-1)}
@@ -273,9 +277,11 @@ details{font-size:var(--fs-s)}summary{cursor:pointer;font-weight:600;padding:var
 .rescue{position:fixed;inset:0;z-index:200;background:#FFF8EC;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
 /* ---------------------------------------------------------------- small landscape phones (≤ 420 px tall) */
 @media (max-height:420px){
-  :root{--top:48px}
-  .top{gap:6px;padding:2px 6px}.t-day .av{width:36px;height:36px}
-  .who{width:96px}.who-h{width:96px}.who .hd{width:40px}.who .hd svg{width:48px}.who b{font-size:var(--fs-s)}
+  :root{--top:42px}
+  .top{gap:6px;padding:2px 6px}.t-day .av{width:32px;height:32px}
+  .top .iconbtn,.t-obj,.kpi,.t-map{min-height:36px;height:36px}.top .iconbtn::after,.t-obj::after,.t-map::after{content:'';position:absolute;inset:-4px 0}.top .iconbtn,.t-obj{position:relative}
+  .row{min-height:50px}.t-obj .lbl{display:none}.kpi{flex-direction:row;align-items:center;gap:5px}.kpi .lbl{display:none}
+  .who{width:130px}.who-h{width:130px}.sk{flex-wrap:nowrap}.sk i{padding:0 4px}.who .hd{width:40px;height:46px}.who .hd svg{width:48px}.who b{font-size:var(--fs-s)}
   .bottom{height:98px}.acts{width:124px}
   .card{padding:var(--sp-3) var(--sp-4)}.card h2{font-size:var(--fs-xl)}.duo .chef{max-width:130px}.duo .pl{max-width:90px}
   .st{width:46px;height:46px}.c-me{width:52px}.b-left{width:34%}
@@ -292,6 +298,23 @@ details{font-size:var(--fs-s)}summary{cursor:pointer;font-weight:600;padding:var
 }
 @media (max-width:700px){.t-day div span{display:none}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* ---------------------------------------------------------------- phones (and small tablets): full-width planning, map in a drawer, mini-map while the day runs */
+@media (max-height:560px),(max-width:899px){
+  .main{position:relative}
+  .t-map{display:flex;align-items:center;gap:5px;flex:none;min-height:var(--hit);padding:0 var(--sp-3) 0 var(--sp-2);border:0;border-radius:var(--r-m);background:var(--ldr-blue-l);color:var(--ldr-navy);font-weight:700;font-size:var(--fs-m);cursor:pointer;box-shadow:0 2px 0 #C6DDF6;position:relative}
+  .t-map[aria-expanded=true]{background:var(--ldr-navy);color:#fff;box-shadow:0 2px 0 #000}
+  .t-map .gl{width:20px;height:20px}
+  .mapbox{position:absolute;left:0;top:0;bottom:0;z-index:30;width:min(64%,560px);border-right:0;border-radius:0 18px 18px 0;overflow:hidden;box-shadow:8px 0 28px #3b241640;transform:translateX(-104%);visibility:hidden;transition:transform .28s cubic-bezier(.3,.9,.4,1),visibility 0s linear .28s}
+  .main.map-open .mapbox{transform:none;visibility:visible;transition:transform .28s cubic-bezier(.3,.9,.4,1)}
+  .scrim{display:block;position:absolute;inset:0;z-index:29;background:#2A1A0F4d;opacity:0;pointer-events:none;transition:opacity .25s}
+  .main.map-open .scrim{opacity:1;pointer-events:auto}
+  .mclose{display:grid;position:absolute;right:6px;top:6px;background:var(--ldr-navy);color:#fff}
+  .mapbox .map-ui{top:56px}
+  .main.run:not(.map-open) .mapbox{position:relative;flex:none;z-index:1;width:clamp(150px,25%,240px);transform:none;visibility:visible;transition:none;border-radius:0;border-right:3px solid #fff;box-shadow:none}
+  .main.run:not(.map-open) .map-ui,.main.run:not(.map-open) .mclose,.main.run:not(.map-open) .osm-l{display:none}
+  .main.run:not(.map-open) .mexp{display:grid;position:absolute;right:5px;top:5px}
+  .main.run:not(.map-open) .osm-s{display:inline}
+}
 /* ---------------------------------------------------------------- tablets and desktop: bigger rows and cards */
 @media (min-height:560px) and (min-width:900px){
   :root{--top:60px}
@@ -302,8 +325,11 @@ details{font-size:var(--fs-s)}summary{cursor:pointer;font-weight:600;padding:var
 
 /* ---------------------------------------------------------------- very short landscape (iPhone Safari with its toolbars: ~320-360 px) */
 @media (max-height:360px){
-  :root{--top:44px}
-  .row{min-height:46px}.who .hd{height:44px}.who .hd svg{width:46px;top:-1px}.sk{margin-top:1px}.sk i{line-height:15px}
-  .bottom{height:84px}.tk{gap:2px;padding:3px 6px 3px 9px}.panel{padding-bottom:4px}
+  :root{--top:40px}
+  .top .iconbtn,.t-obj,.kpi,.t-map{min-height:34px;height:34px}.top .iconbtn::after,.t-obj::after,.t-map::after{inset:-5px 0}
+  .coach{font-size:var(--fs-xs);line-height:1.15;padding:1px var(--sp-2) 1px 1px}.coach svg{width:24px;height:24px}
+  .scale{height:14px}.panel{gap:3px}.rows{gap:3px}
+  .row{min-height:42px}.who .hd{height:40px}.who .hd svg{width:46px;top:-1px}.sk{margin-top:1px}.sk i{line-height:15px}
+  .bottom{height:78px}.tk{gap:1px;padding:3px 6px 3px 9px}.panel{padding-bottom:4px}
 }
 @media (max-height:360px){.cr-form h1{display:none}.cr-form{gap:4px}.th button svg{max-width:58px}.cr-go .btn.big{min-height:44px}}
