@@ -92,11 +92,12 @@ export class MapView {
     const pins = this.lastPins.map((p) => SITES[p.site]); const near = (x: number, y: number) => pins.some((s) => Math.abs(s.x - x) < 34 * k && Math.abs(s.y - 8 * k - y) < 22 * k);
     // declutter: landmarks first, then any label overlapping one already placed is skipped
     const placed: [number, number, number, number][] = []; const lm0 = (k: string) => k === 'palais' || k === 'pont';
-    const shown = MAP.labels.filter((l) => l.k !== 'gare').map((l) => (l.k === 'pont' ? { ...l, y: l.y + 40 * k } : l)).sort((a, b) => Number(lm0(b.k)) - Number(lm0(a.k))).filter((l) => { const w = l.t.length * 6.5 * k, h = 15 * k; const box: [number, number, number, number] = [l.x - w / 2, l.y - h, l.x + w / 2, l.y + 3 * k];
+    const shown = MAP.labels.filter((l) => l.k !== 'gare').map((l) => (l.k === 'pont' ? { ...l, y: l.y + 40 * k } : l.k === 'prefecture' ? { ...l, y: l.y + 15 * k } : l)).sort((a, b) => Number(lm0(b.k)) - Number(lm0(a.k))).filter((l) => { const w = l.t.length * 6.5 * k, h = 15 * k; const box: [number, number, number, number] = [l.x - w / 2, l.y - h, l.x + w / 2, l.y + 3 * k];
       if (placed.some((p) => box[0] < p[2] && box[2] > p[0] && box[1] < p[3] && box[3] > p[1])) return false; placed.push(lm0(l.k) ? [box[0], box[1] - 36 * k, box[2], box[3]] : box); return true; });
     this.labels.innerHTML = shown.map((l) => { const lm = l.k === 'palais' ? PALAIS_STICKER : l.k === 'pont' ? PONT_STICKER : '';
       const st = lm ? `<g transform="translate(${l.x} ${l.y - 24 * k}) scale(${0.62 * k})">${lm}</g>` : '';
-      return `${st}<text x="${l.x}" y="${l.y + (lm ? 2 * k : 0)}" font-size="${(lm ? 12.5 : 12) * k}" text-anchor="middle" class="mlabel${lm ? ' big' : ''}${!lm && near(l.x, l.y) ? ' dim' : ''}" stroke-width="${4 * k}">${l.t}</text>`; }).join('')
+      const dot = l.k === 'prefecture' ? `<circle cx="${l.x}" cy="${l.y - 15 * k}" r="${4 * k}" fill="#8A4E10" stroke="#fff" stroke-width="${2 * k}"/>` : '';
+      return `${st}${dot}<text x="${l.x}" y="${l.y + (lm ? 2 * k : 0)}" font-size="${(lm ? 12.5 : 12) * k}" text-anchor="middle" class="mlabel${lm ? ' big' : ''}${l.k === 'prefecture' ? ' pf' : ''}${!lm && near(l.x, l.y) ? ' dim' : ''}" stroke-width="${4 * k}">${l.t}</text>`; }).join('')
       + `<g transform="translate(${DX} ${DY}) scale(${k})">${vanSvg('fourgon').replace('<svg ', '<svg x="-26" y="-22" width="52" height="29" ')}<rect x="-24" y="8" width="48" height="16" rx="8" fill="#030F40" stroke="#fff" stroke-width="2.5"/><text x="0" y="20.5" font-size="12" text-anchor="middle" fill="#fff" class="dep">Agence</text></g>`; }
   setPins(p: Pin[]) { this.lastPins = p; this.drawPins(p); this.drawLabels(); }
   private drawPins(list: Pin[]) { const k = this.k();

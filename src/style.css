@@ -111,7 +111,7 @@ a{color:var(--ldr-blue-d)}
 .map-ui{position:absolute;right:6px;top:6px;display:flex;flex-direction:column;gap:6px}
 .mbtn{width:var(--hit);height:var(--hit);display:grid;place-items:center;border:0;border-radius:var(--r-m);background:#fffffff0;box-shadow:0 3px 0 #0000001f;cursor:pointer;color:var(--ldr-navy)}
 .osm{position:absolute;left:4px;bottom:3px;font-size:var(--fs-xs);background:#fffd;padding:1px 6px;border-radius:6px;color:var(--ink);text-decoration:none}
-.mlabel{font-family:Fredoka,sans-serif;font-weight:600;fill:#7A5A35;stroke:#fff;paint-order:stroke;stroke-linejoin:round;pointer-events:none;transition:opacity .2s}.mlabel.big{fill:#8A4E10}.mlabel.dim{opacity:.35}
+.mlabel{font-family:Fredoka,sans-serif;font-weight:600;fill:#7A5A35;stroke:#fff;paint-order:stroke;stroke-linejoin:round;pointer-events:none;transition:opacity .2s}.mlabel.big{fill:#8A4E10}.mlabel.dim{opacity:.35}.mlabel.pf{fill:#8A4E10}
 .dep{font-family:Fredoka,sans-serif;font-weight:600}
 .pin{cursor:pointer}.pin.wait{opacity:.75}.pin.done{opacity:.7}
 .pin.sel path{stroke:var(--ink)}

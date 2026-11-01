@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as G from '../src/game';
 import { JOBS, TEAM, DAYS_SPEC, RISK_CARDS, EVENTS, type JobId } from '../src/content';
 import { SLOTS, LUNCH_AFTER, slotLabel, SAFETY_RULE } from '../src/rules';
-import { SITES, DEPOT } from '../src/map';
+import { SITES, DEPOT, PREFET_SITE } from '../src/map';
 
 const fresh = () => { const g = G.newGame(2026); G.startDay(g); return g; };
 const runUntilPending = (g: G.Game) => { let k = 0; while (g.today!.phase === 'run' && !g.today!.pending.length && k++ < 100) G.step(g); };
@@ -87,6 +87,7 @@ describe('resolution and cards', () => {
     expect(EVENTS.prefet).toBeTruthy(); const g = fresh(); g.today!.phase = 'run'; g.today!.pending.push({ card: 'prefet', kind: 'event', capy: null, ticket: null });
     const i = EVENTS.prefet.choices.findIndex((c) => c.fx.addTicket); const t = G.choose(g, i)!;
     expect(t).toBeTruthy(); expect(t.prefet).toBe(true); expect(t.risks).toEqual([]); expect(g.today!.replan).toBe(true);
+    expect(t.site).toBe(PREFET_SITE); expect(`${t.num} ${SITES[t.site].street}`).toBe('2 place de la Préfecture'); expect(t.who).toContain('Hôtel Forbin de Sainte-Croix');
   });
   it('mini-game: never a blocking failure, at most +1 slot; "laisser faire" = average result (+1)', async () => {
     const { miniScore } = await import('../src/facade'); expect(miniScore(0, false)).toBe(0); expect(miniScore(1, false)).toBe(0); expect(miniScore(0, true)).toBe(0); expect(miniScore(5, true)).toBe(1);
@@ -107,5 +108,14 @@ describe('safety rule (gas call before digging)', () => {
   it('block: the day cannot be launched until every dig has its call', () => {
     const { g, t } = setup(); expect(G.canLaunch(g, 'block')).toBe(false); G.toggleGas(g, t.id); expect(G.canLaunch(g, 'block')).toBe(true);
     expect(G.warnings(g, 'block').some((w) => w.text.includes('gaz'))).toBe(false);
+  });
+});
+
+describe('real addresses', () => {
+  it('tickets carry the real house number of their site, never the préfet site at random, and open tickets never share a street node', () => {
+    const g = fresh(); for (let i = 0; i < 40; i++) addTicket(g, 'prc');
+    const open = g.pile.map((id) => g.tickets[id]);
+    for (const t of open) { expect(t.num).toBe(SITES[t.site].num); expect(t.site).not.toBe(PREFET_SITE); }
+    const nodes = open.map((t) => SITES[t.site].node); expect(new Set(nodes).size).toBe(nodes.length);
   });
 });

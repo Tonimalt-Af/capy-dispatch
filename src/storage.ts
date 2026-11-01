@@ -1,7 +1,7 @@
 // Local save. Every key is prefixed 'capy-dispatch-': the github.io origin is shared with Maxime's other games
 // (Mahjong Capybaras uses 'capy-mahjong-'), and the two games share nothing on purpose.
 import { JOBS, RISKS, TEAM, EVENTS, type CapyId } from './content';
-import { SITES, NODE_COUNT } from './map';
+import { SITES, NODE_COUNT, PREFET_SITE } from './map';
 import { DAYS, SLOTS } from './rules';
 import type { Game, Ticket, DayState, DayResult } from './game';
 import { cleanPlayer, type Player } from './player';
@@ -52,6 +52,8 @@ export function game(x: unknown): Game | null {
   if (!ids(g.pile, (s) => Object.hasOwn(g.tickets, s)) || !Array.isArray(g.history) || !g.history.every(result) || !ids(g.stickers, (s) => s === 'capydindon')) return null;
   if (!Array.isArray(g.news) || !g.news.every((s) => str(s, 300))) g.news = [];
   if (g.today !== null && !today(g.today, g)) return null;
+  // ticket numbers always come from the real address of their site (older saves had invented numbers)
+  for (const t of Object.values(g.tickets)) { if (t.prefet) t.site = PREFET_SITE; t.num = SITES[t.site].num; }
   return g;
 }
 export function sanitize(x: unknown): Save {

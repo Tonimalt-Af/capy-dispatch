@@ -86,8 +86,29 @@ for (const s of ids) { if (comp.has(s)) continue; const q = [s]; comp.set(s, s);
 const keep = ids.filter((i) => comp.get(i) === best); const idx = new Map(keep.map((id, i) => [id, i]));
 const nodes = keep.flatMap((id) => nodePos.get(id)); const edges = [];
 for (const a of keep) for (const [b, dd] of adj.get(a)) if (idx.has(b) && idx.get(a) < idx.get(b)) edges.push(idx.get(a), idx.get(b), Math.round(dd));
-// ticket sites: graph nodes on a named street inside the walls, 25 m apart; [node, street, x, y, narrow]
-const sites = []; for (const id of keep) { const p = nodePos.get(id); const n = nodeName.get(id); if (!n || !inside(p) || wallD(p) < 30) continue; if (sites.some((s) => Math.hypot(s.x - p[0], s.y - p[1]) < 25)) continue; sites.push({ i: idx.get(id), n: nameIdx(n), x: p[0], y: p[1], r: nodeCls.get(id) === 2 ? 1 : 0 }); }
+// ticket sites: REAL postal addresses (addr:housenumber + addr:street from data/osm-addr.json) inside the walls, each snapped
+// to the nearest street-graph node, preferably on the street the address names; [node, street, number, narrow]
+const addrRaw = JSON.parse(readFileSync('data/osm-addr.json', 'utf8'));
+const norm = (n) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[’']/g, ' ').replace(/\b(de|du|des|la|le|les|l|d)\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+const onStreet = new Map(); // graph node -> normalised names of every named highway through it
+for (const e of all) { const t = e.tags ?? {}; if (e.type !== 'way' || !t.highway || !t.name) continue; for (const id of e.nodes ?? []) { if (!idx.has(id)) continue; if (!onStreet.has(id)) onStreet.set(id, new Set()); onStreet.get(id).add(norm(t.name)); } }
+const clsByName = new Map(); for (const e of all) { const t = e.tags ?? {}; if (e.type === 'way' && t.highway && t.name && CLS[t.highway] !== undefined) { const k = norm(t.name); clsByName.set(k, Math.min(clsByName.get(k) ?? 9, CLS[t.highway])); } }
+const sites = []; const seenAddr = new Set(); const stat = { osm: 0, outside: 0, oddNumber: 0, dup: 0, far: 0, sameStreet: 0 };
+const snap = (p, want) => { let bs = -1, bd = 1e9, ba = -1, bda = 1e9; for (const id of keep) { const q = nodePos.get(id); const dd = Math.hypot(q[0] - p[0], q[1] - p[1]); if (dd < bda && adj.get(id).size) { bda = dd; ba = id; } if (want && dd < bd && onStreet.get(id)?.has(want)) { bd = dd; bs = id; } } return bd <= 90 ? { id: bs, d: bd, same: true } : { id: ba, d: bda, same: false }; };
+for (const e of addrRaw.elements) { const t = e.tags; if (!t['addr:housenumber'] || !t['addr:street'] || e.lat == null) continue; stat.osm++;
+  const p = pr(e); if (!inside(p) || wallD(p) < 30) { stat.outside++; continue; }
+  const m = /^\s*(\d{1,3})\s*$/.exec(t['addr:housenumber']); if (!m || +m[1] < 1) { stat.oddNumber++; continue; } // "2A", "1bis", "3-5": skipped (the game shows plain numbers)
+  const street = t['addr:street'].trim(); const key = norm(street) + '|' + +m[1]; if (seenAddr.has(key)) { stat.dup++; continue; } seenAddr.add(key);
+  const s = snap(p, norm(street)); if (s.d > 40 && !s.same) { stat.far++; continue; } if (!inside(nodePos.get(s.id))) { stat.outside++; continue; } if (s.same) stat.sameStreet++;
+  const cls = clsByName.get(norm(street)); sites.push({ i: idx.get(s.id), n: nameIdx(street), num: +m[1], r: cls === 2 ? 1 : 0 }); }
+sites.sort((a, b) => a.i - b.i || a.n - b.n || a.num - b.num);
+// the préfet card: Hôtel Forbin de Sainte-Croix (hôtel préfectoral de Vaucluse). OSM: way 83783907 "Préfecture (site historique)",
+// wikidata Q22916641, no addr:* tags; its address "2, place de la Préfecture" comes from that Wikidata item (P6375, CC0).
+const forbin = addrRaw.elements.find((e) => e.t === 'w' && e.id === 83783907); // centre of the building way
+if (!forbin) throw new Error('Hôtel Forbin de Sainte-Croix (OSM way 83783907) not found');
+const FP = pr(forbin); const fs = snap(FP, norm('Rue Viala'));
+const prefet = sites.length; sites.push({ i: idx.get(fs.id), n: nameIdx('place de la Préfecture'), num: 2, r: 0 });
+console.log('addresses', stat, 'pool', sites.length - 1);
 // depot (fictional agency): the graph node nearest to a point just outside Porte Saint-Michel (south)
 const DEP = pr({ lon: 4.8085, lat: 43.9415 }); let depot = 0, dd0 = 1e9; keep.forEach((id, i) => { const p = nodePos.get(id); const q = Math.hypot(p[0] - DEP[0], p[1] - DEP[1]); if (q < dd0) { dd0 = q; depot = i; } });
 // labels: real place names, positioned from OSM (centroid of the feature)
@@ -101,9 +122,10 @@ lm('Rocher des Doms', geo('Rocher des Doms'), 'parc');
 lm('Place Pie', geo('Place Pie'), 'place');
 lm("Place de l'Horloge", geo("Place de l'Horloge"), 'place');
 lm('Gare', geo('Avignon-Centre'), 'gare');
+labels.push({ t: 'Hôtel Forbin', x: FP[0], y: FP[1], k: 'prefecture' });
 const usedNames = [...new Set(sites.map((s) => s.n))]; const remap = new Map(usedNames.map((n, i) => [n, i]));
 const S = (c) => d(streets.filter((s) => s.c === c).map((s) => s.p), false);
 const paths = { water: d(water, true), parks: d(parks, true), squares: d(squares, true), bldg: d(bldg.map((b) => b.p), true), palais: d(landmarks.filter((l) => l.n === 'Palais des Papes').map((l) => l.p), true), pont: d(landmarks.filter((l) => l.n !== 'Palais des Papes').map((l) => l.p), true), walls: d(walls, false), s0: S(0), s1: S(1), s2: S(2), s3: S(3), s4: S(4) };
-const out = { w: W, h: H, bbox: [LON0, LAT1, LON1, LAT0], ring: flat(ring), paths, labels, depot, graph: { nodes, edges }, names: usedNames.map((n) => names[n]), sites: sites.flatMap((s) => [s.i, remap.get(s.n), s.x, s.y, s.r]), source: 'OpenStreetMap (ODbL 1.0), extrait du ' + (raw.fetched ?? '').slice(0, 10) };
+const out = { w: W, h: H, bbox: [LON0, LAT1, LON1, LAT0], ring: flat(ring), paths, labels, depot, graph: { nodes, edges }, names: usedNames.map((n) => names[n]), sites: sites.flatMap((s) => [s.i, remap.get(s.n), s.num, s.r]), prefet, source: 'OpenStreetMap (ODbL 1.0), extrait du ' + (raw.fetched ?? '').slice(0, 10) + ', adresses du ' + (addrRaw.fetched ?? '').slice(0, 10) };
 writeFileSync('src/data/map.json', JSON.stringify(out));
 console.log({ W, H, bldg: bldg.length, nodes: keep.length, sites: sites.length, depot, labels: labels.map((l) => l.t).join(' | '), kb: Math.round(JSON.stringify(out).length / 1024) });

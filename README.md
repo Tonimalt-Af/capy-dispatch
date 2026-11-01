@@ -25,7 +25,7 @@ npm test           # Vitest (règles, équilibrage par un bot, carte, façades, 
 npm run e2e        # Playwright (mobile 844x390 + desktop), construit et sert dist/
 npm run build      # dist/ + sw.js
 ```
-Scripts : `scripts/fetch-osm.mjs` + `scripts/build-map.mjs` (carte), `scripts/icons.mjs` (icônes),
+Scripts : `scripts/fetch-osm.mjs` + `scripts/fetch-osm-addr.mjs` + `scripts/build-map.mjs` (carte et adresses réelles), `scripts/icons.mjs` (icônes),
 `scripts/shots.mjs`, `scripts/shots-mid.mjs`, `scripts/playtest.mjs` (captures et partie complète dans `previews/`, ignoré par git).
 
 Le titre « Capy Dispatch » est provisoire : il suffit de changer `index.html`, `public/manifest.webmanifest` et l'écran d'accueil.

@@ -1,7 +1,7 @@
 // Game state and rules: tickets, planning preview, slot-by-slot resolution, cards, day close and scoring.
 // Pure TypeScript (no DOM): everything here is covered by the Vitest suite.
 import { JOBS, TEAM, CAPY, slotsFor, RISK_CARDS, EVENTS, DAYS_SPEC, ABONNES, objText, type JobId, type Risk, type CapyId, type Card, type Effect, type Obj, PREFET } from './content';
-import { SITES, dist, DEPOT, labelXY } from './map';
+import { SITES, SITE_GROUPS, PREFET_SITE, dist, DEPOT, labelXY } from './map';
 import { SLOTS, TRAVEL_M, URGENT_TARGET, NIGHT_SLOTS, SECTOR_M3, START_YIELD, SAFETY_RULE, DAYS, type SafetyRule } from './rules';
 
 export const rng = (seed: number) => () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -36,20 +36,22 @@ const nearHalles = (site: number) => !!HALLES && Math.hypot(SITES[site].x - HALL
 
 // ---------------------------------------------------------------- tickets
 function pickSite(g: Game, r: () => number, near: number | null): number {
-  const used = new Set(g.pile.map((id) => g.tickets[id].site));
+  // one open ticket per street node (pins never stack) and 25 m between open tickets
+  const used = g.pile.map((id) => SITES[g.tickets[id].site]);
+  const pick = () => { const grp = SITE_GROUPS[Math.floor(r() * SITE_GROUPS.length)]; return grp[Math.floor(r() * grp.length)]; };
   for (let k = 0; k < 200; k++) {
-    const s = Math.floor(r() * SITES.length);
-    if (used.has(s)) continue;
-    if (near !== null && Math.hypot(SITES[s].x - SITES[near].x, SITES[s].y - SITES[near].y) > 380 && k < 150) continue;
+    const s = pick(); const S = SITES[s];
+    if (used.some((u) => u.node === S.node || Math.hypot(u.x - S.x, u.y - S.y) < 25)) continue;
+    if (near !== null && Math.hypot(S.x - SITES[near].x, S.y - SITES[near].y) > 380 && k < 150) continue;
     return s;
   }
-  return Math.floor(r() * SITES.length);
+  return pick();
 }
 export function makeTicket(g: Game, job: JobId, r: () => number, opts: { slot?: number; risks?: Risk[]; rdv?: [number, number] | null; near?: number | null } = {}): Ticket {
   const J = JOBS[job]; const site = pickSite(g, r, opts.near ?? null);
   const risks = [...(opts.risks ?? [])];
   if (J.dig && SITES[site].narrow && !risks.includes('ruelle')) risks.push('ruelle');
-  const t: Ticket = { id: 't' + g.next++, job, site, num: 1 + Math.floor(r() * 46), who: ABONNES[Math.floor(r() * ABONNES.length)], risks, rdv: opts.rdv ?? null, day: g.day, slot: opts.slot ?? 0,
+  const t: Ticket = { id: 't' + g.next++, job, site, num: SITES[site].num, who: ABONNES[Math.floor(r() * ABONNES.length)], risks, rdv: opts.rdv ?? null, day: g.day, slot: opts.slot ?? 0,
     avis: null, avail: J.coupure ? null : g.day, deadline: J.coupure ? g.day + 4 : null, gas: false, tries: 0, side: J.side, habilitation: J.habilitation };
   g.tickets[t.id] = t; g.pile.push(t.id); return t;
 }
@@ -200,7 +202,7 @@ export function choose(g: Game, i: number): Ticket | null {
   if (fx.addTicket) {
     const r = rng(g.seed * 31 + d.day * 101 + d.slot * 7 + g.next);
     const t = makeTicket(g, fx.addTicket, r, { slot: d.slot, rdv: fx.addRdvSoon ? [Math.min(d.slot + 1, SLOTS - 1), Math.min(d.slot + 2, SLOTS - 1)] : null });
-    if (p.card === 'prefet') { t.prefet = true; t.who = PREFET; t.risks = []; } // the butler is always home
+    if (p.card === 'prefet') { t.prefet = true; t.who = PREFET; t.risks = []; t.site = PREFET_SITE; t.num = SITES[PREFET_SITE].num; } // Hôtel Forbin de Sainte-Croix; the butler is always home
     if (t.rdv) d.rdvToday.push(t.id);
     d.replan = true; return t;
   }

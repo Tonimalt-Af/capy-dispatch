@@ -94,8 +94,8 @@ export const EVENTS: Record<string, Card> = {
   hydrocureur: { id: 'hydrocureur', title: 'L’hydrocureur bloque la rue', who: 'ours', needs: 'travel', text: "Le camion hydrocureur de Générale des Flots (ils gèrent les égouts) bloque la rue. Leur chef de chantier, un ours, hausse les épaules.", choices: [
     { label: 'Faire le tour par les remparts', hint: '+1 créneau de trajet', fx: { slots: 1, log: "a contourné l'hydrocureur par les remparts" } },
     { label: 'Négocier avec l’ours', hint: 'Satisfaction −1 (klaxons)', fx: { sat: -1, log: "a négocié avec l'ours de Générale des Flots, qui a avancé de 3 m" } }] },
-  prefet: { id: 'prefet', title: 'Le majordome du préfet', who: 'chat', needs: 'none', text: "« Monsieur le préfet souhaite que son compteur soit changé ce jour. Avant 15 heures, si possible. » Le majordome est un chat noir très digne.", choices: [
-    { label: 'Accepter le RDV', hint: 'Nouveau PRC, RDV dans les 2 prochains créneaux', fx: { addTicket: 'prc', addRdvSoon: true, log: "RDV accepté à l'hôtel particulier du préfet" } },
+  prefet: { id: 'prefet', title: 'Le majordome du préfet', who: 'chat', needs: 'none', text: "Hôtel Forbin de Sainte-Croix, 2 place de la Préfecture. « Monsieur le préfet souhaite que son compteur soit changé ce jour. Avant 15 heures, si possible. » Le majordome, un chat noir très digne, attend à la grille.", choices: [
+    { label: 'Accepter le RDV', hint: 'Nouveau PRC, RDV dans les 2 prochains créneaux', fx: { addTicket: 'prc', addRdvSoon: true, log: "RDV accepté à l'hôtel Forbin de Sainte-Croix (sonner chez le majordome)" } },
     { label: 'Proposer demain', hint: 'Satisfaction −3', fx: { sat: -3, log: 'RDV du préfet décalé à demain (le chat a soupiré)' } }] },
   directeur: { id: 'directeur', title: 'Le chef passe à l’agence', who: 'chef', needs: 'none', text: "« Je montre le planning au directeur régional cet après-midi. Pas de panique. Enfin, un peu. »", choices: [
     { label: 'Tout va bien, chef', hint: 'Satisfaction +2', fx: { sat: 2, log: 'Le chef a montré le planning au directeur' } }] },
@@ -158,4 +158,4 @@ export const DAYS_SPEC: DaySpec[] = [
 
 /** Fictional subscriber names (common Provençal surnames, no real person intended). */
 export const ABONNES = ['Mme Bérard', 'M. Chabaud', 'Mme Fabre', 'M. Roux', 'Mme Imbert', 'M. Arnaud', 'Mme Reynaud', 'M. Gras', 'Mme Bonnet', 'M. Michel', 'Mme Blanc', 'M. Martin', 'Mme Garcia', 'M. Meunier', 'Mme Pons', 'M. Barral', 'Mme Jullian', 'M. Sauvan', 'Mme Ricard', 'M. Truc', 'Mme Mistral', 'M. Aubert', 'Mme Durbec', 'M. Chauvet'];
-export const PREFET = "Hôtel particulier du préfet (fictif)";
+export const PREFET = "Hôtel Forbin de Sainte-Croix · résidence du préfet (sonner chez le majordome)";
