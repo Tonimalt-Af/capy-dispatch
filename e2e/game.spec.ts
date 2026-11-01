@@ -32,12 +32,14 @@ test('day 1: briefing with 3 objectives, tap-to-assign, launch, x2, skip, close 
   await expect(page.locator('.objs li')).toHaveCount(3); await page.click('#b-go');
   await expect(page.locator('.osm')).toContainText("les contributeurs d'OpenStreetMap");
   await expect(page.locator('.tk')).toHaveCount(3);
+  await page.click('#t-y'); await expect(page.locator('.explain')).toContainText('Sur 100 litres'); await expect(page.locator('.explain')).toContainText('Le contrat demande 80'); await page.click('#x-ok');
+  await page.click('#t-sat'); await expect(page.locator('.explain')).toContainText('Le but : finir la journée'); await page.click('#x-ok');
   await page.locator('.tk').first().click(); await expect(page.locator('.row.can').first()).toBeVisible(); await page.locator('.row.can .tl').first().click(); await expect(page.locator('.tk')).toHaveCount(2);
   await tapAssignAll(page); await expect(page.locator('.tk')).toHaveCount(0); await expect(page.locator('.blk.q')).toHaveCount(3);
   await page.click('#p-go'); await expect(page.locator('#r-x2')).toBeVisible();
   await page.click('#r-x2'); await expect(page.locator('#r-x2')).toHaveClass(/on/);
   await page.click('#r-skip'); await playToClose(page);
-  await expect(page.locator('.stars .st')).toHaveCount(3); await expect(page.locator('#card')).toContainText('On range les fourgons'); await page.click('#c-more'); await expect(page.locator('#c-det')).toContainText('tickets traités');
+  await expect(page.locator('.stars .st')).toHaveCount(3); await expect(page.locator('#card')).toContainText('On range les fourgons'); await page.click('#c-y'); await expect(page.locator('.explain')).toContainText('Aujourd’hui'); await page.click('#x-back'); await expect(page.locator('#card')).toContainText('On range les fourgons'); await page.click('#c-more'); await expect(page.locator('#c-det')).toContainText('tickets traités');
   await page.click('#c-next'); await expect(page.locator('#b-go')).toBeVisible(); await expect(page.locator('#card')).toContainText('Jour 2');
   expect(e).toEqual([]);
 });

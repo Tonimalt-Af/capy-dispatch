@@ -199,20 +199,54 @@ function enterGame() {
 }
 function render() { if (!g?.today) return; topbar(); panel(); mapUpdate(); }
 function topbar() {
-  const d = today(); const card = DAY_CARDS[DAYS_SPEC[d.day].card]; const y = G.yieldNow(g!); const lo = 0.65, hi = 0.9; const f = (v: number) => Math.max(0, Math.min(1, (v - lo) / (hi - lo))) * 100;
+  const d = today(); const card = DAY_CARDS[DAYS_SPEC[d.day].card]; const y = G.yieldLive(g!);
+  const cur = { y: Math.round(y * 1000), m3: Math.round(d.m3), sat: Math.round(g!.sat), day: d.day }; const bump = { y: '', m3: '', sat: '' };
+  if (lastKpi && lastKpi.day === cur.day) { if (cur.y !== lastKpi.y) bump.y = cur.y > lastKpi.y ? ' up' : ' down'; if (cur.m3 > lastKpi.m3) bump.m3 = ' down'; if (cur.sat !== lastKpi.sat) bump.sat = cur.sat > lastKpi.sat ? ' up' : ' down'; } lastKpi = cur; const lo = 0.65, hi = 0.9; const f = (v: number) => Math.max(0, Math.min(1, (v - lo) / (hi - lo))) * 100;
   const n = DAYS_SPEC[d.day].objs.length; const met = d.met ? d.met.filter(Boolean).length : 0;
   $('#game .top').innerHTML = `<button class="iconbtn" id="t-menu" aria-label="Menu">${glyph('menu')}</button>
     <div class="t-day"><span class="av">${me()}</span><div><b>${WEEKDAYS[d.day % 5]}</b><span>Jour ${d.day + 1}/${DAYS}</span></div>${icon(card.icon, 'ic s')}</div>
     <button class="t-obj" id="t-obj" aria-label="Objectifs du jour">${DAYS_SPEC[d.day].objs.map((_, i) => icon(d.met?.[i] ? 'star' : 'starOff', 'ic s')).join('')}<span><span class="lbl">Objectifs</span><b>${met}/${n}</b></span></button>
     <div class="t-kpis">
-      <div class="kpi k-y" title="Rendement du réseau"><span class="lbl">Rendement</span><span class="kv"><span class="gauge"><i style="width:${f(y)}%"></i><em style="left:${f(YIELD_TARGET)}%"></em></span><b>${pct(y)}</b></span></div>
-      <div class="kpi" title="Eau perdue aujourd'hui"><span class="lbl">Pertes</span><span class="kv">${icon('drop', 'ic xs')}<b>${Math.round(d.m3)} m³</b></span></div>
-      <div class="kpi k-sat" title="Satisfaction des abonnés"><span class="lbl">Abonnés</span><span class="kv">${icon('heart', 'ic xs')}<b>${Math.round(g!.sat)}</b></span></div></div>
+      <button class="kpi k-y${bump.y}" id="t-y" aria-label="Rendement de réseau ${pct(y)}, but ${Math.round(YIELD_TARGET * 100)} % : qu'est-ce que c'est ?"><span class="lbl">Rendement de réseau</span><span class="kv"><b>${pct(y)}</b><span class="gauge"><i style="width:${f(y)}%"></i><em style="left:${f(YIELD_TARGET)}%"></em></span><span class="goal">but ${Math.round(YIELD_TARGET * 100)}</span></span></button>
+      <button class="kpi k-m3${bump.m3}" id="t-m3" aria-label="Eau perdue aujourd'hui : ${Math.round(d.m3)} m³"><span class="lbl">Eau perdue</span><span class="kv">${icon('drop', 'ic xs')}<b>${Math.round(d.m3)} m³</b></span></button>
+      <button class="kpi k-sat${bump.sat}" id="t-sat" aria-label="Abonnés : ${Math.round(g!.sat)} sur 100"><span class="lbl">Abonnés</span><span class="kv">${icon('heart', 'ic xs')}<b>${Math.round(g!.sat)}</b></span></button></div>
     <button class="t-map" id="t-map" aria-controls="mapbox" aria-expanded="${mapOpen}">${glyph('map')}<span>Carte</span></button>`;
   fillNames($('#game .top'));
   $('#t-menu').onclick = () => { pauseRun(); menu(); };
   $('#t-obj').onclick = () => { pauseRun(); objectives(); };
+  $('#t-y').onclick = () => { pauseRun(); explain('y'); }; $('#t-m3').onclick = () => { pauseRun(); explain('m3'); }; $('#t-sat').onclick = () => { pauseRun(); explain('sat'); };
   $('#t-map').onclick = () => { setMap(!mapOpen); snd.play('click'); };
+}
+let lastKpi: { y: number; m3: number; sat: number; day: number } | null = null;
+const pt1 = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1).replace('.', ',')}\u202Fpt`;
+const n1 = (v: number) => (v * 100).toFixed(1).replace('.', ',');
+/** « C'est quoi ? » sheets for the top bar and the day close (mockup 04): what it is, the goal, why it moved today, how to make it go up. */
+function explain(kind: 'y' | 'm3' | 'sat', back?: () => void) {
+  const d = today(); let html = '';
+  const lo = 0.6, hi = 0.9; const f = (v: number) => Math.max(0, Math.min(1, (v - lo) / (hi - lo))) * 100;
+  const why = (items: { text: string; v: number; unit: string }[], empty: string) => items.length ? `<ul class="why">${items.map((x) => `<li><span>${esc(nb(x.text))}</span><b class="${x.v >= 0 ? 'green' : 'red'}">${x.unit === 'pt' ? pt1(x.v) : `${x.v >= 0 ? '+' : '−'}${Math.abs(Math.round(x.v))}${x.unit}`}</b></li>`).join('')}</ul>` : `<p class="muted">${empty}</p>`;
+  const closed = d.phase === 'close'; const since = closed ? 'Aujourd’hui' : `Depuis ce matin`;
+  if (kind === 'y') { const w = G.yieldWhy(g!); const y = w.y1;
+    html = `<h2>Le rendement de réseau, c'est quoi ?</h2>
+      <p>Sur 100 litres mis dans les tuyaux d'Avignon, <b>${n1(y)} arrivent au robinet</b>. Le reste se perd dans les fuites. Le contrat demande ${Math.round(YIELD_TARGET * 100)}.</p>
+      <div class="biggauge" role="img" aria-label="Rendement ${pct(y)}, but ${Math.round(YIELD_TARGET * 100)} %, ce matin ${n1(w.y0)}"><span class="bg-end">60\u202F%</span><div class="bg-bar"><i style="width:${f(y)}%"></i><em class="goal" style="left:${f(YIELD_TARGET)}%"><span>but ${Math.round(YIELD_TARGET * 100)}\u202F%</span></em><em class="am" style="left:${f(w.y0)}%"><span>ce matin ${n1(w.y0)}</span></em></div><span class="bg-end">90\u202F%</span></div>
+      <h3>${since} : <b class="${y >= w.y0 ? 'green' : 'red'}">${pt1((y - w.y0) * 100)}</b></h3>
+      ${why(w.items.map((x) => ({ text: x.text, v: x.pt, unit: 'pt' })), 'Rien n’a encore bougé : la journée commence.')}
+      <p class="tip"><b>Pour le faire monter :</b> réparer les fuites vite (chaque heure coûte des m³), ne pas en laisser pour la nuit, et envoyer Josette sur les débits de nuit (une fuite cachée trouvée, c'est pour de bon). Les PRC et les RDV font plaisir aux abonnés, pas au rendement.</p>`; }
+  else if (kind === 'm3') { const lk = Object.entries(d.leaks ?? {}).filter(([id]) => g!.tickets[id]).sort((a, b) => b[1] - a[1]); const night = closed ? d.night : G.nightLoss(g!);
+    html = `<h2>L'eau perdue, c'est quoi ?</h2>
+      <p>Une fuite ouverte perd de l'eau <b>chaque heure</b>, et toute la nuit si personne ne la répare. Aujourd'hui : <b>${Math.round(d.m3)} m³</b> (1 m³ = 1 000 litres, à peu près 7 baignoires).</p>
+      <h3>${since}</h3>${why(lk.map(([id, v]) => { const t = g!.tickets[id]; return { text: `${JOBS[t.job].short} ${G.rue(t.site)}${d.done.includes(id) ? ' (réparée)' : ''}`, v: -v, unit: ' m³' }; }), 'Pas une goutte perdue pour l’instant.')}
+      ${night ? `<p class="warnline">${icon('warn', 'ic s')}<span>${closed ? 'Cette nuit' : 'Cette nuit, si rien ne change'} : <b>${Math.round(night)} m³</b> de plus.</span></p>` : ''}
+      <p class="tip"><b>Pour en perdre moins :</b> prendre les fuites urgentes en premier, et ne pas les laisser pour demain. Chaque m³ perdu fait baisser le rendement de réseau.</p>`; }
+  else { const sw = d.satWhy ?? []; const dv = Math.round(g!.sat - d.satStart);
+    html = `<h2>Les abonnés, c'est quoi ?</h2>
+      <p>L'humeur des habitants d'Avignon, sur 100. Ce matin <b>${Math.round(d.satStart)}</b>, maintenant <b>${Math.round(g!.sat)}</b> <b class="${dv >= 0 ? 'green' : 'red'}">(${dv >= 0 ? '+' : '−'}${Math.abs(dv)})</b>. Le but : finir la journée plus haut qu'au matin.</p>
+      <h3>${since}</h3>${why(sw.map((x) => ({ text: x.text, v: x.v, unit: '' })), 'Rien de spécial pour l’instant.')}
+      <p class="tip"><b>Pour les rendre contents :</b> tenir les RDV, réparer vite les urgences, et choisir les réponses gentilles quand le téléphone sonne. Un RDV raté, ça se paie.</p>`; }
+  openOv(`<div class="explain">${html}<div class="btns">${back ? `<button class="btn" id="x-back">${glyph('left')}<span>Retour</span></button>` : ''}<button class="btn primary" id="x-ok">Compris</button></div></div>`, 'explain-ov');
+  const done = () => { if (back) back(); else { closeOv(); resumeAfterOverlay(); } };
+  $('#x-ok').onclick = done; $('#x-back')?.addEventListener('click', done);
 }
 function menu() {
   openOv(`<h2>Pause</h2><p class="muted">${dayName(today().day)}</p><div class="col">
@@ -248,7 +282,7 @@ function briefing() {
     <div class="b-right"><p class="kicker">Le café de 7 h 30</p><h2>${dayName(d.day)}</h2>
       <div class="daycard">${icon(card.icon, 'ic big')}<div><b>${card.title}</b><span>${card.text}</span></div></div>
       ${g!.news.map((n) => `<p class="news">${icon('warn')} ${esc(n)}</p>`).join('')}
-      <p class="sub">Aujourd'hui : <b>${tick.length} tickets</b>${urg ? ` · <b class="red">${urg} urgence${urg > 1 ? 's' : ''}</b>` : ''}${rdv ? ` · ${rdv} RDV` : ''}</p>
+      <p class="sub">Aujourd'hui : <b>${tick.length} ticket${tick.length > 1 ? "s" : ""}</b>${urg ? ` · <b class="red">${urg} urgence${urg > 1 ? 's' : ''}</b>` : ''}${rdv ? ` · ${rdv} RDV` : ''}</p>
       <ul class="objs">${spec.objs.map((o) => `<li>${icon('star')}<span>${objText(o)}</span></li>`).join('')}</ul>
       <button class="btn primary big" id="b-go">On prépare la journée ${glyph('right')}</button></div></div>`, 'wide');
   $('#b-go').onclick = () => { closeOv(); d.phase = 'plan'; save(); render(); snd.play('click'); };
@@ -521,8 +555,9 @@ function mapUpdate() {
 
 // ---------------------------------------------------------------- day close & campaign end
 const ptText = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1).replace('.', ',')}\u202Fpt`;
+let closeReplay = false; const reopenClose = () => { closeReplay = true; closeScreen(); };
 function closeScreen() {
-  const d = today(); const spec = DAYS_SPEC[d.day]; snd.music(0); snd.play(d.stars ? 'win' : 'lose');
+  const d = today(); const spec = DAYS_SPEC[d.day]; snd.music(0); if (!closeReplay) snd.play(d.stars ? 'win' : 'lose');
   const dsat = Math.round(g!.sat - d.satStart); const yw = G.yieldWhy(g!); const dy = (yw.y1 - yw.y0) * 100; const lost = Math.round(d.m3 + d.night);
   const last = d.day + 1 >= DAYS; const next = last ? 'Le pot du vendredi' : `Au lit ! ${WEEKDAYS[(d.day + 1) % 5]}`;
   const tile = (id: string, v: string, l: string, cls = '') => `<button class="ctile ${cls}" id="${id}"><b>${v}</b><span>${l}</span></button>`;
@@ -540,6 +575,8 @@ function closeScreen() {
         <div class="log">${d.log.map((l) => `<p>${esc(nb(l))}</p>`).join('')}</div></div>
       <div class="btns"><button class="btn" id="c-more" aria-expanded="false" aria-controls="c-det"><span>Détails</span><i class="arr">${glyph('right')}</i></button><button class="btn primary" id="c-next">${next} ${glyph('right')}</button></div></div></div>`, 'wide close-ov');
   fillNames($('#card'));
+  if (closeReplay) { $('#card').classList.add('noanim'); closeReplay = false; }
+  $('#c-y').onclick = () => explain('y', reopenClose); $('#c-m3').onclick = () => explain('m3', reopenClose);
   $('#c-more').onclick = () => { const det = $('#c-det'); const open = det.hidden; det.hidden = !open; $('#c-more').setAttribute('aria-expanded', String(open)); if (open) det.scrollIntoView({ block: 'nearest' }); };
   $('#c-next').onclick = () => { if (!S.seenTuto) { S.seenTuto = true; } G.nextDay(g!); sel = null; save(); closeOv(); if (g!.over) bilan(); else { mv?.resetCapys(); for (const c of TEAM) mv?.moveCapy(c.id, today().capys[c.id].pos); render(); briefing(); } };
 }

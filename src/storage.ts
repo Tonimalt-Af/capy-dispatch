@@ -54,6 +54,7 @@ function today(d: unknown, g: Game): d is DayState {
   if (d.vip !== undefined && !(isObj(d.vip) && Object.entries(d.vip).every(([id, k]) => known(id) && ['fast', 'mid', 'late'].includes(k as string)))) return false;
   if (d.y0 !== undefined && !num(d.y0, 0, 1)) delete d.y0; if (d.bg0 !== undefined && !num(d.bg0, 0, 1e5)) delete d.bg0;
   if (d.leaks !== undefined && !(isObj(d.leaks) && Object.values(d.leaks).every((v) => num(v, 0, 1e6)))) delete d.leaks;
+  if (d.satWhy !== undefined && !(Array.isArray(d.satWhy) && d.satWhy.every((x) => isObj(x) && str(x.text, 300) && num(x.v, -100, 100)))) delete d.satWhy;
   if (d.story !== undefined && !(Array.isArray(d.story) && d.story.every((s) => str(s, 300)))) delete d.story;
   return num(d.m3, 0, 1e6) && num(d.night, 0, 1e6) && int(d.travel, 0, 99) && int(d.incidents, 0, 99) && isObj(d.urgent) && num(d.satStart, 0, 100);
 }

@@ -182,6 +182,12 @@ describe('boucle v2: yield explainer and day lines', () => {
         expect(Math.abs(sum - (w.y1 - w.y0) * 100)).toBeLessThan(0.051); expect(w.y1).toBeCloseTo(g.history.at(-1)!.yield, 10);
         expect(G.dayLine(g).length).toBeGreaterThan(5); G.nextDay(g); expect(G.yieldLive(g)).toBeCloseTo(g.today!.y0!, 10); } }
   });
+  it('every change of the subscribers is explained (« Abonnés » sheet)', async () => {
+    const { playDay } = await import('./bot');
+    for (const seed of [2026, 7, 11]) { const g = G.newGame(seed); G.startDay(g);
+      for (let day = 0; day < 5; day++) { playDay(g); const d = g.today!; const sum = (d.satWhy ?? []).reduce((s, x) => s + x.v, 0);
+        expect(sum).toBeCloseTo(g.sat - d.satStart, 6); for (const x of d.satWhy ?? []) expect(x.text.length).toBeGreaterThan(5); G.nextDay(g); } }
+  });
   it('log lines speak like a person (« 8 h · Fred sonne chez … »)', () => {
     const g = G.newGame(2026); G.startDay(g); const t = Object.values(g.tickets)[0];
     expect(G.jobLine('{c} sonne chez {who}, {rue}', 'Fred', t)).toMatch(/^Fred sonne chez .+, [a-zé]/);

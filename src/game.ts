@@ -27,6 +27,7 @@ export interface DayState {
   /** VIP tickets of the day already judged: outcome by ticket */ vip?: Record<string, 'fast' | 'mid' | 'late'>;
   /** network yield this morning (for « pourquoi ça a bougé ») and the background losses then */ y0?: number; bg0?: number;
   /** m³ lost today, by ticket */ leaks?: Record<string, number>;
+  /** why the subscribers' mood moved today */ satWhy?: { text: string; v: number }[];
   /** the day's funny moments (card choices, VIP outcomes), for the end-of-day line */ story?: string[];
 }
 export interface DayResult { day: number; stars: number; met: boolean[]; m3: number; yield: number; done: number; incidents: number; sat: number; rdvKept: number; rdvTotal: number }
@@ -35,6 +36,9 @@ export interface Game { v: 1; seed: number; day: number; tickets: Record<string,
 export const BG0 = Math.round(SECTOR_M3 * (1 / START_YIELD - 1)); // background losses giving the real starting yield
 export const newGame = (seed = 2026): Game => ({ v: 1, seed, day: 0, tickets: {}, pile: [], sat: 60, bg: BG0, history: [], today: null, stickers: [], next: 1, over: false, news: [] });
 const clampSat = (s: number) => Math.max(0, Math.min(100, s));
+/** Change the subscribers' mood and remember why (for the « Abonnés » sheet). */
+function mood(g: Game, v: number, text: string) { if (!v) return; const before = g.sat; g.sat = clampSat(g.sat + v); const dv = g.sat - before; if (dv && g.today) (g.today.satWhy ??= []).push({ text, v: dv }); }
+const whoOf = (t: Ticket) => t.who.split(' (')[0].split(' · ')[0];
 const COMMON = /^(rue|place|placette|avenue|boulevard|impasse|cours|quai|chemin|passage|square|allée|montée|traverse|route|portail|plan|carreau|rempart|parvis|cloître|petite|grande|porte|galerie|jardin|esplanade|pont)\b/i;
 /** « rue du Roi René », « place Pie » (a street name as said in a sentence). */
 export const rue = (site: number) => { const n = SITES[site].street; return COMMON.test(n) ? n.charAt(0).toLowerCase() + n.slice(1) : n; };
@@ -169,7 +173,7 @@ export function beginSlot(g: Game) {
       d.plan[c.id].shift(); cr.job = id; cr.target = null; cr.pos = SITES[t.site].node; cr.left = slotsFor(c, JOBS[t.job])!; cr.started = s; cr.extra = 0; t.tries++;
       const J = JOBS[t.job];
       if (J.urgent) d.urgent[id] = s - (t.day === d.day ? t.slot : 0);
-      if (t.rdv) { if (s > t.rdv[1]) { d.rdvMissed.push(id); g.sat = clampSat(g.sat - 4); log(d, `${c.name} arrive en retard chez ${t.who.split(' (')[0]} : RDV manqué`); } else if (!d.rdvToday.includes(id)) d.rdvToday.push(id); }
+      if (t.rdv) { if (s > t.rdv[1]) { d.rdvMissed.push(id); mood(g, -4, `RDV manqué chez ${whoOf(t)}`); log(d, `${c.name} arrive en retard chez ${t.who.split(' (')[0]} : RDV manqué`); } else if (!d.rdvToday.includes(id)) d.rdvToday.push(id); }
       log(d, jobLine(J.go, c.name, t));
       if (t.vip && t.day === d.day && !d.vip?.[id]) { judgeVip(g, id, s - t.slot); const w = VIPS[t.vip].watch; if (w) d.pending.push({ card: w, kind: 'event', capy: c.id, ticket: id }); }
       if (J.dig && !t.gas) d.pending.push({ card: 'safety', kind: 'safety', capy: c.id, ticket: id });
@@ -203,7 +207,7 @@ export function choose(g: Game, i: number): Ticket | null {
   if (p.kind === 'safety') { d.incidents++; g.tickets[p.ticket!].gas = true; }
   if (p.kind === 'risk' && p.card === 'absent' && fx.postpone) d.absentOk.push(p.ticket!);
   if (p.kind === 'risk' && p.card === 'absent' && !fx.postpone && p.ticket && !d.rdvMissed.includes(p.ticket)) { /* RDV kept after a call */ }
-  if (fx.sat) g.sat = clampSat(g.sat + fx.sat);
+  if (fx.sat) mood(g, fx.sat, `${card.title} : ${(card.choices[i] ?? card.choices[0]).label.toLowerCase()}`);
   if (fx.bonus && !g.stickers.includes(fx.bonus)) g.stickers.push(fx.bonus);
   if (p.capy && p.ticket) { const cr = d.capys[p.capy];
     if (fx.postpone) {
@@ -247,7 +251,7 @@ function complete(g: Game, c: CapyId) {
   d.done.push(id); g.pile = g.pile.filter((x) => x !== id); d.hist[c].push([id, cr.started, d.slot + 1]); cr.job = null; cr.left = 0;
   if (J.fix) g.bg = Math.max(0, g.bg - J.fix);
   if (t.rdv && !d.rdvMissed.includes(id)) d.rdvKept.push(id);
-  g.sat = clampSat(g.sat + (t.rdv && !d.rdvMissed.includes(id) ? 1 : 0) + (J.urgent ? 1 : 0));
+  if (t.rdv && !d.rdvMissed.includes(id)) mood(g, 1, `RDV tenu chez ${whoOf(t)}`); if (J.urgent) mood(g, 1, `${J.short} ${rue(t.site)} réparée`);
   log(d, jobLine(J.fin, CAPY[c].name, t), d.slot + 1);
 }
 /** Run until something needs the player (a card) or the slot ends. */
@@ -269,14 +273,14 @@ export function evalObj(g: Game, o: Obj): boolean {
 /** VIP rule: the delay between the call and the start of the job (null = not started on the day of the call). */
 function judgeVip(g: Game, id: string, delay: number | null) {
   const d = g.today!; const t = g.tickets[id]; const V = VIPS[t.vip!]; const k = vipOutcome(V, delay); const o = V[k];
-  (d.vip ??= {})[id] = k; g.sat = clampSat(g.sat + o.sat); log(d, o.log); (d.story ??= []).push(o.log);
+  (d.vip ??= {})[id] = k; mood(g, o.sat, o.log); log(d, o.log); (d.story ??= []).push(o.log);
 }
 export function closeDay(g: Game) {
   const d = g.today!; d.phase = 'close';
   for (const [id, t] of Object.entries(g.tickets)) if (t.vip && t.day === d.day && !d.vip?.[id]) judgeVip(g, id, null);
   for (const c of TEAM) { const cr = d.capys[c.id]; if (cr.job) log(d, `${c.name} n'a pas fini (${JOBS[g.tickets[cr.job].job].short} ${rue(g.tickets[cr.job].site)}) : on y retourne demain`); cr.job = null; cr.travel = 0; d.plan[c.id] = []; }
   // missed RDVs: planned too late or not planned at all
-  for (const id of d.rdvToday) if (!d.rdvKept.includes(id) && !d.absentOk.includes(id) && !d.rdvMissed.includes(id)) { d.rdvMissed.push(id); g.sat = clampSat(g.sat - 3); const t = g.tickets[id]; if (g.pile.includes(id)) t.rdv = RDV_WINDOWS[(t.num + t.tries + 1) % RDV_WINDOWS.length]; }
+  for (const id of d.rdvToday) if (!d.rdvKept.includes(id) && !d.absentOk.includes(id) && !d.rdvMissed.includes(id)) { const t = g.tickets[id]; d.rdvMissed.push(id); mood(g, -3, `Personne n'est passé chez ${whoOf(t)} (RDV)`); if (g.pile.includes(id)) t.rdv = RDV_WINDOWS[(t.num + t.tries + 1) % RDV_WINDOWS.length]; }
   const spec = DAYS_SPEC[d.day]; d.met = spec.objs.map((o) => evalObj(g, o));
   let stars = d.met.filter(Boolean).length;
   if (Object.entries(d.vip ?? {}).some(([id, k]) => { const v = g.tickets[id]?.vip; return !!v && !!VIPS[v][k].star; })) stars = Math.max(0, stars - 1); // the boss waited
@@ -324,9 +328,9 @@ export function yieldWhy(g: Game): { y0: number; y1: number; items: YieldWhy[] }
   const items: YieldWhy[] = []; const night = d.phase === 'close';
   for (const id of d.done) { const t = g.tickets[id]; if (!t) continue; const J = JOBS[t.job]; const at = rue(t.site);
     if (J.fix) items.push({ text: J.id === 'debit_nuit' ? `Fuite cachée trouvée ${at} (${J.fix} m³ par jour, pour de bon)` : `${J.short} ${at} : vanne changée (${J.fix} m³ par jour en moins)`, pt: k(-J.fix) });
-    if (J.leak) { const lost = d.leaks?.[id] ?? 0; const wasOpen = t.day < d.day || t.slot === 0; items.push({ text: `${J.short} ${at} réparée${lost ? ` (${Math.round(lost)} m³ perdus avant)` : ''}`, pt: k(lost - (wasOpen ? J.leak * NIGHT_SLOTS : 0)) }); } }
+    if (J.leak) { const lost = d.leaks?.[id] ?? 0; const wasOpen = t.day < d.day || t.slot === 0; const dl = lost - (wasOpen ? J.leak * NIGHT_SLOTS : 0); items.push({ text: dl > 0 ? `${J.short} ${at} réparée, mais ${Math.round(lost)} m³ perdus avant` : `${J.short} ${at} réparée${wasOpen ? ` : pas de fuite cette nuit (${J.leak * NIGHT_SLOTS} m³ sauvés)` : ''}`, pt: k(dl) }); } }
   for (const id of g.pile) { const t = g.tickets[id]; const J = JOBS[t.job]; if (!J.leak || d.done.includes(id)) continue; const lost = d.leaks?.[id] ?? 0; const isNew = !(t.day < d.day || t.slot === 0);
-    const dL = lost + (isNew ? J.leak * NIGHT_SLOTS : 0); if (dL) items.push({ text: `${J.short} ${rue(t.site)} pas encore réparée (${Math.round(lost)} m³ aujourd'hui${isNew ? `, ${J.leak * NIGHT_SLOTS} cette nuit` : night ? '' : ''})`, pt: k(dL) }); }
+    const dL = lost + (isNew ? J.leak * NIGHT_SLOTS : 0); if (dL) items.push({ text: `${J.short} ${rue(t.site)} pas encore réparée (${Math.round(lost)} m³ aujourd'hui${isNew ? `, ${J.leak * NIGHT_SLOTS} m³ cette nuit` : night ? '' : ''})`, pt: k(dL) }); }
   const sum = items.reduce((s, x) => s + x.pt, 0); const rest = (y1 - y0) * 100 - sum; if (Math.abs(rest) >= 0.05) items.push({ text: 'Autres petites pertes du jour', pt: rest });
   return { y0, y1, items: items.filter((x) => Math.abs(x.pt) >= 0.005).sort((a, b) => Math.abs(b.pt) - Math.abs(a.pt)) };
 }
