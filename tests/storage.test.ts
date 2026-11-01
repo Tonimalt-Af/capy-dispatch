@@ -54,3 +54,8 @@ it('a mid-day save from the v1 map (no map field, old node numbers) still loads:
   expect((back.today!.capys as Record<string, { pos: number }>)[ids[0]].pos).toBe(SITES[old.tickets[tk].site].node);
   expect((back.today!.capys as Record<string, { pos: number }>)[ids[1]].pos).toBe(DEPOT);
 });
+it('PRC and Réseau are two trades: a fuite sur branchement planned for Josette in an old save goes back to the pile', () => {
+  const g = G.newGame(5); G.startDay(g); const id = G.tray(g)[0]; g.tickets[id].job = 'fuite_bt'; g.today!.plan.josette = [id];
+  const s = defaults(); s.game = g; save(s); const back = load().game!;
+  expect(back.today!.plan.josette).toEqual([]); expect(G.tray(back)).toContain(id);
+});

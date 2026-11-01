@@ -19,7 +19,7 @@ describe('day generator', () => {
       for (const j of c.jobs) { expect(JOBS[j[0] as keyof typeof JOBS]).toBeTruthy(); for (const r of j.slice(1)) expect(RISKS[r as keyof typeof RISKS]).toBeTruthy(); }
       for (const [slot, id] of c.events) { expect(EVENTS[id], id).toBeTruthy(); expect(slot).toBeGreaterThanOrEqual(1); }
       expect(new Set(c.events.map((e) => e[0])).size).toBe(c.events.length); expect(c.jobs.length).toBeGreaterThanOrEqual(10);
-      if (c.card === 'orage') expect(c.jobs.filter((j) => j[0] === 'fuite_bt').length).toBeGreaterThanOrEqual(2);
+      if (c.card === 'orage') { expect(c.jobs.some((j) => j[0] === 'fuite_bt')).toBe(true); expect(c.jobs.some((j) => j[0] === 'casse')).toBe(true); }
       expect(c.card === 'festival').toBe(DAYS_SPEC[d].card === 'festival'); }
     for (const l of Object.values(CHEF).flat()) for (const sx of ['homme', 'femme'] as const) expect(agree(l, sx).replaceAll('{nom}', '')).not.toMatch(/[{}|]/);
     expect(Object.keys(MIXES).length).toBeGreaterThanOrEqual(4); expect(Object.keys(TRIOS).length).toBe(5);

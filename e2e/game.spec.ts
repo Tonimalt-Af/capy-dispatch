@@ -54,7 +54,7 @@ test('drag & drop a ticket onto a capy row', async ({ page }) => {
   await page.mouse.move(rb.x + 40, rb.y + rb.height / 2, { steps: 8 });
   await expect(page.locator('.gh.best')).toHaveCount(1); await expect(page.locator('.nojob').first()).toContainText('Pas son métier');
   await page.mouse.up(); await expect(page.locator('.gh')).toHaveCount(0);
-  // day 1, first ticket = PRC (ICC): Fred (row 2) is the ICC capy
+  // day 1, first ticket = PRC: Fred (row 2) is the PRC capy
   const placed = await page.locator(`.blk.q[data-b="${cls}"]`).count(); const back = await page.locator(`.tk[data-t="${cls}"]`).count();
   expect(placed).toBe(1); expect(back).toBe(0);
 });

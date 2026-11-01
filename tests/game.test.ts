@@ -15,8 +15,8 @@ describe('rules', () => {
     expect([0, 4, 8].map(slotShort)).toEqual(['8h', '13h30', '17h30']); expect(slotEnd(3)).toBe('12 h'); expect(slotEnd(4, true)).toBe('14h30'); expect(LUNCH_LABEL).toBe('Pause déjeuner (12 h – 13 h 30)');
   });
   it('the safety rule is configured in one place and defaults to cap1', () => { expect(SAFETY_RULE).toBe('cap1'); });
-  it('10 job types, each with phase-2 data hooks (side / habilitation) and a known skill', () => {
-    expect(Object.keys(JOBS).length).toBe(10);
+  it('11 job types, each with phase-2 data hooks (side / habilitation) and a known skill', () => {
+    expect(Object.keys(JOBS).length).toBe(11);
     for (const j of Object.values(JOBS)) { expect(['icc', 'reseau', 'fuite']).toContain(j.skill); expect(['avant', 'apres', 'na']).toContain(j.side); expect(j).toHaveProperty('habilitation'); }
   });
   it('10 days, 3 objectives each (3 stars = 3 objectives shown at the briefing)', () => {
@@ -202,7 +202,7 @@ describe('boucle v2: yield explainer and day lines', () => {
 
 describe('capy traits', () => {
   it('Josette repairs a leak without the extra hour, Lulu ignores narrow streets, Fred pleases subscribers', () => {
-    expect(slotsFor(CAPY.josette, JOBS.fuite_bt)).toBe(JOBS.fuite_bt.dur); expect(slotsFor(CAPY.josette, JOBS.purge)).toBe(JOBS.purge.dur + 1);
+    expect(slotsFor(CAPY.josette, JOBS.casse)).toBe(JOBS.casse.dur); expect(slotsFor(CAPY.josette, JOBS.fuite_bt)).toBeNull(); expect(slotsFor(CAPY.josette, JOBS.purge)).toBe(JOBS.purge.dur + 1);
     const g = fresh(); const t = addTicket(g, 'fuite_bt', { risks: ['ruelle'] }); t.gas = true; g.today!.phase = 'run';
     expect(G.maxExtra(t, 'lulu')).toBe(G.maxExtra(t) - 1);
     const d = g.today!; for (const c of TEAM) d.plan[c.id] = []; d.plan.lulu = [t.id]; d.capys.lulu.pos = SITES[t.site].node; d.pending = []; G.step(g);

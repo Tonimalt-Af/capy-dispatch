@@ -9,17 +9,18 @@ import { tryDay } from './hindsight';
 
 /** Hand-written job bags (what the central sends on a typical day of each kind). */
 export const MIXES: Record<string, JobId[]> = {
-  compteurs: ['prc', 'introuvable', 'prc', 'resilie', 'debit_nuit', 'prc', 'fuite_pc', 'resilie', 'fontaine', 'purge', 'prc', 'debit_nuit', 'resilie', 'prc', 'purge'],
-  reseau: ['debit_nuit', 'fuite_pc', 'purge', 'prc', 'debit_nuit', 'resilie', 'introuvable', 'fontaine', 'prc', 'fuite_pc', 'purge', 'resilie', 'prc', 'debit_nuit', 'prc'],
-  abonnes: ['prc', 'resilie', 'prc', 'introuvable', 'resilie', 'fuite_pc', 'prc', 'debit_nuit', 'purge', 'fontaine', 'resilie', 'prc', 'debit_nuit', 'introuvable', 'prc'],
-  menage: ['resilie', 'prc', 'debit_nuit', 'purge', 'introuvable', 'prc', 'fontaine', 'resilie', 'fuite_pc', 'debit_nuit', 'prc', 'purge', 'resilie', 'prc', 'fuite_pc'],
+  compteurs: ['prc', 'introuvable', 'prc', 'resilie', 'debit_nuit', 'prc', 'fuite_pc', 'fontaine', 'resilie', 'purge', 'prc', 'debit_nuit', 'purge', 'prc', 'fontaine'],
+  reseau: ['debit_nuit', 'purge', 'fuite_pc', 'fontaine', 'prc', 'debit_nuit', 'resilie', 'purge', 'introuvable', 'fontaine', 'prc', 'debit_nuit', 'purge', 'prc', 'fuite_pc'],
+  abonnes: ['prc', 'resilie', 'prc', 'introuvable', 'purge', 'fuite_pc', 'prc', 'debit_nuit', 'fontaine', 'resilie', 'purge', 'prc', 'debit_nuit', 'introuvable', 'fontaine'],
+  menage: ['resilie', 'prc', 'debit_nuit', 'purge', 'introuvable', 'fontaine', 'prc', 'resilie', 'fuite_pc', 'debit_nuit', 'purge', 'prc', 'fontaine', 'prc', 'fuite_pc'],
 };
 /** Which risk goes on which kind of job (the same pairs as in the scripted days). */
 const RISK_ON: [Risk, JobId[]][] = [['cafe', ['prc', 'fuite_pc']], ['absent', ['prc']], ['chien', ['introuvable', 'resilie']], ['cave', ['introuvable']], ['ruelle', ['fuite_pc', 'fuite_bt']]];
 /** Calls that can ring on a day of each kind (the story calls stay on their scripted day). */
 export const FILLERS: Record<string, string[]> = {
   calme: ['riverain', 'voiture', 'avis_rate'], mistral: ['mistral', 'riverain', 'voiture'], marche: ['hydrocureur', 'riverain', 'voiture'],
-  orage: ['vestiges', 'poteau', 'riverain'], pluie: ['riverain', 'voiture', 'avis_rate'], festival: [],
+  // orage: the storm already brings a casse and a fuite sur branchement, no third leak call on top
+  orage: ['vestiges', 'poteau', 'voiture'], pluie: ['riverain', 'voiture', 'avis_rate'], festival: [],
 };
 const BEAT = /^(vip_|fest_)|^(prefet|directeur|capydindon)$/;
 /** Objective trios written for each kind of day. */
@@ -35,7 +36,7 @@ export const CHEF: Record<string, string[]> = {
   calme: ['Ciel bleu sur Avignon, {nom}. Pas d’excuse : on solde la pile et on tient les RDV.', 'Journée calme annoncée. Profites-en pour ranger ce qui traîne, les compteurs n’attendent pas.'],
   mistral: ['Mistral fort, {nom}. Garde de la place dans le planning : en général, le téléphone sonne.', 'Rafales à 80 km/h : les chantiers de chaussée prennent du retard. Laisse de la marge.'],
   marche: ['Jour de marché aux Halles : évite les allers-retours vers la place Pie.', 'Les Halles débordent sur la place Pie, {nom}. Groupe les adresses, sinon on passe la journée dans le fourgon.'],
-  orage: ['L’orage a secoué le réseau : deux fuites urgentes. Chaque heure, ce sont des mètres cubes perdus.', 'Nuit d’orage, sols qui bougent : deux fuites au briefing. Priorité aux urgences, {nom}.'],
+  orage: ['L’orage a secoué le réseau : une casse sur conduite et une fuite sur branchement. Chaque heure, ce sont des mètres cubes perdus.', 'Nuit d’orage, sols qui bougent : une conduite a cassé, un branchement fuit. Lulu pour le réseau, Fred pour le branchement, {nom}.'],
   pluie: ['Pluie fine : rien qui arrête un capybara. Les abonnés, eux, aiment qu’on soit à l’heure.', 'Il pleut, les capys sont ravis. Toi, garde un œil sur les RDV et le moral des abonnés.'],
   festival: [],
 };
@@ -49,7 +50,7 @@ export function candidate(seed: number, day: number, k: number, prevCard?: strin
   const n = Math.max(10, Math.min(15, base.jobs.length + Math.floor(r() * 3) - 1));
   const bag = MIXES[pick(Object.keys(MIXES))]; const off = Math.floor(r() * bag.length);
   const jobs: (JobId | [JobId, ...Risk[]])[] = [];
-  if (card === 'orage') jobs.push(['fuite_bt'], ['fuite_bt']);
+  if (card === 'orage') jobs.push(['fuite_bt'], ['casse']); // the storm: a branchement (PRC) and a conduite (réseau)
   const objs = card === 'festival' ? base.objs : pick(TRIOS[card]);
   if (objs.some((o) => o.id === 'urgent') && card !== 'orage' && !beats.length) jobs.push(['fuite_bt']);
   if (card !== 'festival' && (base.jobs.some((j) => j[0] === 'coupure') || r() < 0.3) && day < 9) jobs.push(['coupure']);

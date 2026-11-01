@@ -1,6 +1,6 @@
 // Local save. Every key is prefixed 'capy-dispatch-': the github.io origin is shared with Maxime's other games
 // (Mahjong Capybaras uses 'capy-mahjong-'), and the two games share nothing on purpose.
-import { JOBS, RISKS, TEAM, EVENTS, VIPS, DAY_CARDS, type CapyId } from './content';
+import { JOBS, RISKS, TEAM, EVENTS, VIPS, DAY_CARDS, CAPY, slotsFor, type CapyId } from './content';
 import { SITES, NODE_COUNT, PREFET_SITE, RETIRED_SITES, DEPOT, MAP_V } from './map';
 import { DAYS, SLOTS } from './rules';
 import type { Game, Ticket, DayState, DayResult } from './game';
@@ -42,6 +42,8 @@ function today(d: unknown, g: Game): d is DayState {
   if (!isObj(d) || d.day !== g.day || !int(d.slot, 0, SLOTS) || !['briefing', 'plan', 'run', 'close'].includes(d.phase as string) || !['start', 'mid'].includes(d.sub as string)) return false;
   const known = (s: string) => Object.hasOwn(g.tickets, s);
   if (!isObj(d.plan) || !CAPYS.every((c) => ids((d.plan as Record<string, unknown>)[c], known))) return false;
+  // the trades were split (PRC / réseau): a planned ticket its capy can no longer do goes back to the pile
+  for (const c of CAPYS) (d.plan as Record<string, string[]>)[c] = (d.plan as Record<string, string[]>)[c].filter((id) => slotsFor(CAPY[c], JOBS[g.tickets[id].job]) !== null);
   if (!isObj(d.capys) || !CAPYS.every((c) => { const r = (d.capys as Record<string, unknown>)[c]; return isObj(r) && int(r.pos, 0, NODE_COUNT - 1) && (r.job === null || (str(r.job) && known(r.job))) && (r.target === null || (str(r.target) && known(r.target))) && int(r.left, 0, 20) && int(r.travel, 0, 9) && int(r.extra, 0, 20) && int(r.started, -1, SLOTS); })) return false;
   // pending cards are kept, so reloading never skips a card (or a safety incident)
   if (!Array.isArray(d.pending) || !d.pending.every((p) => isObj(p) && ['risk', 'event', 'safety', 'mini'].includes(p.kind as string) && str(p.card, 40)

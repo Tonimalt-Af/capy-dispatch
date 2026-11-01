@@ -69,10 +69,10 @@ function fillNames(root: ParentNode = document) { const n = S.player?.name ?? ''
 const me = (cls = '') => (S.player ? who('player', cls) : who('capy', cls));
 const cap1 = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 /** Very short block labels for the timeline (the full name is on the ticket card and in the details). */
-const TAG: Record<JobId, string> = { fuite_bt: 'Fuite', fuite_pc: 'Fuite cpt', prc: 'PRC', introuvable: 'Perdu', resilie: 'Résilié', coupure: 'Coupure', debit_nuit: 'Débit nuit', purge: 'Purge', fontaine: 'Borne', poteau: 'Poteau' };
+const TAG: Record<JobId, string> = { fuite_bt: 'Fuite', fuite_pc: 'Fuite cpt', prc: 'PRC', introuvable: 'Perdu', resilie: 'Résilié', coupure: 'Coupure', debit_nuit: 'Débit nuit', purge: 'Purge', fontaine: 'Borne', poteau: 'Poteau', casse: 'Casse' };
 /** RDV = the window in which the capy must arrive: « 8h–9h » (same text on the ticket, the band and the sheet). */
 const rdvText = (r: [number, number]) => (r[0] === r[1] ? `à ${slotShort(r[0])}` : `${slotShort(r[0])}–${slotShort(r[1])}`);
-const THE: Record<string, string> = { fuite_bt: 'la fuite', fuite_pc: 'la fuite au compteur', prc: 'le compteur', introuvable: 'le compteur introuvable', resilie: 'le résilié', coupure: 'la coupure', debit_nuit: 'le débit de nuit', purge: 'la purge', fontaine: 'la borne-fontaine', poteau: 'le poteau incendie' };
+const THE: Record<string, string> = { casse: 'la casse', fuite_bt: 'la fuite', fuite_pc: 'la fuite au compteur', prc: 'le compteur', introuvable: 'le compteur introuvable', resilie: 'le résilié', coupure: 'la coupure', debit_nuit: 'le débit de nuit', purge: 'la purge', fontaine: 'la borne-fontaine', poteau: 'le poteau incendie' };
 const chipFx = (ic: string, v: string, cls = '') => `<em class="fx ${cls}">${icon(ic, 'ic xs')}${v}</em>`;
 /** Card effects as icons: « +1 créneau · satisfaction +4 » → [horloge +1 h] [cœur +4]. */
 /** Expert mode: every field of a choice's effect, in plain numbers. */
@@ -261,7 +261,7 @@ function credits() {
     <p><b>Dessins</b> : capybaras et autocollants dessinés à la main en SVG pour ce jeu. <b>Musique et bruitages</b> : synthétisés dans le navigateur, originaux.</p>
     <p><b>Police</b> : Fredoka (SIL Open Font License).</p>
     <p><b>Parodie</b> : Lyonnaise des Robinets, Générale des Flots, SORE et la Régie sont des entreprises imaginaires. Jeu non officiel, sans lien avec un opérateur réel. Les abonnés et le préfet sont fictifs.</p>
-    <p class="muted">Le métier est inspiré de vraies fiches métiers des opérateurs d'eau (PRC, débit de nuit, avis de coupure 48 h, appel à l'exploitant gaz avant de creuser…).</p>
+    <p class="muted">Le métier est inspiré de vraies fiches métiers des opérateurs d'eau : deux métiers distincts, le PRC (compteurs et branchements) et le réseau (grosses conduites et vannes), plus le débit de nuit, l'avis de coupure 48 h, l'appel à l'exploitant gaz avant de creuser…</p>
   </div><div class="btns"><button class="btn primary" id="cred-ok">OK</button></div>`);
   $('#cred-ok').onclick = () => { closeOv(); if (view() === 'game') resumeAfterOverlay(); };
 }
@@ -387,7 +387,7 @@ const GAP = 0.5; // lunch gap, in slot widths (1 h 30 drawn a bit narrower than 
 const U = SLOTS + GAP; // timeline units: 8 slots + the lunch gap
 const xs = (s: number) => ((Math.min(s, SLOTS) + (s >= LUNCH_AFTER ? GAP : 0)) / U) * 100; // left edge of a start slot
 const xe = (e: number) => ((Math.min(e, SLOTS) + (e > LUNCH_AFTER ? GAP : 0)) / U) * 100; // right edge of an end slot
-const NOJOB: Record<Skill, string> = { fuite: 'cherche les fuites cachées', icc: 'fait les interventions chez les abonnés', reseau: 'répare le réseau' };
+const NOJOB: Record<Skill, string> = { fuite: 'cherche les fuites cachées', icc: 'fait le PRC : compteurs et branchements', reseau: 'travaille sur les conduites et les vannes du réseau' };
 /** Per-capy ghosts for a ticket: where it would go, how long, the route, and which one finishes first. */
 function ghosts(id: string) {
   const spots = {} as Record<CapyId, G.Spot | null>; let best: CapyId | null = null; let bk = Infinity;
@@ -464,7 +464,7 @@ function panel() {
 /** « Fred 1 h · Lulu 2 h »: who can do it and how long, the specialist first. */
 const fitLine = (t: Ticket) => TEAM.filter((c) => slotsFor(c, JOBS[t.job]) !== null).sort((a, b) => slotsFor(a, JOBS[t.job])! - slotsFor(b, JOBS[t.job])!).map((c) => `${c.name} ${slotsFor(c, JOBS[t.job])} h`).join(' · ');
 /** Capy chips for the ticket front: the fastest in green, the others grey, those who can't do it struck « Josette — ». */
-const fitChips = (t: Ticket) => { const J = JOBS[t.job]; const cs = [...TEAM].sort((a, b) => (slotsFor(a, J) ?? 99) - (slotsFor(b, J) ?? 99)); const best = slotsFor(cs[0], J);
+const fitChips = (t: Ticket) => { const J = JOBS[t.job]; const cs = [...TEAM].sort((a, b) => (slotsFor(a, J) ?? 99) - (slotsFor(b, J) ?? 99) || (a.main === J.skill ? 0 : 1) - (b.main === J.skill ? 0 : 1)); const best = slotsFor(cs[0], J);
   return cs.map((c, i) => { const n = slotsFor(c, J); const k = n === null ? ' no' : i === 0 || n === best ? ' best' : ' oth'; return `<span class="cf${k}" title="${c.name} : ${n === null ? 'pas son métier' : `${n} h${k === ' best' ? ', le plus rapide' : ''}`}">${c.name} ${n === null ? '—' : `${n}\u202Fh`}</span>`; }).join(''); };
 const quoteOf = (t: Ticket) => { const q = QUOTES[t.job]; return t.prefet ? '« Monsieur le préfet vous attend. »' : q[(t.num + t.site) % q.length]; };
 const shortWho = (t: Ticket) => t.who.split(' (')[0];
@@ -522,7 +522,7 @@ function bindPanel() {
   p.querySelectorAll<HTMLElement>('[data-avis]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); if (G.sendAvis(g!, b.dataset.avis!)) { snd.play('place'); toast(`Avis de coupure envoyé : chantier possible ${WEEKDAYS[(g!.day + 2) % 5].toLowerCase()}.`); save(); render(); } }));
   p.querySelectorAll<HTMLElement>('[data-gas]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); G.toggleGas(g!, b.dataset.gas!); snd.play(g!.tickets[b.dataset.gas!].gas ? 'place' : 'click'); save(); render(); }));
   p.querySelectorAll<HTMLElement>('[data-who]').forEach((w) => w.addEventListener('click', (e) => { if (sel) return; e.stopPropagation(); const c = CAPY[w.dataset.who as CapyId];
-    toast(`${CAPY_LINE[c.id]} ${GLOSSARY[SKILL_SHORT[c.main]] ?? ''}`.trim(), 4200); }));
+    toast(CAPY_LINE[c.id], 4200); }));
   if (!editable() && !(d.phase === 'run' && d.replan)) return;
   p.querySelectorAll<HTMLElement>('.tk').forEach((el) => {
     el.addEventListener('click', () => { if (suppressClick) return; tapTicket(el.dataset.t!); });
@@ -603,11 +603,11 @@ const whoName = (t: Ticket) => t.who.split(' (')[0].split(' · ')[0];
 function capyFit(t: Ticket, c: typeof TEAM[number]) { const J = JOBS[t.job]; const r = range(t, c.id);
   if (r === '—') return `<p class="fit no">${c.name} : pas son métier</p>`;
   if (c.main === J.skill) return `<p class="fit">${c.name} : <b>${r} h</b>, c'est son métier</p>`;
-  return `<p class="fit">${c.name} le fait aussi, en un peu plus long (<b>${r} h</b>)</p>`; }
+  return `<p class="fit">${c.name} le fait aussi${slotsFor(c, J) === J.dur ? '' : ', en un peu plus long'} (<b>${r} h</b>)</p>`; }
 function detail(id: string) {
   const t = g!.tickets[id]; const J = JOBS[t.job]; const d = today(); const planned = Object.values(d.plan).flat().includes(id); const ed = editable() || d.replan;
   const gl = glossFor(J.name);
-  openOv(`<div class="det"><div class="det-h" style="--c:${SK_COL[J.skill]}">${icon(J.icon, 'ic big')}<div><h2>${J.name}</h2><p>${esc(addr(t))} · ${t.prefet || t.vip ? esc(t.who) : 'chez ' + esc(t.who)}</p></div></div>
+  openOv(`<div class="det"><div class="det-h" style="--c:${SK_COL[J.skill]}">${icon(J.icon, 'ic big')}<div><h2>${J.name}</h2><p>${esc(addr(t))} · ${t.prefet || t.vip ? esc(t.who) : (J.id === 'casse' ? 'signalée par ' : 'chez ') + esc(t.who)}</p></div></div>
     ${gl.map((x) => `<p class="gloss">${glyph('info')}<span>${esc(x)}</span></p>`).join('')}
     <p>${J.desc}</p>${t.vip ? `<p class="vipr">${icon('star', 'ic s')} <b>${VIPS[t.vip].tag}</b> · ${VIPS[t.vip].rule}</p>` : ''}
     <div class="det-g"><div><h3>Qui peut y aller ?</h3>${TEAM.map((c) => capyFit(t, c)).join('')}</div>
@@ -679,7 +679,7 @@ function afterStep(before: { slot: number; done: number }) {
 }
 // ---------------------------------------------------------------- game feel: « Réparé ! » stamp, the capy's bubble, a star flying to the yield gauge
 const calmNow = () => !!S.settings.calm || matchMedia('(prefers-reduced-motion: reduce)').matches;
-const STAMP: Record<JobId, string> = { fuite_bt: 'Réparé !', fuite_pc: 'Réparé !', poteau: 'Fermé !', fontaine: 'Réparé !', coupure: 'Réparé !', purge: 'Eau claire !', prc: 'Posé !', introuvable: 'Trouvé !', resilie: 'Réglé !', debit_nuit: 'Trouvé !' };
+const STAMP: Record<JobId, string> = { fuite_bt: 'Réparé !', fuite_pc: 'Réparé !', poteau: 'Fermé !', casse: 'Réparé !', fontaine: 'Réparé !', coupure: 'Réparé !', purge: 'Eau claire !', prc: 'Posé !', introuvable: 'Trouvé !', resilie: 'Réglé !', debit_nuit: 'Trouvé !' };
 const QUIPS = ['Et voilà !', 'Au suivant !', 'Nickel.', 'Du travail propre.', 'Pas de souci.'], WET = ['Plus une goutte !', 'Ça ne coule plus.', 'Et voilà !'];
 function fxAt(el: Element | null, cls: string, text: string, ms: number) { if (!el) return null; const r = el.getBoundingClientRect(); if (!r.width) return null;
   const f = document.createElement('div'); f.className = `fx ${cls}`; f.textContent = text; f.style.left = `${r.left + r.width / 2}px`; f.style.top = `${r.top + r.height / 2}px`; document.body.appendChild(f); setTimeout(() => f.remove(), ms); return f; }

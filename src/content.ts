@@ -3,10 +3,13 @@
 // ATU, débit de nuit, avis de passage, avis de coupure 48 h, résiliés qui consomment...
 
 export type Skill = 'icc' | 'reseau' | 'fuite';
-export const SKILL_NAME: Record<Skill, string> = { icc: 'Interventions client', reseau: 'Réseau', fuite: 'Recherche de fuite' };
-export const SKILL_SHORT: Record<Skill, string> = { icc: 'ICC', reseau: 'Réseau', fuite: 'Fuite' };
+// Two real trades (Maxime, 2026-11-01; sources on the design Page): « PRC » = the classic works at the subscriber's and on the
+// branchement (compteurs, postes de comptage, branchements), « Réseau » = the big pipes under the street (conduites, vannes,
+// purges, poteaux incendie, casses). The ids stay 'icc' / 'reseau' so saves keep working.
+export const SKILL_NAME: Record<Skill, string> = { icc: 'PRC · compteurs et branchements', reseau: 'Réseau · conduites et vannes', fuite: 'Recherche de fuite' };
+export const SKILL_SHORT: Record<Skill, string> = { icc: 'PRC', reseau: 'Réseau', fuite: 'Fuite' };
 
-export type JobId = 'fuite_bt' | 'fuite_pc' | 'prc' | 'introuvable' | 'resilie' | 'coupure' | 'debit_nuit' | 'purge' | 'poteau' | 'fontaine';
+export type JobId = 'fuite_bt' | 'fuite_pc' | 'prc' | 'introuvable' | 'resilie' | 'coupure' | 'debit_nuit' | 'purge' | 'poteau' | 'fontaine' | 'casse';
 export interface JobType {
   id: JobId; name: string; short: string; skill: Skill; /** base duration in slots */ dur: number;
   urgent?: boolean; /** digging under the road: ATU + gas call before starting */ dig?: boolean;
@@ -16,14 +19,15 @@ export interface JobType {
   /** phase 2 hooks (data only, no UI yet) */ side: 'avant' | 'apres' | 'na'; habilitation: string | null;
 }
 export const JOBS: Record<JobId, JobType> = {
-  fuite_bt: { id: 'fuite_bt', name: 'Fuite sur branchement', short: 'Fuite branchement', skill: 'reseau', dur: 2, urgent: true, dig: true, leak: 6, icon: 'drop', side: 'avant', habilitation: 'AIPR', go: "{c} ouvre la chaussée {rue}", fin: "{c} a réparé le branchement {rue} : plus une goutte !", desc: "De l'eau sort du trottoir. Il faut ouvrir la chaussée (ATU) et réparer le branchement. Appel à l'exploitant gaz avant de creuser." },
+  fuite_bt: { id: 'fuite_bt', name: 'Fuite sur branchement', short: 'Fuite branchement', skill: 'icc', dur: 2, urgent: true, dig: true, leak: 6, icon: 'drop', side: 'avant', habilitation: 'AIPR', go: "{c} ouvre la chaussée {rue}", fin: "{c} a réparé le branchement {rue} : plus une goutte !", desc: "De l'eau sort du trottoir : c'est le branchement, le petit tuyau entre la conduite et le compteur. Petite fouille (ATU), on change le collier ou le raccord. Appel à l'exploitant gaz avant de creuser." },
+  casse: { id: 'casse', name: 'Casse sur conduite (DN 150)', short: 'Casse conduite', skill: 'reseau', dur: 3, urgent: true, dig: true, leak: 8, icon: 'pipe', side: 'avant', habilitation: 'AIPR', go: "{c} ferme les vannes et ouvre la fouille {rue}", fin: "{c} a posé le manchon sur la conduite {rue}, l'eau revient", desc: "La grosse conduite sous la rue a cédé. Équipe réseau : fermer les vannes autour, signalisation, fouille à la mini-pelle, couper le tronçon abîmé et poser un manchon, puis purger avant de remettre l'eau." },
   fuite_pc: { id: 'fuite_pc', name: 'Fuite au poste de comptage', short: 'Fuite compteur', skill: 'icc', dur: 1, leak: 1, icon: 'meterdrop', side: 'avant', habilitation: null, go: "{c} file au compteur qui goutte chez {who}", fin: "{c} a changé le joint chez {who}", desc: 'Le joint du compteur goutte dans le regard. Changer les joints, contrôler le robinet avant compteur.' },
   prc: { id: 'prc', name: 'Remplacement de compteur (PRC)', short: 'PRC', skill: 'icc', dur: 1, icon: 'meter', side: 'na', habilitation: null, go: "{c} sonne chez {who}, {rue}", fin: "{c} a posé le compteur neuf chez {who}", desc: "Compteur de plus de 15 ans à remplacer. Rendez-vous pris avec l'abonné : relever l'index, poser, plomber, photo." },
   introuvable: { id: 'introuvable', name: 'Compteur introuvable', short: 'Introuvable', skill: 'icc', dur: 1, minigame: 'compteur', icon: 'search', side: 'na', habilitation: null, go: "{c} part à la chasse au compteur {rue}", fin: "{c} a mis la main sur le compteur {rue}", desc: "La télérelève ne répond plus et personne ne sait où est le compteur. Le SIG donne une piste, à toi de le trouver sur la façade." },
   resilie: { id: 'resilie', name: '« Résilié qui consomme »', short: 'Résilié', skill: 'icc', dur: 1, icon: 'ghost', side: 'na', habilitation: null, go: "{c} mène l'enquête sur le résilié {rue}", fin: "{c} a résolu le mystère du résilié {rue}", desc: "Contrat résilié mais l'index continue de tourner. Enquête : nouvel occupant, fuite, ou branchement oublié ?" },
-  coupure: { id: 'coupure', name: 'Réparation programmée avec coupure', short: 'Coupure programmée', skill: 'reseau', dur: 2, dig: true, coupure: true, fix: 25, icon: 'valve', side: 'avant', habilitation: 'AIPR', go: "{c} coupe l'eau {rue} pour changer la vanne", fin: "{c} a changé la vanne {rue}, l'eau revient", desc: "Remplacer une vanne fatiguée. Les riverains doivent recevoir l'avis de coupure 48 h avant : envoie-le, le chantier sera possible 2 jours plus tard." },
+  coupure: { id: 'coupure', name: 'Réparation programmée avec coupure', short: 'Coupure programmée', skill: 'reseau', dur: 2, dig: true, coupure: true, fix: 25, icon: 'valve', side: 'avant', habilitation: 'AIPR', go: "{c} coupe l'eau {rue} pour changer la vanne", fin: "{c} a changé la vanne {rue}, l'eau revient", desc: "Changer une vanne de sectionnement sur la conduite (chantier de l'équipe réseau, mini-pelle et signalisation). Les riverains doivent recevoir l'avis de coupure 48 h avant : envoie-le, le chantier sera possible 2 jours plus tard." },
   debit_nuit: { id: 'debit_nuit', name: 'Débit de nuit anormal', short: 'Débit de nuit', skill: 'fuite', dur: 1, fix: 55, icon: 'ear', side: 'avant', habilitation: null, go: "{c} écoute le sol {rue}, casque sur les oreilles", fin: "{c} a trouvé la fuite cachée {rue} !", desc: "La sectorisation voit un débit de nuit trop haut : une fuite invisible. Écoute au sol, prélocalisateurs, puis réparation sans ouvrir grand." },
-  purge: { id: 'purge', name: 'Purge (eau colorée)', short: 'Purge', skill: 'reseau', dur: 1, icon: 'tap', side: 'avant', habilitation: null, go: "{c} ouvre la purge {rue}", fin: "{c} : l'eau est redevenue claire {rue}", desc: "Après une manœuvre, l'eau sort couleur thé. Ouvrir la purge jusqu'à ce qu'elle redevienne claire, contrôler le chlore." },
+  purge: { id: 'purge', name: 'Purge (eau colorée)', short: 'Purge', skill: 'reseau', dur: 1, icon: 'tap', side: 'avant', habilitation: null, go: "{c} ouvre la purge {rue}", fin: "{c} : l'eau est redevenue claire {rue}", desc: "Après une manœuvre de vanne sur la conduite, l'eau sort couleur thé. Ouvrir la purge du réseau jusqu'à ce qu'elle redevienne claire, contrôler le chlore." },
   fontaine: { id: 'fontaine', name: 'Borne-fontaine en panne', short: 'Borne-fontaine', skill: 'reseau', dur: 1, icon: 'tap', side: 'avant', habilitation: null, go: "{c} démonte la borne-fontaine {rue}", fin: "{c} a remis en route la borne-fontaine {rue}", desc: "La borne-fontaine publique ne donne plus qu'un filet : robinet fatigué ou filtre entartré. Démonter, nettoyer, remonter, contrôler le débit (et goûter, c'est le métier)." },
   poteau: { id: 'poteau', name: 'Poteau incendie heurté', short: 'Poteau incendie', skill: 'reseau', dur: 1, urgent: true, leak: 8, icon: 'hydrant', side: 'avant', habilitation: null, go: "{c} fonce fermer le poteau incendie {rue}", fin: "{c} a fermé le poteau incendie {rue} : fin du geyser", desc: "Une camionnette de livraison a couché un poteau incendie. Fermer la vanne et sécuriser, l'eau jaillit !" },
 };
@@ -32,9 +36,9 @@ export type CapyId = 'josette' | 'momo' | 'lulu';
 export interface Capy { id: CapyId; name: string; job: string; main: Skill; second: Skill | null; color: string; hat: string; trait: string }
 /** Secondary skill: the job takes one more slot. */
 export const TEAM: Capy[] = [
-  { id: 'josette', name: 'Josette', job: 'Technicienne réseaux recherche de fuite', main: 'fuite', second: 'reseau', color: '#E86A92', hat: '#FFFFFF', trait: "Oreille d'or : sur une fuite, elle trouve le point exact du premier coup. Pas d'heure en plus, même hors de son métier." },
-  { id: 'momo', name: 'Fred', job: 'Technicien interventions chez le client', main: 'icc', second: null, color: '#F39A2B', hat: '#FFFFFF', trait: 'Tout le monde l\'adore : chaque intervention chez un client fait gagner 1 point d\'abonnés. Il accepte souvent le café.' },
-  { id: 'lulu', name: 'Lulu', job: 'Technicienne réseau polyvalente', main: 'reseau', second: 'icc', color: '#2FA4A9', hat: '#FFFFFF', trait: 'Passe en fourgon dans les ruelles où personne ne passe : le risque « ruelle étroite » ne la gêne jamais.' },
+  { id: 'josette', name: 'Josette', job: 'Technicienne recherche de fuite (équipe réseau)', main: 'fuite', second: 'reseau', color: '#E86A92', hat: '#FFFFFF', trait: "Oreille d'or : sur une fuite, elle trouve le point exact du premier coup. Pas d'heure en plus, même hors de son métier." },
+  { id: 'momo', name: 'Fred', job: 'Technicien PRC : compteurs et branchements', main: 'icc', second: null, color: '#F39A2B', hat: '#FFFFFF', trait: 'Tout le monde l\'adore : chaque intervention chez un client fait gagner 1 point d\'abonnés. Il accepte souvent le café.' },
+  { id: 'lulu', name: 'Lulu', job: 'Technicienne réseau : conduites et vannes', main: 'reseau', second: 'icc', color: '#2FA4A9', hat: '#FFFFFF', trait: 'Passe en fourgon dans les ruelles où personne ne passe : le risque « ruelle étroite » ne la gêne jamais.' },
 ];
 export const CAPY = Object.fromEntries(TEAM.map((c) => [c.id, c])) as Record<CapyId, Capy>;
 /** Slots a capy needs for a job: base, +1 on a secondary skill; null when it can't do it at all. */
@@ -126,8 +130,8 @@ export const EVENTS: Record<string, Card> = {
   vip_agglo: { id: 'vip_agglo', title: 'Le président de l’agglo a une fuite', who: 'kevin', needs: 'none', text: "Demain, l'agglo vote l'appel d'offres de l'eau. Ce matin, son président a une fuite au compteur. Tout le monde va regarder si on le traite « comme les autres ».", choices: [
     { label: 'Le traiter comme tout le monde', hint: 'Commencer entre 2 h et 3 h : +3 · en 1 h : soupçon de passe-droit · après 4 h : −3', fx: { addTicket: 'fuite_pc', vip: 'agglo', log: "Ticket VIP : fuite chez le président de l'agglo" } }] },
   // Festival d'Avignon (real places at their real OSM address, no real people; the Off theatre is not named)
-  fest_cour: { id: 'fest_cour', title: 'Fuite devant la Cour d’honneur', who: 'kevin', needs: 'none', text: "La régie du Festival appelle : de l'eau remonte entre les pavés, juste devant l'entrée de la Cour d'honneur du Palais des Papes. Générale ce soir, et les techniciens son tiennent à garder les pieds secs.", choices: [
-    { label: 'Créer l’urgence Festival', hint: 'Fuite branchement · commencer en 2 h : +5 · à partir de 4 h : −5', fx: { addTicket: 'fuite_bt', vip: 'cour', log: "Urgence Festival : fuite devant la Cour d'honneur du Palais des Papes" } }] },
+  fest_cour: { id: 'fest_cour', title: 'Fuite devant la Cour d’honneur', who: 'kevin', needs: 'none', text: "La régie du Festival appelle : de l'eau remonte entre les pavés, juste devant l'entrée de la Cour d'honneur du Palais des Papes : c'est la conduite de la place. Générale ce soir, et les techniciens son tiennent à garder les pieds secs.", choices: [
+    { label: 'Créer l’urgence Festival', hint: 'Casse conduite · commencer en 2 h : +5 · à partir de 4 h : −5', fx: { addTicket: 'casse', vip: 'cour', log: "Urgence Festival : fuite devant la Cour d'honneur du Palais des Papes" } }] },
   fest_off: { id: 'fest_off', title: 'Plus d’eau dans les loges', who: 'kevin', needs: 'none', text: "Un petit théâtre du Off, 15 rue des Teinturiers : plus une goutte d'eau dans les loges, et la représentation est à 19 h. Au téléphone, le comédien est déjà en costume. Il ne sort pas de son personnage.", choices: [
     { label: 'Créer le ticket', hint: 'Fuite compteur · commencer dans les 3 h : +3 · à partir de 5 h : −3', fx: { addTicket: 'fuite_pc', vip: 'off', log: 'Ticket Festival : un théâtre du Off sans eau avant la représentation' } }] },
   fest_comedien: { id: 'fest_comedien', title: 'Il reste dans son personnage', who: 'capy', needs: 'job', text: "Le comédien ouvre en costume d'avare du XVIIᵉ siècle : « Un compteur ? Et combien coûte-t-il ? Ah ! ma cassette ! » Il ne parle qu'en alexandrins.", choices: [
@@ -212,8 +216,11 @@ export const objText = (o: Obj): string => ({
 }[o.id]);
 /** Acronyms and trade words, defined on tap (the tickets keep the real jargon as titles). */
 export const GLOSSARY: Record<string, string> = {
-  PRC: 'PRC : remplacement de compteur. Le vieux compteur part, le neuf arrive (index relevé, plomb, photo).',
-  ICC: 'ICC : interventions chez le client (compteurs, joints, enquêtes). Le métier de Fred.',
+  PRC: "PRC : programme de renouvellement des compteurs (plus de 15 ans, on change). C'est aussi le nom du métier « classique » : compteurs, postes de comptage, branchements. Le métier de Fred.",
+  ICC: 'ICC : interventions chez le client (compteurs, joints, enquêtes). Sur le terrain, c’est le travail de l’équipe PRC.',
+  Réseau: "Réseau : les grosses conduites sous la rue, leurs vannes, purges et poteaux incendie. Un autre métier que le PRC : fouille à la mini-pelle, signalisation, AIPR. Le métier de Lulu.",
+  Casse: "Casse sur conduite : la conduite principale a cédé. On isole avec les vannes, on ouvre, on pose un manchon, on purge.",
+  Conduite: "Conduite : le gros tuyau sous la rue (ici DN 150, 15 cm). Les branchements s'y piquent.",
   ATU: "ATU : autorisation de travaux d'urgence, pour ouvrir la chaussée.",
   SIG: "SIG : le plan informatique du réseau (tuyaux, vannes, compteurs).",
   'Débit de nuit': "Débit de nuit : la nuit, presque personne ne consomme. Si l'eau coule quand même, c'est une fuite cachée.",
@@ -226,9 +233,9 @@ export const GLOSSARY: Record<string, string> = {
 };
 /** One-line portrait of each capy, shown on its row and in the calls. */
 export const CAPY_LINE: Record<CapyId, string> = {
-  josette: "Josette entend les fuites cachées (débits de nuit). Elle fait aussi le réseau, en un peu plus long.",
-  momo: 'Fred, c’est les abonnés : compteurs, joints, enquêtes. Tout le monde lui offre le café.',
-  lulu: 'Lulu va partout, réseau et abonnés, mais plus lentement chez les abonnés.',
+  josette: "Josette, c'est la recherche de fuite : débits de nuit, casque d'écoute. Elle renforce aussi l'équipe réseau : aussi vite que Lulu sur une casse, un peu plus long sinon.",
+  momo: 'Fred, c’est le PRC, le métier « classique » : compteurs, postes de comptage, branchements, enquêtes chez l’abonné. Tout le monde lui offre le café.',
+  lulu: 'Lulu, c’est le réseau : les grosses conduites sous la rue, vannes, purges, poteaux incendie. Mini-pelle, signalisation, AIPR. Elle dépanne aussi sur le PRC, en un peu plus long.',
 };
 
 /** Scripted days. `jobs`: tickets created at the briefing (with optional forced risks / RDV). `events`: [slot, event id]. */
@@ -241,7 +248,7 @@ export const DAYS_SPEC: DaySpec[] = [
     chef: "Deux RDV aujourd'hui, et un compteur que personne ne trouve. Regarde les icônes de risque : elles disent ce qui peut déborder." },
   { card: 'calme', jobs: [['fuite_bt'], ['coupure'], ['prc', 'absent'], ['debit_nuit'], ['resilie'], ['fuite_pc'], ['prc'], ['purge'], ['fontaine'], ['introuvable']], rdv: 2, events: [[3, 'voiture']], objs: [{ id: 'urgent' }, { id: 'rdv' }, { id: 'yield', n: 1 }],
     chef: "Première urgence ! On ouvre la chaussée : pense à l'appel à l'exploitant gaz avant de creuser. Et il y a une coupure à annoncer 48 h avant." },
-  { card: 'mistral', jobs: [['prc'], ['introuvable', 'chien'], ['debit_nuit'], ['fuite_pc'], ['resilie'], ['prc'], ['purge'], ['prc', 'cafe'], ['fontaine'], ['resilie']], rdv: 2, events: [[1, 'riverain'], [3, 'vip_rival'], [5, 'mistral']], objs: [{ id: 'urgent' }, { id: 'backlog' }, { id: 'yield', n: 0.5 }],
+  { card: 'mistral', jobs: [['prc'], ['introuvable', 'chien'], ['debit_nuit'], ['fuite_pc'], ['resilie'], ['prc'], ['purge'], ['prc', 'cafe'], ['fontaine'], ['purge']], rdv: 2, events: [[1, 'poteau'], [3, 'vip_rival'], [5, 'mistral']], objs: [{ id: 'urgent' }, { id: 'backlog' }, { id: 'yield', n: 0.5 }],
     chef: "Mistral fort, {nom}. Garde de la place dans le planning : en général, le téléphone sonne." },
   { card: 'calme', jobs: [['prc', 'absent'], ['prc'], ['debit_nuit'], ['introuvable', 'cave'], ['resilie'], ['fuite_pc', 'ruelle'], ['purge'], ['fontaine'], ['prc'], ['resilie'], ['debit_nuit']], rdv: 2, events: [[1, 'vip_patron'], [2, 'avis_rate'], [5, 'eau_the']], objs: [{ id: 'rdv' }, { id: 'backlog', n: 1 }, { id: 'yield', n: 1 }],
     chef: "Vendredi ! Si l'avis a été envoyé mercredi, la coupure programmée est possible aujourd'hui. On solde ce qui traîne avant le week-end." },
@@ -249,11 +256,11 @@ export const DAYS_SPEC: DaySpec[] = [
     chef: "Jour de marché aux Halles : évite les allers-retours vers la place Pie. Nouvelle coupure à annoncer." },
   { card: 'festival', jobs: [['fuite_bt', 'ruelle'], ['prc', 'absent'], ['debit_nuit'], ['introuvable'], ['resilie'], ['prc'], ['fuite_pc'], ['prc', 'cafe'], ['resilie'], ['fontaine']], rdv: 2, events: [[1, 'fest_cour'], [2, 'fest_artiste'], [3, 'fest_fontaine'], [4, 'fest_off']], objs: [{ id: 'urgent' }, { id: 'sat' }, { id: 'yield', n: 1 }],
     chef: "Le Festival commence, {nom} ! Intra-muros, ça grouille : les trajets sont plus longs, et l'arrêté interdit les chantiers de chaussée non urgents. Le téléphone va sonner : régie, théâtres, canicule…" },
-  { card: 'orage', jobs: [['fuite_bt'], ['fuite_bt', 'ruelle'], ['prc'], ['debit_nuit'], ['resilie'], ['fuite_pc'], ['introuvable'], ['prc', 'absent'], ['purge'], ['debit_nuit'], ['prc'], ['fontaine'], ['resilie']], rdv: 2, events: [[2, 'vestiges'], [4, 'poteau']], objs: [{ id: 'urgent' }, { id: 'yield', n: 1.5 }, { id: 'rdv' }],
-    chef: "L'orage a secoué le réseau : deux fuites urgentes. Chaque heure, ce sont des mètres cubes perdus. Priorité aux urgences." },
-  { card: 'pluie', jobs: [['prc', 'cafe'], ['prc', 'absent'], ['prc'], ['debit_nuit'], ['debit_nuit'], ['introuvable', 'chien'], ['resilie'], ['fuite_pc'], ['purge'], ['prc'], ['resilie'], ['fontaine'], ['coupure'], ['prc']], rdv: 3, events: [[1, 'directeur'], [2, 'vip_maire'], [3, 'capydindon']], objs: [{ id: 'rdv' }, { id: 'sat', n: 3 }, { id: 'yield', n: 0.5 }],
+  { card: 'orage', jobs: [['fuite_bt', 'ruelle'], ['casse'], ['prc'], ['debit_nuit'], ['resilie'], ['fuite_pc'], ['introuvable'], ['prc', 'absent'], ['purge'], ['debit_nuit'], ['prc'], ['fontaine'], ['resilie']], rdv: 2, events: [[2, 'vestiges'], [4, 'poteau']], objs: [{ id: 'urgent' }, { id: 'yield', n: 1.5 }, { id: 'rdv' }],
+    chef: "L'orage a secoué le réseau : une casse sur conduite et une fuite sur branchement. Chaque heure, ce sont des mètres cubes perdus. Priorité aux urgences." },
+  { card: 'pluie', jobs: [['prc', 'cafe'], ['prc', 'absent'], ['prc'], ['debit_nuit'], ['debit_nuit'], ['introuvable', 'chien'], ['resilie'], ['fuite_pc'], ['purge'], ['prc'], ['purge'], ['fontaine'], ['coupure'], ['prc']], rdv: 3, events: [[1, 'directeur'], [2, 'vip_maire'], [3, 'capydindon']], objs: [{ id: 'rdv' }, { id: 'sat', n: 3 }, { id: 'm3', n: 30 }],
     chef: "Le directeur régional passe. Trois RDV, des abonnés à choyer. On montre ce que l'équipe sait faire. Tu es {prêt|prête} ?" },
-  { card: 'mistral', jobs: [['fuite_bt'], ['prc', 'absent'], ['prc'], ['debit_nuit'], ['introuvable', 'cave'], ['resilie'], ['fuite_pc', 'cafe'], ['purge'], ['prc'], ['debit_nuit'], ['resilie'], ['fontaine'], ['prc'], ['purge'], ['resilie']], rdv: 1, events: [[1, 'avis_rate'], [2, 'vip_agglo'], [4, 'riverain']], objs: [{ id: 'urgent' }, { id: 'rdv' }, { id: 'yield', n: 1 }],
+  { card: 'mistral', jobs: [['fuite_bt'], ['prc', 'absent'], ['prc'], ['debit_nuit'], ['introuvable', 'cave'], ['resilie'], ['fuite_pc', 'cafe'], ['purge'], ['prc'], ['debit_nuit'], ['resilie'], ['fontaine'], ['fontaine'], ['purge'], ['debit_nuit']], rdv: 1, events: [[1, 'avis_rate'], [2, 'vip_agglo'], [4, 'poteau']], objs: [{ id: 'urgent' }, { id: 'rdv' }, { id: 'yield', n: 1 }],
     chef: "Dernière journée de la quinzaine, {nom}. Après, bilan avec moi : rendement, RDV, sécurité. Tout compte !" },
 ];
 
@@ -272,5 +279,6 @@ export const QUOTES: Record<JobId, string[]> = {
   debit_nuit: ['« La nuit, le secteur boit comme un régiment. »', '« Le compteur de secteur ne dort jamais. »', '« Quelque part, une fuite se cache. »'],
   purge: ['« L’eau sort couleur sirop de grenadine. »', '« Mon café a un goût de rouille. »', '« L’eau est jaune, même mon chien n’en veut pas. »'],
   fontaine: ['« La borne ne coule plus, les pigeons font la tête. »', '« Les touristes cherchent de l’eau fraîche. »', '« Elle crachote, puis plus rien. »'],
+  casse: ['« La rue est devenue une rivière, et ça monte. »', '« Le bitume a gonflé puis il a explosé. »', '« Plus d’eau dans tout l’immeuble, et un lac devant. »'],
   poteau: ['« Un camion a embrassé le poteau. Geyser sur la place ! »', '« Les enfants adorent, la mairie un peu moins. »', '« Il y a un jet d’eau de trois mètres devant chez moi. »'],
 };
