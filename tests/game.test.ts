@@ -119,3 +119,11 @@ describe('real addresses', () => {
     const nodes = open.map((t) => SITES[t.site].node); expect(new Set(nodes).size).toBe(nodes.length);
   });
 });
+describe('real addresses overnight', () => {
+  it('a valve that gives up keeps its real address (number + street) as an urgent leak', () => {
+    const g = fresh(); const t = addTicket(g, 'coupure'); t.deadline = g.day; const site = t.site;
+    G.launch(g); let k = 0; while (g.today!.phase === 'run' && k++ < 200) { G.step(g); while (g.today!.pending.length) G.choose(g, 0); }
+    G.nextDay(g); const n = Object.values(g.tickets).find((x) => x.job === 'fuite_bt' && x.site === site)!;
+    expect(n).toBeTruthy(); expect(n.num).toBe(SITES[site].num); expect(n.risks.includes('ruelle')).toBe(SITES[site].narrow);
+  });
+});

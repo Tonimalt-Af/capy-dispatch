@@ -269,7 +269,7 @@ export function nextDay(g: Game) {
   for (const id of [...g.pile]) { const t = g.tickets[id];
     if (JOBS[t.job].coupure && t.deadline !== null && g.day > t.deadline) { // the tired valve gave up: it is now an urgent leak
       g.pile = g.pile.filter((x) => x !== id); delete g.tickets[id];
-      const r = rng(g.seed + g.day * 7 + t.num); const n = makeTicket(g, 'fuite_bt', r); n.site = t.site; n.day = g.day; n.slot = 0; n.avail = g.day; g.sat = clampSat(g.sat - 5); g.news.push(`La vanne ${SITES[t.site].street} a lâché avant la coupure programmée : c'est maintenant une fuite urgente.`); } }
+      const r = rng(g.seed + g.day * 7 + t.num); const n = makeTicket(g, 'fuite_bt', r); n.site = t.site; n.num = t.num; n.risks = n.risks.filter((k) => k !== 'ruelle'); if (SITES[t.site].narrow) n.risks.push('ruelle'); n.day = g.day; n.slot = 0; n.avail = g.day; g.sat = clampSat(g.sat - 5); g.news.push(`La vanne ${SITES[t.site].street} a lâché avant la coupure programmée : c'est maintenant une fuite urgente.`); } }
   if (g.day >= DAYS) { g.over = true; return; }
   startDay(g);
 }
