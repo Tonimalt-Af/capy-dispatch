@@ -401,13 +401,19 @@ function planBand() {
   const tip = urg ? 'les urgences d’abord, puis les RDV' : work > cap ? 'trop pour aujourd’hui : place le plus important d’abord' : work > cap * 0.8 ? 'ça va être serré : le plus important d’abord' : 'de la marge : pense aux trajets';
   return `<div class="planband" role="status"><b>Le plan du jour</b>${rdv.length ? `<span class="pb-r">${rdv.length} RDV à tenir ${rdv.slice(0, 3).map((t) => `<span class="pdr">${rdvText(t.rdv!)} <i>${esc(t.who.split(' (')[0])}</i></span>`).join('')}</span>` : ''}<span class="pb-w${work > cap ? ' over' : ''}"><b>${work} h</b> de travail pour ${TEAM.length} × ${SLOTS} h : ${tip}</span></div>`;
 }
+const tuto = () => !S.seenTuto && !!g && g.day === 0;
 function coach() {
   if (g?.today?.replan && pauseMsg) return `<div class="coach pause" role="status">${icon('clock', 'ic s')}<p>${say(pauseMsg)}</p></div>`;
-  if (S.seenTuto || !g || g.day > 0) return '';
-  const d = today(); let msg = '';
-  if (d.phase === 'plan') { const tr = G.tray(g); msg = tr.length ? (sel ? 'Touche maintenant la ligne d’un capy qui a la bonne pastille de métier.' : (!Object.values(d.plan).flat().length ? '{nom}, touche un ticket en bas pour le choisir (ou fais-le glisser).' : 'Touche le ticket suivant, puis la ligne d’un capy.')) : 'Tout est placé ! Les bandes hachurées « +1 h ? » montrent le temps en plus si un risque tombe. Lance la journée.'; }
-  else if (d.phase === 'run' && running) msg = 'La journée se joue toute seule : x2 accélère, « Prochaine décision » saute jusqu’au prochain choix.';
-  return msg ? `<div class="coach" role="status">${who('chef')}<p>${say(msg)}</p></div>` : '';
+  if (!tuto()) return '';
+  const d = today(); let msg = ''; let step = 0;
+  if (d.phase === 'plan') { const tr = G.tray(g!); const placed = Object.values(d.plan).flat().length; const rdvLeft = tr.some((id) => g!.tickets[id].rdv);
+    if (!tr.length) { step = 4; msg = 'Tout est placé ! Les bandes hachurées « +1 h ? » montrent le temps en plus si un risque tombe. Lance la journée.'; }
+    else if (sel) { step = placed ? 3 : 2; msg = 'La pastille verte du ticket dit qui est le plus rapide. Touche la case en pointillés verts sur sa ligne.'; }
+    else if (!placed) { step = 1; msg = rdvLeft ? '{nom}, touche d’abord le ticket à l’horloge : c’est un RDV à tenir.' : '{nom}, touche un ticket en bas pour le choisir (ou fais-le glisser).'; }
+    else { step = 3; msg = rdvLeft ? 'Bien ! Place le RDV à son heure, puis le reste.' : 'Bien ! Enchaîne les tickets d’un même quartier : moins de route, une étoile de plus.'; } }
+  else if (d.phase === 'run' && running) { step = 5; msg = 'La journée se joue toute seule : x2 accélère, « Prochaine décision » saute jusqu’au prochain appel.'; }
+  if (msg) msg = `<b class="cstep">${step}/6</b> ${say(msg)}`;
+  return msg ? `<div class="coach" role="status">${who('chef')}<p>${msg}</p></div>` : '';
 }
 // ---------- panel interactions: tap ticket → tap slot, drag & drop, block menu
 let drag: { id: string; from: 'tray' | 'blk'; x: number; y: number; ghost: HTMLElement | null; el: HTMLElement } | null = null; let suppressClick = false;
@@ -606,7 +612,7 @@ function whoDrops(p: G.Pending, c: ReturnType<typeof G.cardOf>, ci: number) {
   const can = TEAM.filter((k) => slotsFor(k, J) !== null).map((k) => k.name); const canTxt = can.length > 1 ? `${can.slice(0, -1).join(', ')} et ${can.at(-1)} savent faire.` : `${can[0]} sait faire.`;
   const lead = J.leak ? `${J.leak} m³ perdus par heure` : J.urgent ? 'urgent' : ch.fx.addRdvSoon ? 'RDV dans les 2 h' : '';
   openOv(`<div class="ecard drop"><div class="e-art">${who(c.who === 'capy' ? (p.capy ?? 'capy') : (c.who as Who))}</div><div class="e-body"><p class="kicker">${esc([slotShort(Math.min(d.slot, SLOTS - 1)), lead].filter(Boolean).join(' · '))}</p><h2>Le téléphone sonne : ${c.title.replace(/^./, (m) => m.toLowerCase())}</h2>
-    <p>${c.text} ${canTxt} <b>Qui lâche quoi ?</b></p>
+    <p>${c.text} ${canTxt} <b>Qui lâche quoi ?</b></p>${tuto() ? `<p class="tuto"><b class="cstep">6/6</b> Un appel en pleine journée : choisis qui lâche son ticket. La première ligne perd le moins d’eau, la barre montre la journée du capy.</p>` : ''}
     <div class="choices">${opts.map(row).join('')}${others}</div>
     <div class="dc-ft"><span>Le temps est arrêté : tu peux aussi placer le ticket à la main.</span><button class="btn" id="dc-plan">Voir le planning</button></div></div></div>`, 'wide drop-ov');
   const after = (nt: G.Ticket | null, placed: boolean) => { snd.play('place'); save(); closeOv();
@@ -668,6 +674,7 @@ function closeScreen() {
       <div class="stars">${[0, 1, 2].map((i) => `<span class="st${i < d.stars! ? ' on' : ''}" style="animation-delay:${0.2 + i * 0.25}s">${ICONS[i < d.stars! ? 'star' : 'starOff']}</span>`).join('')}</div>
       <p class="c-quote">« ${esc(nb(G.dayLine(g!)))} »</p>
       </div><div class="c-side"><ul class="objs">${spec.objs.map((o, i) => { const v = G.objValue(g!, o); return `<li class="${d.met![i] ? 'ok' : 'ko'}">${glyph(d.met![i] ? 'check' : 'cross')} <span>${objText(o)}${!d.met![i] && v ? ` <em>(${v})</em>` : ''}</span></li>`; }).join('')}</ul>
+      ${tuto() && G.tray(g!).length ? '<p class="tuto">Ce qui reste dans le bac attend demain : chaque soir d’attente coûte 1 point d’abonnés (pastille orange J+1).</p>' : ''}
       ${d.incidents ? '<p class="red"><b>On a creusé sans appeler le gaz</b> : pas plus d’une étoile aujourd’hui.</p>' : ''}
       <div class="ctiles">${tile('c-y', ptText(dy), 'rendement de réseau', dy >= 0 ? 'up' : 'down')}${tile('c-m3', `${lost} m³`, d.night ? 'perdus (avec la nuit)' : 'perdus aujourd’hui', 'm3')}</div>
       </div>

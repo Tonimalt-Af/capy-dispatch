@@ -454,3 +454,5 @@ details{font-size:var(--fs-s)}summary{cursor:pointer;font-weight:600;padding:var
 @media (max-height:380px){ .planband>b{display:none} .pdr:nth-of-type(n+3){display:none} }
 .tk:has([data-gas]) .cfs .cf:not(:first-child){display:none}
 .chip.warn{background:#FFE9D6;color:#B3541E;font-weight:800}
+.cstep{display:inline-block;background:var(--ldr-green);color:var(--ldr-navy);border-radius:999px;padding:0 6px;margin-right:4px}
+.tuto{background:var(--ldr-navy);color:#fff;border-radius:var(--r-m);padding:4px var(--sp-3);margin:4px 0;font-size:var(--fs-s);line-height:1.25}

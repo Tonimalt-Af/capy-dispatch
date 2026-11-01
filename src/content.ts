@@ -234,8 +234,8 @@ export const CAPY_LINE: Record<CapyId, string> = {
 export interface DaySpec { card: string; jobs: (JobId | [JobId, ...Risk[]])[]; rdv: number; events: [number, string][]; objs: Obj[]; chef: string }
 export const WEEKDAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
 export const DAYS_SPEC: DaySpec[] = [
-  { card: 'calme', jobs: [['prc'], ['fuite_pc'], ['debit_nuit'], ['resilie'], ['purge'], ['prc'], ['fontaine']], rdv: 1, events: [], objs: [{ id: 'done', n: 6 }, { id: 'rdv' }, { id: 'travel', n: 4 }],
-    chef: "{Bienvenu|Bienvenue} à l'agence, {nom} ! Trois tickets pour commencer. Chaque capy a son métier : touche un ticket, puis la ligne du bon capy." },
+  { card: 'calme', jobs: [['prc'], ['fuite_pc'], ['debit_nuit'], ['resilie'], ['purge'], ['prc'], ['fontaine']], rdv: 1, events: [[2, 'riverain']], objs: [{ id: 'done', n: 6 }, { id: 'rdv' }, { id: 'travel', n: 4 }],
+    chef: "{Bienvenu|Bienvenue} à l'agence, {nom} ! Sept tickets pour commencer, trois capys, huit heures chacun. Chaque capy a son métier : touche un ticket, puis la ligne du bon capy. Et garde un œil sur le téléphone." },
   { card: 'pluie', jobs: [['prc', 'cafe'], ['prc'], ['introuvable'], ['resilie'], ['fuite_pc'], ['debit_nuit'], ['purge'], ['fontaine'], ['prc']], rdv: 2, events: [], objs: [{ id: 'done', n: 8 }, { id: 'rdv' }, { id: 'm3', n: 12 }],
     chef: "Deux RDV aujourd'hui, et un compteur que personne ne trouve. Regarde les icônes de risque : elles disent ce qui peut déborder." },
   { card: 'calme', jobs: [['fuite_bt'], ['coupure'], ['prc', 'absent'], ['debit_nuit'], ['resilie'], ['fuite_pc'], ['prc'], ['purge'], ['fontaine'], ['introuvable']], rdv: 2, events: [[3, 'voiture']], objs: [{ id: 'urgent' }, { id: 'rdv' }, { id: 'yield', n: 1 }],

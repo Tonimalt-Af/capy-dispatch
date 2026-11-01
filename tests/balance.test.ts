@@ -27,6 +27,6 @@ it('every objective is reachable: the optimiser misses each at most about one ti
 });
 it('demand grows from about half the team capacity to more than it (nobody finishes everything at the end)', () => {
   const pile = res.opt.map((g) => g.pile.length); expect(Math.min(...pile)).toBeGreaterThan(3);
-  expect(res.opt.every((g) => g.history[0].done === DAYS_SPEC[0].jobs.length)).toBe(true);
+  expect(res.opt.every((g) => g.history[0].done >= DAYS_SPEC[0].jobs.length + 1)).toBe(true);
 });
 it('the network yield improves when you work well', () => { for (const g of res.opt) expect(g.history.at(-1)!.yield).toBeGreaterThan(0.8); });
