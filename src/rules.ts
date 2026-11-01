@@ -15,6 +15,8 @@ export const slotLabel = (s: number) => `${slotHour(s)} h`;
 
 /** Street distance (m) above which moving to the next job costs one slot ("trajet + stationnement": intra-muros is slow). */
 export const TRAVEL_M = 650;
+/** Festival day: crowds everywhere intra-muros, a shorter walk/drive already costs a slot. */
+export const FESTIVAL_TRAVEL_M = 350;
 /** Urgent repairs: target delay between the call and the start of the repair, in slots. */
 export const URGENT_TARGET = 2;
 /** Campaign length for v0.1: 2 weeks of 5 days. */

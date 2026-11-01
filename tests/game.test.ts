@@ -14,8 +14,8 @@ describe('rules', () => {
     expect([0, 3, 4, 7].map(slotLabel)).toEqual(['8 h', '11 h', '13 h', '16 h']);
   });
   it('the safety rule is configured in one place and defaults to cap1', () => { expect(SAFETY_RULE).toBe('cap1'); });
-  it('9 job types, each with phase-2 data hooks (side / habilitation) and a known skill', () => {
-    expect(Object.keys(JOBS).length).toBe(9);
+  it('10 job types, each with phase-2 data hooks (side / habilitation) and a known skill', () => {
+    expect(Object.keys(JOBS).length).toBe(10);
     for (const j of Object.values(JOBS)) { expect(['icc', 'reseau', 'fuite']).toContain(j.skill); expect(['avant', 'apres', 'na']).toContain(j.side); expect(j).toHaveProperty('habilitation'); }
   });
   it('10 days, 3 objectives each (3 stars = 3 objectives shown at the briefing)', () => {
@@ -154,5 +154,21 @@ describe('VIP surprises', () => {
     const g = fresh(); const t = callVip(g, 'vip_rival'); const d = g.today!; d.slot = 3; d.plan.momo = [t.id]; d.capys.momo.pos = SITES[t.site].node; const sat = g.sat; G.step(g);
     expect(d.vip![t.id]).toBe('mid'); expect(g.sat).toBe(sat + 2);
     const m = callVip(fresh(), 'vip_maire'); expect(`${m.num} ${SITES[m.site].street}`).toBe("15 Place de l'Horloge"); expect(m.who).not.toMatch(/Monsieur|Madame/);
+  });
+});
+describe('Festival d’Avignon', () => {
+  const call = (g: G.Game, card: string) => { g.today!.phase = 'run'; g.today!.pending.push({ card, kind: 'event', capy: null, ticket: null }); return G.choose(g, EVENTS[card].choices.findIndex((c) => c.fx.vip))!; };
+  it('one festival day with its 4 cards; every public VIP/Festival place exists at its real OSM address', () => {
+    const fd = DAYS_SPEC.filter((d) => d.card === 'festival'); expect(fd.length).toBe(1);
+    expect(fd[0].events.map((e) => e[1]).sort()).toEqual(['fest_artiste', 'fest_cour', 'fest_fontaine', 'fest_off']);
+    for (const v of Object.values(VIPS)) if (v.site) expect(SITES.findIndex((s) => s.num === v.site![0] && s.street === v.site![1]), v.site.join(' ')).toBeGreaterThanOrEqual(0);
+    const g = fresh(); expect(`${call(g, 'fest_cour').num} ${SITES[g.tickets[g.pile.at(-1)!].site].street}`).toBe('15 Place du Palais');
+    const o = call(g, 'fest_off'); expect(`${o.num} ${SITES[o.site].street}`).toBe('15 Rue des Teinturiers'); expect(VIPS.off.watch).toBe('fest_comedien');
+  });
+  it('festival modifier: shorter walks already cost a slot, and scheduled cuts are blocked by the municipal order', () => {
+    const g = fresh(); const t = addTicket(g, 'coupure'); t.avail = g.day; expect(G.avail(g, t.id)).toBe(true);
+    const a = SITES.findIndex((s) => s.node !== SITES[0].node && (() => { const x = G.travelCost(g, SITES[0].node, SITES.indexOf(s)); return x === 0; })() && Math.hypot(s.x - SITES[0].x, s.y - SITES[0].y) > 420);
+    g.day = DAYS_SPEC.findIndex((d) => d.card === 'festival'); expect(G.festivalBlocked(g, t.id)).toBe(true); expect(G.avail(g, t.id)).toBe(false);
+    if (a >= 0) expect(G.travelCost(g, SITES[0].node, a)).toBe(1);
   });
 });

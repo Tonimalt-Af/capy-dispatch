@@ -6,7 +6,7 @@ export type Skill = 'icc' | 'reseau' | 'fuite';
 export const SKILL_NAME: Record<Skill, string> = { icc: 'Interventions client', reseau: 'Réseau', fuite: 'Recherche de fuite' };
 export const SKILL_SHORT: Record<Skill, string> = { icc: 'ICC', reseau: 'Réseau', fuite: 'Fuite' };
 
-export type JobId = 'fuite_bt' | 'fuite_pc' | 'prc' | 'introuvable' | 'resilie' | 'coupure' | 'debit_nuit' | 'purge' | 'poteau';
+export type JobId = 'fuite_bt' | 'fuite_pc' | 'prc' | 'introuvable' | 'resilie' | 'coupure' | 'debit_nuit' | 'purge' | 'poteau' | 'fontaine';
 export interface JobType {
   id: JobId; name: string; short: string; skill: Skill; /** base duration in slots */ dur: number;
   urgent?: boolean; /** digging under the road: ATU + gas call before starting */ dig?: boolean;
@@ -23,6 +23,7 @@ export const JOBS: Record<JobId, JobType> = {
   coupure: { id: 'coupure', name: 'Réparation programmée avec coupure', short: 'Coupure programmée', skill: 'reseau', dur: 2, dig: true, coupure: true, fix: 25, icon: 'valve', side: 'avant', habilitation: 'AIPR', desc: "Remplacer une vanne fatiguée. Les riverains doivent recevoir l'avis de coupure 48 h avant : envoie-le, le chantier sera possible 2 jours plus tard." },
   debit_nuit: { id: 'debit_nuit', name: 'Débit de nuit anormal', short: 'Débit de nuit', skill: 'fuite', dur: 1, fix: 55, icon: 'ear', side: 'avant', habilitation: null, desc: "La sectorisation voit un débit de nuit trop haut : une fuite invisible. Écoute au sol, prélocalisateurs, puis réparation sans ouvrir grand." },
   purge: { id: 'purge', name: 'Purge (eau colorée)', short: 'Purge', skill: 'reseau', dur: 1, icon: 'tap', side: 'avant', habilitation: null, desc: "Après une manœuvre, l'eau sort couleur thé. Ouvrir la purge jusqu'à ce qu'elle redevienne claire, contrôler le chlore." },
+  fontaine: { id: 'fontaine', name: 'Borne-fontaine en panne', short: 'Borne-fontaine', skill: 'reseau', dur: 1, icon: 'tap', side: 'avant', habilitation: null, desc: "La borne-fontaine publique ne donne plus qu'un filet : robinet fatigué ou filtre entartré. Démonter, nettoyer, remonter, contrôler le débit (et goûter, c'est le métier)." },
   poteau: { id: 'poteau', name: 'Poteau incendie heurté', short: 'Poteau incendie', skill: 'reseau', dur: 1, urgent: true, leak: 8, icon: 'hydrant', side: 'avant', habilitation: null, desc: "Une camionnette de livraison a couché un poteau incendie. Fermer la vanne et sécuriser, l'eau jaillit !" },
 };
 
@@ -120,13 +121,26 @@ export const EVENTS: Record<string, Card> = {
     { label: 'Proposer des bouteilles d’eau', hint: 'Satisfaction −2', fx: { sat: -2, log: "Le conseil municipal se tiendra à l'eau en bouteille" } }] },
   vip_agglo: { id: 'vip_agglo', title: 'Le président de l’agglo a une fuite', who: 'kevin', needs: 'none', text: "Demain, l'agglo vote l'appel d'offres de l'eau. Ce matin, son président a une fuite au compteur. Tout le monde va regarder si on le traite « comme les autres ».", choices: [
     { label: 'Le traiter comme tout le monde', hint: 'Commencer entre 2 h et 3 h : +3 · en 1 h : soupçon de passe-droit · après 4 h : −3', fx: { addTicket: 'fuite_pc', vip: 'agglo', log: "Ticket VIP : fuite chez le président de l'agglo" } }] },
+  // Festival d'Avignon (real places at their real OSM address, no real people; the Off theatre is not named)
+  fest_cour: { id: 'fest_cour', title: 'Fuite devant la Cour d’honneur', who: 'kevin', needs: 'none', text: "La régie du Festival appelle : de l'eau remonte entre les pavés, juste devant l'entrée de la Cour d'honneur du Palais des Papes. Générale ce soir, et les techniciens son tiennent à garder les pieds secs.", choices: [
+    { label: 'Créer l’urgence Festival', hint: 'Fuite branchement · commencer en 2 h : +5 · à partir de 4 h : −5', fx: { addTicket: 'fuite_bt', vip: 'cour', log: "Urgence Festival : fuite devant la Cour d'honneur du Palais des Papes" } }] },
+  fest_off: { id: 'fest_off', title: 'Plus d’eau dans les loges', who: 'kevin', needs: 'none', text: "Un petit théâtre du Off, 15 rue des Teinturiers : plus une goutte d'eau dans les loges, et la représentation est à 19 h. Au téléphone, le comédien est déjà en costume. Il ne sort pas de son personnage.", choices: [
+    { label: 'Créer le ticket', hint: 'Fuite compteur · commencer dans les 3 h : +3 · à partir de 5 h : −3', fx: { addTicket: 'fuite_pc', vip: 'off', log: 'Ticket Festival : un théâtre du Off sans eau avant la représentation' } }] },
+  fest_comedien: { id: 'fest_comedien', title: 'Il reste dans son personnage', who: 'capy', needs: 'job', text: "Le comédien ouvre en costume d'avare du XVIIᵉ siècle : « Un compteur ? Et combien coûte-t-il ? Ah ! ma cassette ! » Il ne parle qu'en alexandrins.", choices: [
+    { label: 'Jouer le jeu, en alexandrins', hint: '+1 créneau · satisfaction +2', fx: { slots: 1, sat: 2, log: 'a expliqué le changement de joint en alexandrins (douze pieds, vérifié)' } },
+    { label: 'Sourire et serrer le joint', hint: 'Pas d’effet', fx: { log: 'a changé le joint pendant le monologue du comédien' } }] },
+  fest_artiste: { id: 'fest_artiste', title: 'Une statue vivante dans la ruelle', who: 'capy', needs: 'travel', text: "Un artiste de rue, peint en bronze des pieds à la tête, a choisi la ruelle pour son numéro de statue vivante. Il ne bouge pas. C'est le principe.", choices: [
+    { label: 'Applaudir et attendre la fin du numéro', hint: '+1 créneau de trajet · satisfaction +1', fx: { slots: 1, sat: 1, log: 'a applaudi la statue vivante, qui a salué puis libéré la ruelle' } },
+    { label: 'Lui demander de bouger', hint: 'Satisfaction −2 (les touristes huent)', fx: { sat: -2, log: 'a demandé à la statue vivante de bouger : les touristes ont hué' } }] },
+  fest_fontaine: { id: 'fest_fontaine', title: 'Canicule : la borne-fontaine est à sec', who: 'kevin', needs: 'none', text: "38 °C à l'ombre des platanes. Place des Corps-Saints, la borne-fontaine ne donne plus qu'un filet et la file de festivaliers s'allonge, gourdes à la main.", choices: [
+    { label: 'Créer le ticket', hint: 'Borne-fontaine · commencer en 1 h : +4 · à partir de 3 h : −3', fx: { addTicket: 'fontaine', vip: 'fontaine', log: 'Ticket Festival : borne-fontaine à sec, place des Corps-Saints' } }] },
   capydindon: { id: 'capydindon', title: 'Le capydindon doré !', who: 'capydindon', needs: 'none', text: "Un capydindon doré se baigne dans la fontaine de la place. C'est rarissime. Toute l'équipe a le sourire.", choices: [
     { label: 'Prendre une photo', hint: 'Satisfaction +5 · autocollant rare', fx: { sat: 5, bonus: 'capydindon', log: 'Le capydindon doré a été aperçu !' } }] },
 };
 
 /** VIP tickets: the delay between the call and the START of the job decides how it goes (fast / mid / late).
  * Not started on the day of the call = late. Fictional roles only; who lives where is never a real person's home. */
-export type VipId = 'patron' | 'rival' | 'maire' | 'agglo';
+export type VipId = 'patron' | 'rival' | 'maire' | 'agglo' | 'cour' | 'off' | 'fontaine';
 export interface VipOutcome { sat: number; log: string; /** one star less for the day */ star?: boolean }
 export interface Vip { who: string; tag: string; fastMax: number; lateMin: number; fast: VipOutcome; mid: VipOutcome; late: VipOutcome; rule: string; /** real public address (number, street) */ site?: [number, string]; /** card played when the job starts */ watch?: string }
 export const VIPS: Record<VipId, Vip> = {
@@ -150,6 +164,21 @@ export const VIPS: Record<VipId, Vip> = {
     mid: { sat: 3, log: "Délai normal, travail impeccable : « Comme tout le monde, et bien fait. » Le président a pris des notes." },
     late: { sat: -3, log: "Le président de l'agglo a attendu. Il citera le délai pendant le vote." },
     rule: "Le traiter comme tout le monde : commencer entre 2 h et 3 h après l'appel, satisfaction +3. En 1 h : soupçon de passe-droit, −1. À partir de 4 h, ou pas commencé aujourd'hui : −3." },
+  cour: { who: "Régie du Festival (Cour d'honneur, générale ce soir)", tag: 'Festival', fastMax: 2, lateMin: 4, site: [15, 'Place du Palais'],
+    fast: { sat: 5, log: "Pavés secs devant la Cour d'honneur : la régie applaudit l'équipe, la générale se jouera les pieds au sec." },
+    mid: { sat: 1, log: 'Fuite réparée juste à temps pour les balances son.' },
+    late: { sat: -5, log: "La générale a commencé avec une flaque devant la Cour d'honneur. La presse en parle plus que de la pièce." },
+    rule: "Commencer en 2 h ou moins : satisfaction +5. À partir de 4 h, ou pas commencé aujourd'hui : satisfaction −5." },
+  off: { who: 'Petit théâtre du Off (représentation à 19 h)', tag: 'Off', fastMax: 3, lateMin: 5, site: [15, 'Rue des Teinturiers'], watch: 'fest_comedien',
+    fast: { sat: 3, log: "L'eau revient dans les loges : le comédien salue l'équipe d'une révérence en alexandrins." },
+    mid: { sat: 0, log: 'Eau rétablie dans les loges, de justesse avant le lever de rideau.' },
+    late: { sat: -3, log: "La représentation de 19 h s'est jouée sans eau dans les loges. Le comédien en a fait un monologue (très applaudi, pas pour nous)." },
+    rule: "Commencer dans les 3 h : satisfaction +3. À partir de 5 h, ou pas commencé aujourd'hui : satisfaction −3. Le comédien reste dans son personnage." },
+  fontaine: { who: "Ville d'Avignon (borne-fontaine, place des Corps-Saints)", tag: 'Canicule', fastMax: 1, lateMin: 3, site: [1, 'Place des Corps Saints'],
+    fast: { sat: 4, log: "La borne-fontaine coule à nouveau : la file de festivaliers remplit ses gourdes et applaudit le fourgon." },
+    mid: { sat: 1, log: 'Borne-fontaine réparée, la file a fondu (au sens propre, il fait 38 °C).' },
+    late: { sat: -3, log: "Borne-fontaine à sec tout l'après-midi : les festivaliers ont dévalisé les épiceries." },
+    rule: "Canicule : commencer en 1 h ou moins, satisfaction +4. À partir de 3 h, ou pas commencé aujourd'hui : satisfaction −3." },
 };
 export const vipOutcome = (v: Vip, delay: number | null): 'fast' | 'mid' | 'late' => (delay === null || delay >= v.lateMin ? 'late' : delay <= v.fastMax ? 'fast' : 'mid');
 
@@ -159,6 +188,7 @@ export const DAY_CARDS: Record<string, DayCard> = {
   mistral: { id: 'mistral', title: 'Mistral fort', text: 'Rafales à 80 km/h. Les chantiers de chaussée peuvent prendre du retard.', icon: 'wind' },
   marche: { id: 'marche', title: 'Marché aux Halles', text: 'Place Pie et alentours très encombrés : tout trajet vers ce secteur coûte un créneau.', icon: 'basket' },
   orage: { id: 'orage', title: 'Orage cette nuit', text: 'Les sols ont bougé : deux fuites urgentes au briefing.', icon: 'storm' },
+  festival: { id: 'festival', title: 'Festival d’Avignon', text: 'Intra-muros noir de monde : un trajet de plus de 350 m coûte un créneau. Arrêté municipal : pas de chantier de chaussée non urgent intra-muros, les coupures programmées attendent demain.', icon: 'sun' },
   pluie: { id: 'pluie', title: 'Pluie fine', text: 'Pas de quoi arrêter un capybara (ils adorent l’eau).', icon: 'rain' },
 };
 
@@ -184,15 +214,15 @@ export const DAYS_SPEC: DaySpec[] = [
     chef: "Deux RDV aujourd'hui, et un compteur que personne ne trouve. Regarde les icônes de risque : elles disent ce qui peut déborder." },
   { card: 'calme', jobs: [['fuite_bt'], ['coupure'], ['prc', 'absent'], ['debit_nuit'], ['resilie'], ['fuite_pc']], rdv: 1, events: [[3, 'voiture']], objs: [{ id: 'urgent' }, { id: 'rdv' }, { id: 'done', n: 4 }],
     chef: "Première urgence ! On ouvre la chaussée : pense à l'appel à l'exploitant gaz avant de creuser. Et il y a une coupure à annoncer 48 h avant." },
-  { card: 'mistral', jobs: [['prc'], ['introuvable', 'chien'], ['debit_nuit'], ['fuite_pc'], ['resilie'], ['prc']], rdv: 2, events: [[1, 'riverain'], [5, 'mistral']], objs: [{ id: 'urgent' }, { id: 'm3', n: 30 }, { id: 'done', n: 5 }],
+  { card: 'mistral', jobs: [['prc'], ['introuvable', 'chien'], ['debit_nuit'], ['fuite_pc'], ['resilie'], ['prc']], rdv: 2, events: [[1, 'riverain'], [3, 'vip_rival'], [5, 'mistral']], objs: [{ id: 'urgent' }, { id: 'm3', n: 30 }, { id: 'done', n: 5 }],
     chef: "Mistral fort, {nom}. Garde de la place dans le planning : en général, le téléphone sonne." },
   { card: 'calme', jobs: [['prc', 'absent'], ['prc'], ['debit_nuit'], ['introuvable', 'cave'], ['resilie'], ['fuite_pc', 'ruelle']], rdv: 2, events: [[1, 'vip_patron'], [2, 'avis_rate'], [5, 'eau_the']], objs: [{ id: 'rdv' }, { id: 'backlog' }, { id: 'done', n: 5 }],
     chef: "Vendredi ! Si l'avis a été envoyé mercredi, la coupure programmée est possible aujourd'hui. On solde ce qui traîne avant le week-end." },
-  { card: 'marche', jobs: [['prc'], ['prc', 'cafe'], ['debit_nuit'], ['introuvable'], ['resilie', 'chien'], ['fuite_pc'], ['coupure']], rdv: 2, events: [[2, 'prefet']], objs: [{ id: 'rdv' }, { id: 'done', n: 6 }, { id: 'travel', n: 3 }],
+  { card: 'marche', jobs: [['prc'], ['prc', 'cafe'], ['debit_nuit'], ['introuvable'], ['resilie', 'chien'], ['fuite_pc'], ['coupure']], rdv: 2, events: [[2, 'prefet'], [4, 'hydrocureur']], objs: [{ id: 'rdv' }, { id: 'done', n: 6 }, { id: 'travel', n: 3 }],
     chef: "Jour de marché aux Halles : évite les allers-retours vers la place Pie. Nouvelle coupure à annoncer." },
-  { card: 'calme', jobs: [['fuite_bt', 'ruelle'], ['prc', 'absent'], ['debit_nuit'], ['debit_nuit'], ['introuvable'], ['resilie'], ['fuite_pc']], rdv: 1, events: [[1, 'vip_rival'], [2, 'vestiges'], [3, 'hydrocureur']], objs: [{ id: 'urgent' }, { id: 'm3', n: 25 }, { id: 'done', n: 6 }],
-    chef: "Intra-muros, on creuse rarement sans surprise. Et Générale des Flots cure les égouts dans le quartier : ça va bouchonner." },
-  { card: 'orage', jobs: [['fuite_bt'], ['fuite_bt', 'ruelle'], ['prc'], ['debit_nuit'], ['resilie'], ['fuite_pc'], ['introuvable']], rdv: 1, events: [[4, 'poteau']], objs: [{ id: 'urgent' }, { id: 'done', n: 6 }, { id: 'backlog' }],
+  { card: 'festival', jobs: [['fuite_bt', 'ruelle'], ['prc', 'absent'], ['debit_nuit'], ['introuvable'], ['resilie']], rdv: 1, events: [[1, 'fest_cour'], [2, 'fest_artiste'], [3, 'fest_fontaine'], [4, 'fest_off']], objs: [{ id: 'urgent' }, { id: 'done', n: 6 }, { id: 'sat' }],
+    chef: "Le Festival commence, {nom} ! Intra-muros, ça grouille : les trajets sont plus longs, et l'arrêté interdit les chantiers de chaussée non urgents. Le téléphone va sonner : régie, théâtres, canicule…" },
+  { card: 'orage', jobs: [['fuite_bt'], ['fuite_bt', 'ruelle'], ['prc'], ['debit_nuit'], ['resilie'], ['fuite_pc'], ['introuvable']], rdv: 1, events: [[2, 'vestiges'], [4, 'poteau']], objs: [{ id: 'urgent' }, { id: 'done', n: 6 }, { id: 'backlog' }],
     chef: "L'orage a secoué le réseau : deux fuites urgentes. Chaque heure, ce sont des mètres cubes perdus. Priorité aux urgences." },
   { card: 'pluie', jobs: [['prc', 'cafe'], ['prc', 'absent'], ['prc'], ['debit_nuit'], ['debit_nuit'], ['introuvable', 'chien'], ['resilie'], ['fuite_pc']], rdv: 3, events: [[1, 'directeur'], [2, 'vip_maire'], [3, 'capydindon']], objs: [{ id: 'rdv' }, { id: 'done', n: 7 }, { id: 'sat' }],
     chef: "Le directeur régional passe. Trois RDV, des abonnés à choyer. On montre ce que l'équipe sait faire. Tu es {prêt|prête} ?" },

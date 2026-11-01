@@ -289,7 +289,7 @@ function card(id: string) {
   const age = g!.day - t.day; const rdv = t.rdv ? `${slotLabel(t.rdv[0]).replace(' ', '')}–${slotLabel(Math.min(t.rdv[1] + 1, SLOTS - 1)).replace(' ', '')}` : '';
   return `<div class="tk${J.urgent ? ' urg' : ''}${sel === id ? ' sel' : ''}${ok ? '' : ' wait'}" data-t="${id}" style="--c:${SK_COL[J.skill]}" role="button" tabindex="0" aria-label="${J.short}${J.urgent ? ', urgent' : ''}">
     <div class="tk-h">${icon(J.icon)}<b>${J.short}</b><span class="dur" title="Durée (1 créneau = 1 h)">${range(t)} h</span></div>
-    <div class="tk-s">${J.urgent ? '<span class="chip red">Urgent</span>' : ''}${t.vip ? `<span class="chip vip">${VIPS[t.vip].tag}</span>` : ''}${!ok && t.avail !== null ? `<span class="chip">Possible ${WEEKDAYS[t.avail % 5].toLowerCase()}</span>` : `<span class="ad">${esc(addr(t))}</span>`}</div>
+    <div class="tk-s">${J.urgent ? '<span class="chip red">Urgent</span>' : ''}${t.vip ? `<span class="chip vip">${VIPS[t.vip].tag}</span>` : ''}${!ok && G.festivalBlocked(g!, id) ? '<span class="chip">Arrêté Festival</span>' : !ok && t.avail !== null ? `<span class="chip">Possible ${WEEKDAYS[t.avail % 5].toLowerCase()}</span>` : `<span class="ad">${esc(addr(t))}</span>`}</div>
     <div class="tk-r"><span class="sk-dot">${SKILL_SHORT[J.skill]}</span>${t.rdv ? `<span class="chip">${icon('clock', 'ic xs')}${rdv}</span>` : ''}${t.risks.filter((r) => r !== 'absent').map((r) => `<span class="rk" title="${RISKS[r].name}">${icon(RISKS[r].icon, 'ic xs')}</span>`).join('')}${t.risks.includes('absent') ? `<span class="rk" title="Abonné peut-être absent">${icon('clock', 'ic xs')}</span>` : ''}${age > 0 ? `<span class="chip">J+${age}</span>` : ''}
       ${J.dig ? `<button class="chip act ${t.gas ? 'green' : 'red'}" data-gas="${id}" aria-label="${t.gas ? 'Exploitant gaz appelé' : 'Appeler l’exploitant gaz'}">${icon(t.gas ? 'phone' : 'phoneX', 'ic xs')}${t.gas ? 'Gaz OK' : 'Gaz ?'}</button>` : ''}${t.avail === null ? `<button class="chip act blue" data-avis="${id}">${icon('mail', 'ic xs')}Avis 48 h</button>` : ''}</div></div>`;
 }
@@ -327,13 +327,13 @@ function tapTicket(id: string, fromMap = false) {
   if (sel === id) { if (fromMap && mapOpen && DRAWER.matches) { setMap(false); return; } detail(id); return; }
   if (fromMap && mapOpen && DRAWER.matches) setMap(false);
   sel = id; snd.play('select'); mv?.focus(g!.tickets[id].site); render();
-  const t = g!.tickets[id]; if (!G.avail(g!, id)) toast(t.avail === null ? 'Envoie d’abord l’avis de coupure 48 h.' : 'Pas encore possible aujourd’hui.');
+  const t = g!.tickets[id]; if (!G.avail(g!, id)) toast(G.festivalBlocked(g!, id) ? 'Arrêté Festival : pas de chantier de chaussée non urgent aujourd’hui.' : t.avail === null ? 'Envoie d’abord l’avis de coupure 48 h.' : 'Pas encore possible aujourd’hui.');
 }
 function pinTap(id: string) { if (!g?.today) return; const d = today(); if (Object.values(d.plan).flat().includes(id) || !G.tray(g).includes(id)) { detail(id); return; } if (editable() || d.replan) tapTicket(id, true); else detail(id); }
 function slotAt(tl: HTMLElement, clientX: number) { const r = tl.getBoundingClientRect(); const u = ((clientX - r.left) / r.width) * U; return u >= LUNCH_AFTER + 0.35 ? Math.floor(u - 0.35) : Math.floor(Math.min(u, LUNCH_AFTER - 0.01)); }
 function place(c: CapyId, id: string, slot: number) {
   const t = g!.tickets[id]; const J = JOBS[t.job];
-  if (!G.avail(g!, id)) { snd.play('invalid'); shake(c); toast(t.avail === null ? 'Envoie d’abord l’avis de coupure 48 h.' : 'Ce ticket n’est pas encore possible.', 2400, true); return false; }
+  if (!G.avail(g!, id)) { snd.play('invalid'); shake(c); toast(G.festivalBlocked(g!, id) ? 'Arrêté Festival : pas de chantier de chaussée non urgent aujourd’hui.' : t.avail === null ? 'Envoie d’abord l’avis de coupure 48 h.' : 'Ce ticket n’est pas encore possible.', 2400, true); return false; }
   if (!G.canDo(c, id, g!)) { snd.play('invalid'); shake(c); toast(`${CAPY[c].name} ne sait pas faire « ${J.short} » (métier ${SKILL_SHORT[J.skill]}).`, 2600, true); return false; }
   G.unassign(g!, id); G.assign(g!, c, id, G.indexForSlot(g!, c, slot)); snd.play('place'); sel = null; save(); render();
   document.querySelector(`.blk[data-b="${id}"]`)?.classList.add('pop'); return true;
@@ -377,7 +377,7 @@ function blockMenu(id: string, el: HTMLElement) {
 function detail(id: string) {
   const t = g!.tickets[id]; const J = JOBS[t.job]; const d = today(); const planned = Object.values(d.plan).flat().includes(id); const ed = editable() || d.replan;
   openOv(`<div class="det"><div class="det-h" style="--c:${SK_COL[J.skill]}">${icon(J.icon, 'ic big')}<div><h2>${J.name}</h2><p>${esc(addr(t))} · ${t.prefet || t.vip ? esc(t.who) : 'Abonné : ' + esc(t.who)}</p></div></div>
-    <p>${J.desc}</p>${t.vip ? `<p class="vipr">${icon('star', 'ic s')} <b>VIP</b> · ${VIPS[t.vip].rule}</p>` : ''}
+    <p>${J.desc}</p>${t.vip ? `<p class="vipr">${icon('star', 'ic s')} <b>${VIPS[t.vip].tag}</b> · ${VIPS[t.vip].rule}</p>` : ''}
     <div class="det-g"><div><h3>Durée</h3>${TEAM.map((c) => `<p>${c.name} : <b>${range(t, c.id) === '—' ? 'ne sait pas faire' : range(t, c.id) + ' h'}</b></p>`).join('')}<p class="muted">Métier ${SKILL_SHORT[J.skill]}. Métier secondaire : +1 h.</p></div>
     <div><h3>Risques annoncés</h3>${t.risks.length || J.minigame ? '' : '<p class="muted">Aucun.</p>'}${t.risks.map((r) => `<p>${icon(r === 'absent' ? 'clock' : RISKS[r].icon, 'ic s')} <b>${r === 'absent' ? 'Abonné peut-être absent' : RISKS[r].name}</b> · ${RISKS[r].tip} <i>(tu choisiras : +1 h ou autre option)</i></p>`).join('')}${J.minigame ? `<p>${icon('search', 'ic s')} <b>Compteur à trouver</b> · 0 ou +1 h selon ta recherche</p>` : ''}
     ${t.rdv ? `<p>${icon('clock', 'ic s')} <b>RDV</b> : arrivée entre ${slotLabel(t.rdv[0])} et ${slotLabel(t.rdv[1])}</p>` : ''}${J.urgent ? `<p class="red">${icon('drop', 'ic s')} <b>Urgent</b> : à commencer dans les ${URGENT_TARGET} h après l'appel. ${J.leak} m³ perdus par heure.</p>` : ''}</div></div>

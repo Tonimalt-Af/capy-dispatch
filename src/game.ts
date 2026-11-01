@@ -2,7 +2,7 @@
 // Pure TypeScript (no DOM): everything here is covered by the Vitest suite.
 import { JOBS, TEAM, CAPY, slotsFor, RISK_CARDS, EVENTS, DAYS_SPEC, ABONNES, objText, type JobId, type Risk, type CapyId, type Card, type Effect, type Obj, PREFET, VIPS, vipOutcome, type VipId } from './content';
 import { SITES, SITE_GROUPS, PREFET_SITE, dist, DEPOT, labelXY } from './map';
-import { SLOTS, TRAVEL_M, URGENT_TARGET, NIGHT_SLOTS, SECTOR_M3, START_YIELD, SAFETY_RULE, DAYS, type SafetyRule } from './rules';
+import { SLOTS, TRAVEL_M, FESTIVAL_TRAVEL_M, URGENT_TARGET, NIGHT_SLOTS, SECTOR_M3, START_YIELD, SAFETY_RULE, DAYS, type SafetyRule } from './rules';
 
 export const rng = (seed: number) => () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 
@@ -74,7 +74,9 @@ export function startDay(g: Game) {
   const rdvToday = g.pile.filter((id) => g.tickets[id].rdv && avail(g, id));
   g.today = { day: g.day, slot: 0, phase: 'briefing', sub: 'start', plan, capys, pending: [], done: [], postponed: [], absentOk: [], m3: 0, night: 0, travel: 0, incidents: 0, urgent: {}, rdvToday, rdvKept: [], rdvMissed: [], satStart: g.sat, fired: [], log: [], replan: false, hist: { josette: [], momo: [], lulu: [] } };
 }
-export const avail = (g: Game, id: string) => { const t = g.tickets[id]; return t.avail !== null && t.avail <= g.day; };
+/** Festival day: the municipal order forbids non-urgent roadworks intra-muros (scheduled cuts wait). */
+export const festivalBlocked = (g: Game, id: string) => DAYS_SPEC[g.day]?.card === 'festival' && !!JOBS[g.tickets[id].job].coupure;
+export const avail = (g: Game, id: string) => { const t = g.tickets[id]; return t.avail !== null && t.avail <= g.day && !festivalBlocked(g, id); };
 /** Tickets that can be dragged onto the planning now (open, available, not planned, not running). */
 export function tray(g: Game): string[] {
   const d = g.today!; const planned = new Set(Object.values(d.plan).flat()); const running = new Set(Object.values(d.capys).map((c) => c.job));
@@ -91,7 +93,7 @@ export const travelCost = (g: Game, from: number, site: number) => {
   if (from === DEPOT) return 0; // prise de poste: the drive to the first job is part of the 7h30 start
   const card = DAYS_SPEC[g.day]?.card; const m = dist(from, SITES[site].node);
   if (card === 'marche' && nearHalles(site) && !(from !== DEPOT && SITES.some((s, i) => s.node === from && nearHalles(i)))) return 1;
-  return m > TRAVEL_M ? 1 : 0;
+  return m > (card === 'festival' ? FESTIVAL_TRAVEL_M : TRAVEL_M) ? 1 : 0;
 };
 export const maxExtra = (t: Ticket) => t.risks.length + (JOBS[t.job].minigame ? 1 : 0);
 /** Where a capy is free again and from which node, given its current run state at slot `s`. */
