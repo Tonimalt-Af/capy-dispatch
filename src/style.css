@@ -487,3 +487,12 @@ details{font-size:var(--fs-s)}summary{cursor:pointer;font-weight:600;padding:var
 .map.d-frost::after{opacity:1;background:radial-gradient(circle at 0 0,#E6F4FF99,transparent 35%),radial-gradient(circle at 100% 100%,#E6F4FF99,transparent 35%),linear-gradient(#CFE8FF26,#CFE8FF26)}
 @keyframes wind{to{background-position:-200% 0}}
 .calm .map.d-wind::after{animation:none}
+
+/* field notebook at the Friday pot (section 14, P2) */
+button.stickers{border:0;font:inherit;color:inherit;text-align:left;cursor:pointer;box-shadow:0 3px 0 #0002}
+.carnet{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.carnet[hidden]{display:none}
+.cn{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:50px;padding:2px;border-radius:12px;background:#fff;border:2px dashed var(--line);--k:var(--sun)}
+.cn.habitue{--k:#FBD3E0}.cn.compteur{--k:#CFE6FA}.cn svg{width:26px;height:26px}.cn i{font-style:normal;font-size:clamp(8px,1.25vw,10px);line-height:1.05;text-align:center;font-weight:600;hyphens:none}
+.cn.got{background:var(--k);border:2px solid #fff;box-shadow:0 2px 0 #0002;transform:rotate(-3deg)}.cn.got:nth-child(2n){transform:rotate(3deg)}.cn.miss svg{filter:grayscale(1);opacity:.35}
+.cn-leg{grid-column:1/-1;margin:0;display:flex;gap:8px;font-size:11px}.cn-leg b{padding:1px 8px;border-radius:8px;background:var(--sun)}.cn-leg .habitue{background:#FBD3E0}.cn-leg .compteur{background:#CFE6FA}
+.card.nb .pot-l,.card.nb .c-quote{display:none}

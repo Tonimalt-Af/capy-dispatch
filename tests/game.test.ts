@@ -234,3 +234,13 @@ it('every surprise is a real choice: a call that creates a ticket offers at leas
     if (ci < 0) { expect(c.choices.length).toBeGreaterThanOrEqual(2); return; } n++; expect(G.dispatchOptions(g, ci).length + c.choices.length - 1, c.id).toBeGreaterThanOrEqual(2); });
   expect(n).toBeGreaterThan(50);
 });
+
+import { carnet } from '../src/carnet';
+describe('field notebook', () => {
+  it('lists 14 stickers, all missing on a new game, and fills up over a played fortnight', async () => {
+    const { playKind } = await import('./bot');
+    expect(carnet(G.newGame(1)).length).toBe(14); expect(carnet(G.newGame(1)).filter((s) => s.got).length).toBe(0);
+    const best = Math.max(...[1, 2, 3, 4].map((seed) => carnet(playKind(seed, 'opt')).filter((s) => s.got).length));
+    expect(best).toBeGreaterThanOrEqual(3);
+  });
+});

@@ -6,6 +6,7 @@ import { SLOTS, LUNCH_AFTER, DAYS, SAFETY_RULE, YIELD_TARGET, START_YIELD, URGEN
 import * as G from './game';
 import type { Game, Ticket } from './game';
 import { load, save as persist, defaults, KEY, type Save } from './storage';
+import { carnet } from './carnet';
 import { MapView, type Pin, type Route } from './mapview';
 import { who, icon, ICONS, logoLDR, glyph, vanSvg, playerSvg, outfitThumb, headThumb, HEADS, setPlayerLook, FURS, OUTFITS, DEFAULT_LOOK, type Who, type Look } from './art';
 import { cleanName, validName, setSex, agree, gx, NAME_MAX, ACCS, ACC_LABEL, FUR_LABEL, OUTFIT_LABEL, OUTFIT_SHORT, HEAD_LABEL, type Sex } from './player';
@@ -731,9 +732,10 @@ function bilan() {
   save(); snd.play('legend');
   const fixed = Object.values(g!.tickets).filter((t) => !g!.pile.includes(t.id) && (JOBS[t.job].leak || JOBS[t.job].fix)).length;
   const moments = (g!.moments ?? []).filter((m) => m && !/^Une journée calme/.test(m)); const fun = moments.length ? moments[(g!.seed + moments.length) % moments.length] : '';
-  const din = g!.stickers.includes('capydindon'); const p0 = Math.round(START_YIELD * 100), p1 = Math.round(y * 100);
+  const din = g!.stickers.includes('capydindon'); const stk = carnet(g!); const got = stk.filter((x) => x.got).length; const p0 = Math.round(START_YIELD * 100), p1 = Math.round(y * 100);
   openOv(`<div class="brief pot"><div class="b-left"><div class="bubble">${tier}</div><div class="duo">${who('chef', 'chef')}<div class="pl">${me('plc')}<span class="nt">${NM}</span></div></div></div><div class="b-right"><p class="kicker">Fin de la quinzaine</p><h2>Le pot du vendredi</h2>
-    <div class="pot-top"><div class="pot-stars">${icon('star')}<b>${tot}</b><span>étoiles<br>sur ${DAYS * 3}</span></div><div class="stickers" title="Autocollants"><span class="stk ${din ? 'got' : 'miss'}">${who('capydindon')}</span><span>${nb(din ? 'Capydindon doré : trouvé !' : 'Capydindon doré : pas encore vu…')}</span></div></div>
+    <div class="pot-top"><div class="pot-stars">${icon('star')}<b>${tot}</b><span>étoiles<br>sur ${DAYS * 3}</span></div><button class="stickers" id="bi-carnet" aria-expanded="false" aria-controls="bi-nb"><span class="stk ${din ? 'got' : 'miss'}">${who('capydindon')}</span><span><b>Carnet de terrain</b><br>${got} autocollant${got > 1 ? 's' : ''} sur ${stk.length}</span></button></div>
+    <div class="carnet" id="bi-nb" hidden>${stk.map((x) => `<span class="cn ${x.group} ${x.got ? 'got' : 'miss'}" title="${x.got ? x.label : x.hint}">${x.id === 'capydindon' ? who('capydindon') : icon(x.group === 'compteur' ? 'meter' : x.id === 'prefet' ? 'mail' : 'heart', 'ic')}<i>${x.got ? x.label : '?'}</i></span>`).join('')}<p class="cn-leg"><b class="rare">Rareté</b><b class="habitue">Habitués</b><b class="compteur">Compteurs rares</b></p></div>
     <ul class="pot-l"><li>${icon('drop', 'ic s')}<span><b>${fixed} fuite${fixed > 1 ? 's' : ''}</b> bouchée${fixed > 1 ? 's' : ''}</span></li>
       <li>${icon('meter', 'ic s')}<span>Avignon perd ${p1 >= p0 ? 'moins' : 'plus'} d’eau : <b>${p0}\u202F% → <em class="${y >= YIELD_TARGET ? 'green' : ''}">${p1}\u202F%</em></b>${y >= YIELD_TARGET ? ' (contrat tenu !)' : ` (le contrat demande ${Math.round(YIELD_TARGET * 100)}\u202F%)`}</span></li>
       <li>${icon('heart', 'ic s')}<span>Abonnés : <b>${Math.round(g!.sat)}</b> sur 100</span></li>
@@ -741,6 +743,7 @@ function bilan() {
     ${fun ? `<p class="c-quote">« ${esc(nb(fun))} »</p>` : ''}
     <div class="btns"><button class="btn" id="bi-home">${glyph('home')}<span>Accueil</span></button><button class="btn primary" id="bi-new">${glyph('play')}<span>Nouvelle quinzaine</span></button></div></div></div>`, 'wide');
   $('#bi-home').onclick = home; $('#bi-new').onclick = newRun;
+  $('#bi-carnet').onclick = () => { const nbk = $('#bi-nb'); const open = !!nbk.hidden; nbk.hidden = !open; $('#card').classList.toggle('nb', open); $('#bi-carnet').setAttribute('aria-expanded', String(open)); snd.play(open ? 'unlock' : 'click'); };
 }
 
 let unlocked = false;
