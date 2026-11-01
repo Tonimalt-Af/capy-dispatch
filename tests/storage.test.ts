@@ -37,3 +37,8 @@ it('saves from the first real-address release still load (residence + retired OS
   expect(back.tickets[b].site).toBe(PREFET_SITE); const t = back.tickets[a]; expect(RETIRED_SITES.has(t.site)).toBe(false); expect(t.site).not.toBe(PREFET_SITE);
   expect(SITES[t.site].street).toMatch(/\p{L}{3}/u); expect(t.num).toBe(SITES[t.site].num);
 });
+it('old afternoon log times (13 h-17 h) read as the new 13 h 30-17 h 30 clock, once', () => {
+  const g = G.newGame(5); G.startDay(g); g.today!.log.push('9 h · a', '13 h · b', '17 h · c', '13 h 30 · d');
+  const s = defaults(); s.game = g; save(s); const l1 = load().game!.today!.log.slice(-4); expect(l1).toEqual(['9 h · a', '13 h 30 · b', '17 h 30 · c', '13 h 30 · d']);
+  save({ ...s, game: load().game }); expect(load().game!.today!.log.slice(-4)).toEqual(l1);
+});

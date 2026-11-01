@@ -9,7 +9,7 @@ gratuit et sans pub. Projet séparé de Mahjong Capybaras (code, sauvegarde et c
 ## v0.1 (phase 1)
 - 10 journées (2 semaines), 3 capys (Josette, Fred, Lulu) avec métier principal et secondaire, 9 types d'intervention.
 - Briefing de 7 h 30 : carte du jour, nouvelles, 3 objectifs = 3 étoiles.
-- Planning : touche un ticket puis la ligne d'un capy (ou glisse-le), pause déjeuner 12 h–13 h visible,
+- Planning : touche un ticket puis la ligne d'un capy (ou glisse-le), pause déjeuner 12 h–13 h 30 visible (créneaux 8 h–12 h puis 13 h 30–17 h 30),
   durées en fourchette, risques annoncés par icônes (pas de hasard caché), trajets > 650 m = 1 créneau.
 - Tournée créneau par créneau (x1, x2, « Prochaine décision »), cartes risques et événements, mini-jeu
   « Trouver le compteur » sur façades générées (sans chrono, bouton « Laisser faire » = +1 h).

@@ -2,7 +2,7 @@
 // Pure TypeScript (no DOM): everything here is covered by the Vitest suite.
 import { JOBS, TEAM, CAPY, slotsFor, RISK_CARDS, EVENTS, DAYS_SPEC, ABONNES, objText, type JobId, type Risk, type CapyId, type Card, type Effect, type Obj, PREFET, VIPS, vipOutcome, type VipId } from './content';
 import { SITES, SITE_GROUPS, PREFET_SITE, dist, DEPOT, labelXY } from './map';
-import { SLOTS, TRAVEL_M, FESTIVAL_TRAVEL_M, URGENT_TARGET, NIGHT_SLOTS, SECTOR_M3, START_YIELD, SAFETY_RULE, DAYS, type SafetyRule } from './rules';
+import { SLOTS, TRAVEL_M, FESTIVAL_TRAVEL_M, URGENT_TARGET, NIGHT_SLOTS, SECTOR_M3, START_YIELD, SAFETY_RULE, DAYS, slotLabel, DAY_END, type SafetyRule } from './rules';
 
 export const rng = (seed: number) => () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 
@@ -132,14 +132,14 @@ export function warnings(g: Game, rule: SafetyRule = SAFETY_RULE): Warn[] {
     const t = g.tickets[s.id]; const name = `${JOBS[t.job].short} (${c.name})`;
     if (s.noGas) w.push({ level: 'red', text: `${name} : pas d'appel à l'exploitant gaz avant de creuser${rule === 'cap1' ? ' → journée plafonnée à 1 étoile' : ''}` });
     if (s.late) w.push({ level: 'red', text: `${name} : RDV manqué (arrivée après ${slotH(t.rdv![1])})` });
-    if (s.overflow) w.push({ level: 'orange', text: `${name} : finit après 17 h, sera reporté` });
-    else if (s.endMax > SLOTS) w.push({ level: 'orange', text: `${name} : peut déborder après 17 h si un risque tombe` });
+    if (s.overflow) w.push({ level: 'orange', text: `${name} : finit après ${DAY_END}, sera reporté` });
+    else if (s.endMax > SLOTS) w.push({ level: 'orange', text: `${name} : peut déborder après ${DAY_END} si un risque tombe` });
   }
   const urgent = g.pile.filter((id) => JOBS[g.tickets[id].job].urgent && avail(g, id) && !g.today!.done.includes(id) && !Object.values(g.today!.plan).flat().includes(id) && !Object.values(g.today!.capys).some((c) => c.job === id));
   for (const id of urgent) w.push({ level: 'orange', text: `${JOBS[g.tickets[id].job].short} pas encore planifiée : l'eau coule` });
   return w;
 }
-const slotH = (s: number) => `${s < 4 ? 8 + s : 9 + s} h`; // 8 = end of the day (17 h)
+const slotH = slotLabel; // SLOTS = end of the day (17 h 30)
 export const canLaunch = (g: Game, rule: SafetyRule = SAFETY_RULE) => rule === 'cap1' || !TEAM.some((c) => preview(g, c.id).some((s) => s.noGas));
 
 // ---------------------------------------------------------------- resolution

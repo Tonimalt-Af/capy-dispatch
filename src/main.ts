@@ -2,7 +2,7 @@ import '@fontsource/fredoka/latin-400.css'; import '@fontsource/fredoka/latin-60
 import './style.css';
 import { JOBS, TEAM, CAPY, RISKS, DAY_CARDS, DAYS_SPEC, WEEKDAYS, SKILL_SHORT, slotsFor, objText, VIPS, type CapyId, type Skill } from './content';
 import { SITES } from './map';
-import { SLOTS, LUNCH_AFTER, DAYS, SAFETY_RULE, YIELD_TARGET, URGENT_TARGET, slotLabel } from './rules';
+import { SLOTS, LUNCH_AFTER, DAYS, SAFETY_RULE, YIELD_TARGET, URGENT_TARGET, slotLabel, slotShort, slotEnd, LUNCH_LABEL, DAY_END } from './rules';
 import * as G from './game';
 import type { Game, Ticket } from './game';
 import { load, save as persist, defaults, KEY, type Save } from './storage';
@@ -239,12 +239,13 @@ function briefing() {
 
 // ---------------------------------------------------------------- planning panel
 const editable = () => { const d = today(); return d.phase === 'plan' || (d.phase === 'run' && !running && !d.pending.length); };
-const U = SLOTS + 0.35; // timeline units: 8 slots + the lunch gap
-const xs = (s: number) => ((Math.min(s, SLOTS) + (s >= LUNCH_AFTER ? 0.35 : 0)) / U) * 100; // left edge of a start slot
-const xe = (e: number) => ((Math.min(e, SLOTS) + (e > LUNCH_AFTER ? 0.35 : 0)) / U) * 100; // right edge of an end slot
+const GAP = 0.5; // lunch gap, in slot widths (1 h 30 drawn a bit narrower than 1.5 slots: it is never worked)
+const U = SLOTS + GAP; // timeline units: 8 slots + the lunch gap
+const xs = (s: number) => ((Math.min(s, SLOTS) + (s >= LUNCH_AFTER ? GAP : 0)) / U) * 100; // left edge of a start slot
+const xe = (e: number) => ((Math.min(e, SLOTS) + (e > LUNCH_AFTER ? GAP : 0)) / U) * 100; // right edge of an end slot
 function panel() {
   const d = today(); const p = $('#game .panel'); const edit = editable(); const planning = d.phase === 'plan' || d.phase === 'briefing' || d.replan || (d.phase === 'run' && !running && !skipping);
-  const hours = Array.from({ length: SLOTS }, (_, s) => `<span style="left:${xs(s)}%">${slotLabel(s).replace(' ', '')}</span>`).join('') + `<span class="end" style="left:100%">17h</span><i class="lunch-h" style="left:${xe(LUNCH_AFTER)}%;width:${(0.35 / U) * 100}%" title="Pause déjeuner">${icon('cup', 'ic xs')}</i>`;
+  const hours = Array.from({ length: SLOTS }, (_, s) => `<span style="left:${xs(s)}%">${slotShort(s)}</span>`).join('') + `<span class="end" style="left:100%" title="Fin de journée ${DAY_END}">${slotShort(SLOTS)}</span><i class="lunch-h" style="left:${xe(LUNCH_AFTER)}%;width:${(GAP / U) * 100}%" title="${LUNCH_LABEL}" aria-label="${LUNCH_LABEL}">${icon('cup', 'ic xs')}</i>`;
   const selT = sel ? g!.tickets[sel] : null;
   const rows = TEAM.map((c) => {
     const pv = G.preview(g!, c.id); const fa = G.freeAt(g!, c.id); const cr = d.capys[c.id]; let html = '';
@@ -256,15 +257,15 @@ function panel() {
       if (s.start > prev + s.travel) html += `<div class="wait" style="left:${xs(prev + s.travel)}%;width:${xe(s.start) - xs(prev + s.travel)}%" title="Attente du RDV"></div>`;
       if (s.endMax > s.end) html += `<div class="maybe" style="left:${xs(s.end)}%;width:${xe(s.endMax) - xs(s.end)}%" title="Temps en plus si un risque tombe"><span>+${s.endMax - s.end} h ?</span></div>`;
       const cls = ['blk', 'q', s.late ? 'late' : '', s.overflow ? 'over' : '', J.urgent ? 'urg' : '', sel === s.id ? 'sel' : ''].join(' ');
-      html += `<div class="${cls}" data-b="${s.id}" style="left:${xs(s.start)}%;width:${xe(Math.min(s.end, SLOTS)) - xs(s.start)}%;--c:${SK_COL[J.skill]}" aria-label="${J.short}, ${s.end - s.start} h"><div class="b1">${icon(J.icon, 'ic s')}<b>${TAG[J.id]}</b></div><div class="b2"><span class="bd">${s.end - s.start} h</span>${t.rdv ? icon('clock', 'ic xs') : ''}${t.risks.filter((r) => r !== 'absent').map((r) => icon(RISKS[r].icon, 'ic xs')).join('')}${J.dig ? icon(t.gas ? 'phone' : 'phoneX', 'ic xs') : ''}</div>${s.overflow ? `<i class="ovf" title="Déborde après 17 h">${glyph('right')}</i>` : ''}</div>`; });
+      html += `<div class="${cls}" data-b="${s.id}" style="left:${xs(s.start)}%;width:${xe(Math.min(s.end, SLOTS)) - xs(s.start)}%;--c:${SK_COL[J.skill]}" aria-label="${J.short}, ${s.end - s.start} h"><div class="b1">${icon(J.icon, 'ic s')}<b>${TAG[J.id]}</b></div><div class="b2"><span class="bd">${s.end - s.start} h</span>${t.rdv ? icon('clock', 'ic xs') : ''}${t.risks.filter((r) => r !== 'absent').map((r) => icon(RISKS[r].icon, 'ic xs')).join('')}${J.dig ? icon(t.gas ? 'phone' : 'phoneX', 'ic xs') : ''}</div>${s.overflow ? `<i class="ovf" title="Déborde après ${DAY_END}">${glyph('right')}</i>` : ''}</div>`; });
     const can = selT ? slotsFor(c, JOBS[selT.job]) !== null : true;
     if (selT && can && edit && !pv.some((s) => s.id === sel)) { const at = Math.max(pv.length ? pv[pv.length - 1].end : fa.at, d.phase === 'run' ? d.slot : 0); const du = slotsFor(c, JOBS[selT.job])!;
-      if (at < SLOTS) html += `<div class="gslot" style="left:${xs(at)}%;width:${xe(Math.min(at + du, SLOTS)) - xs(at)}%"><span class="gl-l">Toucher ici · ${slotLabel(at).replace(' ', '')}</span><span class="gl-s">Ici</span></div>`; }
+      if (at < SLOTS) html += `<div class="gslot" style="left:${xs(at)}%;width:${xe(Math.min(at + du, SLOTS)) - xs(at)}%"><span class="gl-l">Toucher ici · ${slotShort(at)}</span><span class="gl-s">Ici</span></div>`; }
     const rdvBand = selT?.rdv ? `<div class="rdvband" style="left:${xs(selT.rdv[0])}%;width:${xe(selT.rdv[1] + 1) - xs(selT.rdv[0])}%"><span>RDV</span></div>` : '';
     const now = d.phase === 'run' ? `<div class="nowl" style="left:${xs(d.slot)}%"></div>` : '';
     return `<div class="row${selT ? (can ? ' can' : ' cannot') : ''}" data-capy="${c.id}">
       <div class="who"><span class="hd">${who(c.id)}</span><div><b style="color:${c.color}">${c.name}</b><span class="sk"><i style="background:${SK_COL[c.main]}">${SKILL_SHORT[c.main]}</i>${c.second ? `<i class="s2" style="--k:${SK_COL[c.second]}" title="Métier secondaire : +1 h">${SKILL_SHORT[c.second]}</i>` : ''}</span></div></div>
-      <div class="tl" data-capy="${c.id}"><div class="grid">${Array.from({ length: SLOTS }, (_, s) => `<i style="left:${xs(s)}%;width:${xe(s + 1) - xs(s)}%"${s < d.slot && d.phase === 'run' ? ' class="past"' : ''}></i>`).join('')}<em style="left:${xe(LUNCH_AFTER)}%;width:${(0.35 / U) * 100}%"></em></div>${rdvBand}${html}${now}</div></div>`;
+      <div class="tl" data-capy="${c.id}"><div class="grid">${Array.from({ length: SLOTS }, (_, s) => `<i style="left:${xs(s)}%;width:${xe(s + 1) - xs(s)}%"${s < d.slot && d.phase === 'run' ? ' class="past"' : ''}></i>`).join('')}<em style="left:${xe(LUNCH_AFTER)}%;width:${(GAP / U) * 100}%"></em></div>${rdvBand}${html}${now}</div></div>`;
   }).join('');
   const w = G.warnings(g!); const red = w.filter((x) => x.level === 'red').length;
   let bottom = '';
@@ -286,7 +287,7 @@ function panel() {
 }
 function card(id: string) {
   const t = g!.tickets[id]; const J = JOBS[t.job]; const ok = G.avail(g!, id);
-  const age = g!.day - t.day; const rdv = t.rdv ? `${slotLabel(t.rdv[0]).replace(' ', '')}–${slotLabel(Math.min(t.rdv[1] + 1, SLOTS - 1)).replace(' ', '')}` : '';
+  const age = g!.day - t.day; const rdv = t.rdv ? `${slotShort(t.rdv[0])}–${slotEnd(t.rdv[1], true)}` : '';
   return `<div class="tk${J.urgent ? ' urg' : ''}${sel === id ? ' sel' : ''}${ok ? '' : ' wait'}" data-t="${id}" style="--c:${SK_COL[J.skill]}" role="button" tabindex="0" aria-label="${J.short}${J.urgent ? ', urgent' : ''}">
     <div class="tk-h">${icon(J.icon)}<b>${J.short}</b><span class="dur" title="Durée (1 créneau = 1 h)">${range(t)} h</span></div>
     <div class="tk-s">${J.urgent ? '<span class="chip red">Urgent</span>' : ''}${t.vip ? `<span class="chip vip">${VIPS[t.vip].tag}</span>` : ''}${!ok && G.festivalBlocked(g!, id) ? '<span class="chip">Arrêté Festival</span>' : !ok && t.avail !== null ? `<span class="chip">Possible ${WEEKDAYS[t.avail % 5].toLowerCase()}</span>` : `<span class="ad">${esc(addr(t))}</span>`}</div>
@@ -330,7 +331,7 @@ function tapTicket(id: string, fromMap = false) {
   const t = g!.tickets[id]; if (!G.avail(g!, id)) toast(G.festivalBlocked(g!, id) ? 'Arrêté Festival : pas de chantier de chaussée non urgent aujourd’hui.' : t.avail === null ? 'Envoie d’abord l’avis de coupure 48 h.' : 'Pas encore possible aujourd’hui.');
 }
 function pinTap(id: string) { if (!g?.today) return; const d = today(); if (Object.values(d.plan).flat().includes(id) || !G.tray(g).includes(id)) { detail(id); return; } if (editable() || d.replan) tapTicket(id, true); else detail(id); }
-function slotAt(tl: HTMLElement, clientX: number) { const r = tl.getBoundingClientRect(); const u = ((clientX - r.left) / r.width) * U; return u >= LUNCH_AFTER + 0.35 ? Math.floor(u - 0.35) : Math.floor(Math.min(u, LUNCH_AFTER - 0.01)); }
+function slotAt(tl: HTMLElement, clientX: number) { const r = tl.getBoundingClientRect(); const u = ((clientX - r.left) / r.width) * U; return u >= LUNCH_AFTER + GAP ? Math.floor(u - GAP) : Math.floor(Math.min(u, LUNCH_AFTER - 0.01)); }
 function place(c: CapyId, id: string, slot: number) {
   const t = g!.tickets[id]; const J = JOBS[t.job];
   if (!G.avail(g!, id)) { snd.play('invalid'); shake(c); toast(G.festivalBlocked(g!, id) ? 'Arrêté Festival : pas de chantier de chaussée non urgent aujourd’hui.' : t.avail === null ? 'Envoie d’abord l’avis de coupure 48 h.' : 'Ce ticket n’est pas encore possible.', 2400, true); return false; }
@@ -380,7 +381,7 @@ function detail(id: string) {
     <p>${J.desc}</p>${t.vip ? `<p class="vipr">${icon('star', 'ic s')} <b>${VIPS[t.vip].tag}</b> · ${VIPS[t.vip].rule}</p>` : ''}
     <div class="det-g"><div><h3>Durée</h3>${TEAM.map((c) => `<p>${c.name} : <b>${range(t, c.id) === '—' ? 'ne sait pas faire' : range(t, c.id) + ' h'}</b></p>`).join('')}<p class="muted">Métier ${SKILL_SHORT[J.skill]}. Métier secondaire : +1 h.</p></div>
     <div><h3>Risques annoncés</h3>${t.risks.length || J.minigame ? '' : '<p class="muted">Aucun.</p>'}${t.risks.map((r) => `<p>${icon(r === 'absent' ? 'clock' : RISKS[r].icon, 'ic s')} <b>${r === 'absent' ? 'Abonné peut-être absent' : RISKS[r].name}</b> · ${RISKS[r].tip} <i>(tu choisiras : +1 h ou autre option)</i></p>`).join('')}${J.minigame ? `<p>${icon('search', 'ic s')} <b>Compteur à trouver</b> · 0 ou +1 h selon ta recherche</p>` : ''}
-    ${t.rdv ? `<p>${icon('clock', 'ic s')} <b>RDV</b> : arrivée entre ${slotLabel(t.rdv[0])} et ${slotLabel(t.rdv[1])}</p>` : ''}${J.urgent ? `<p class="red">${icon('drop', 'ic s')} <b>Urgent</b> : à commencer dans les ${URGENT_TARGET} h après l'appel. ${J.leak} m³ perdus par heure.</p>` : ''}</div></div>
+    ${t.rdv ? `<p>${icon('clock', 'ic s')} <b>RDV</b> : ${slotLabel(t.rdv[0])} – ${slotEnd(t.rdv[1])} (arriver au plus tard à ${slotLabel(t.rdv[1])})</p>` : ''}${J.urgent ? `<p class="red">${icon('drop', 'ic s')} <b>Urgent</b> : à commencer dans les ${URGENT_TARGET} h après l'appel. ${J.leak} m³ perdus par heure.</p>` : ''}</div></div>
     ${J.dig ? `<button class="btn ${t.gas ? 'ok' : 'danger'}" id="d-gas">${icon(t.gas ? 'phone' : 'phoneX')}<span>${t.gas ? 'Exploitant gaz appelé ✓' : 'Appeler l’exploitant gaz avant de creuser'}</span></button>` : ''}
     ${J.coupure && t.avail === null ? `<button class="btn" id="d-avis">${icon('mail')}<span>Envoyer l'avis de coupure 48 h</span></button>` : ''}
     <div class="btns">${ed && G.avail(g!, id) ? TEAM.filter((c) => G.canDo(c.id, id, g!)).map((c) => `<button class="btn" data-put="${c.id}">Donner à ${c.name}</button>`).join('') : ''}${ed && planned ? '<button class="btn" id="d-del">Retirer du planning</button>' : ''}<button class="btn primary" id="d-ok">OK</button></div></div>`, 'wide');
@@ -422,7 +423,7 @@ function afterStep(before: { slot: number; done: number }) {
   const d = g!.today!; const ms = skipping ? 140 : speed === 2 ? 520 : 1000;
   for (const c of TEAM) { const cr = d.capys[c.id]; const tgt = cr.job ?? cr.target; if (tgt && (cr.job || cr.travel === 0 || d.sub === 'mid')) mv?.moveCapy(c.id, SITES[g!.tickets[tgt].site].node, ms); }
   if (d.done.length > before.done) snd.play('match');
-  if (before.slot === LUNCH_AFTER - 1 && d.slot === LUNCH_AFTER && !skipping) toast('Pause déjeuner (12 h – 13 h)', 1400);
+  if (before.slot === LUNCH_AFTER - 1 && d.slot === LUNCH_AFTER && !skipping) toast(LUNCH_LABEL, 1400);
   if (d.phase === 'close') { stop(); render(); setTimeout(closeScreen, 500); return; }
   render();
   if (d.pending.length) { stop(); showPending(); return; }
@@ -491,7 +492,7 @@ function closeScreen() {
   const dsat = Math.round(g!.sat - d.satStart);
   const line = ['Journée compliquée, {nom}… On repart {motivé|motivée} demain !', 'On a tenu le coup, {nom}.', 'Belle journée, {nom} !', 'Journée parfaite, {nom} ! L’équipe est ravie.'][d.stars!];
   const kpi = (ic: string, v: string, l: string) => `<div>${icon(ic, 'ic s')}<b>${v}</b><span>${l}</span></div>`;
-  openOv(`<div class="close"><div class="c-left"><p class="kicker">Clôture de 17 h</p><h2>${dayName(d.day)}</h2>
+  openOv(`<div class="close"><div class="c-left"><p class="kicker">Clôture de ${DAY_END}</p><h2>${dayName(d.day)}</h2>
       <div class="c-stars"><div class="stars">${[0, 1, 2].map((i) => `<span class="st${i < d.stars! ? ' on' : ''}" style="animation-delay:${0.2 + i * 0.25}s">${ICONS[i < d.stars! ? 'star' : 'starOff']}</span>`).join('')}</div><div class="c-me">${me()}</div></div>
       <p class="c-line">${say(line)}</p>
       <ul class="objs">${spec.objs.map((o, i) => `<li class="${d.met![i] ? 'ok' : 'ko'}">${glyph(d.met![i] ? 'check' : 'cross')} <span>${objText(o)}</span></li>`).join('')}</ul>

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as G from '../src/game';
 import { JOBS, TEAM, DAYS_SPEC, RISK_CARDS, EVENTS, VIPS, vipOutcome, type JobId } from '../src/content';
-import { SLOTS, LUNCH_AFTER, slotLabel, SAFETY_RULE } from '../src/rules';
+import { SLOTS, LUNCH_AFTER, slotLabel, slotShort, slotEnd, LUNCH_LABEL, SAFETY_RULE } from '../src/rules';
 import { SITES, DEPOT, PREFET_SITE } from '../src/map';
 
 const fresh = () => { const g = G.newGame(2026); G.startDay(g); return g; };
@@ -9,9 +9,10 @@ const runUntilPending = (g: G.Game) => { let k = 0; while (g.today!.phase === 'r
 const addTicket = (g: G.Game, job: JobId, opts: Parameters<typeof G.makeTicket>[3] = {}) => { const t = G.makeTicket(g, job, G.rng(9), { slot: 0, ...opts }); t.avail = g.day; return t; };
 
 describe('rules', () => {
-  it('8 one-hour slots with a visible lunch break 12h-13h', () => {
+  it('8 one-hour slots with a visible lunch break 12h-13h30', () => {
     expect(SLOTS).toBe(8); expect(LUNCH_AFTER).toBe(4);
-    expect([0, 3, 4, 7].map(slotLabel)).toEqual(['8 h', '11 h', '13 h', '16 h']);
+    expect([0, 3, 4, 7, 8].map(slotLabel)).toEqual(['8 h', '11 h', '13 h 30', '16 h 30', '17 h 30']);
+    expect([0, 4, 8].map(slotShort)).toEqual(['8h', '13h30', '17h30']); expect(slotEnd(3)).toBe('12 h'); expect(slotEnd(4, true)).toBe('14h30'); expect(LUNCH_LABEL).toBe('Pause déjeuner (12 h – 13 h 30)');
   });
   it('the safety rule is configured in one place and defaults to cap1', () => { expect(SAFETY_RULE).toBe('cap1'); });
   it('10 job types, each with phase-2 data hooks (side / habilitation) and a known skill', () => {

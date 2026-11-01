@@ -130,6 +130,7 @@ a{color:var(--ldr-blue-d)}
 .panel{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;padding:var(--sp-1) var(--sp-2) 6px 6px;gap:var(--sp-1)}
 .scale{display:flex;height:16px;flex:none}.who-h{width:108px;flex:none}
 .hours{position:relative;flex:1;font-size:var(--fs-xs);color:var(--ink-2)}.hours span{position:absolute;transform:translateX(2px)}.hours .end{transform:translateX(-100%)}
+@media (max-width:719px){.hours .end{display:none}} /* "16h30" + "17h30" do not both fit on small phones; the end of the day is in the hours row tooltip and the close screen */
 .lunch-h{position:absolute;top:0;display:flex;justify-content:center}
 /* rows share the height left above the ticket tray; if it is too short (Safari toolbars), they scroll and the tray stays visible */
 .rows{flex:1;min-height:0;display:flex;flex-direction:column;gap:var(--sp-1);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;padding:3px 3px 3px 0;margin:-3px -3px -3px 0}

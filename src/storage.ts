@@ -48,7 +48,7 @@ function today(d: unknown, g: Game): d is DayState {
     && (p.kind !== 'risk' || Object.hasOwn(RISKS, p.card as string)) && (p.kind !== 'event' || Object.hasOwn(EVENTS, p.card as string))
     && (p.capy === null || CAPYS.includes(p.capy as CapyId)) && (p.ticket === null || (str(p.ticket) && known(p.ticket))))) return false;
   for (const k of ['done', 'postponed', 'absentOk', 'rdvToday', 'rdvKept', 'rdvMissed'] as const) if (!ids(d[k], () => true)) return false;
-  if (Array.isArray(d.log)) d.log = d.log.map((s) => (typeof s === 'string' ? s.replace(/\bMomo\b/g, 'Fred') : s)); // Momo was renamed Fred (id stays 'momo')
+  if (Array.isArray(d.log)) d.log = d.log.map((s) => (typeof s === 'string' ? s.replace(/\bMomo\b/g, 'Fred').replace(/^(1[3-7]) h · /, '$1 h 30 · ') : s)); // afternoon slots moved from 13h-17h to 13h30-17h30 (same indices) // Momo was renamed Fred (id stays 'momo')
   if (!Array.isArray(d.log) || !d.log.every((s) => str(s, 300)) || !Array.isArray(d.fired) || !d.fired.every((v) => int(v, 0, SLOTS))) return false;
   if (!isObj(d.hist) || !CAPYS.every((c) => Array.isArray((d.hist as Record<string, unknown>)[c]))) d.hist = { josette: [], momo: [], lulu: [] };
   if (d.vip !== undefined && !(isObj(d.vip) && Object.entries(d.vip).every(([id, k]) => known(id) && ['fast', 'mid', 'late'].includes(k as string)))) return false;
