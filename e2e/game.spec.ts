@@ -116,3 +116,21 @@ test('end-of-day film: plays after the day, skippable, replayable, and the close
   await page.click('#c-film'); await expect(page.locator('.rp-ban')).toBeVisible(); await page.click('#rp-skip'); await expect(page.locator('#c-next')).toBeVisible();
   expect(e).toEqual([]);
 });
+
+test('polish: pressed look on tap, Vibrations setting saved, map drag commits the view without re-rendering mid-gesture', async ({ page }) => {
+  const e = errors(page); await start(page);
+  const t = page.locator('.tk').first(); const bb = (await t.boundingBox())!;
+  await page.mouse.move(bb.x + 20, bb.y + 10); await page.mouse.down(); await expect(t).toHaveClass(/prs/); await page.mouse.up(); await expect(t).not.toHaveClass(/prs/);
+  await page.evaluate(() => (window as unknown as { __capy: { ui: { settings: () => void } } }).__capy.ui.settings()); await expect(page.locator('#s-hap')).toBeChecked();
+  await page.locator('label.tg', { hasText: 'Vibrations' }).click(); await expect(page.locator('#s-hap')).not.toBeChecked();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('capy-dispatch-v1')!).settings.haptics)).toBe(false); await page.click('#s-ok');
+  if (!(await page.locator('.map-svg').isVisible())) await page.click('#t-map');
+  const m = await page.evaluate(async () => { const s = document.querySelector('.map-svg') as SVGSVGElement; const r = s.getBoundingClientRect(); const x = r.left + r.width / 2, y = r.top + r.height / 2; const vb0 = s.getAttribute('viewBox'); const pins0 = s.querySelector('.pins')!.firstElementChild;
+    const ev = (t: string, dx: number) => s.dispatchEvent(new PointerEvent(t, { pointerId: 1, clientX: x - dx, clientY: y, bubbles: true, isPrimary: true }));
+    ev('pointerdown', 0); for (let i = 1; i <= 6; i++) { ev('pointermove', i * 10); await new Promise((f) => requestAnimationFrame(f)); }
+    const mid = { vb: s.getAttribute('viewBox'), tf: s.style.transform, samePins: s.querySelector('.pins')!.firstElementChild === pins0 }; ev('pointerup', 60); await new Promise((f) => requestAnimationFrame(f));
+    return { vb0, mid, vb1: s.getAttribute('viewBox'), tf1: s.style.transform, samePins: s.querySelector('.pins')!.firstElementChild === pins0 }; });
+  expect(m.mid.vb).toBe(m.vb0); expect(m.mid.tf).toContain('translate(-'); expect(m.mid.samePins).toBe(true);
+  expect(m.vb1).not.toBe(m.vb0); expect(m.tf1).toBe(''); expect(m.samePins).toBe(true); // a pan keeps the pins (map units), only the viewBox moved
+  expect(e).toEqual([]);
+});

@@ -127,7 +127,8 @@ a{color:var(--ldr-blue-d)}
 .pin.sel path{stroke:var(--ink)}
 .pin .pulse{fill:#E8344E;opacity:.35;transform-box:fill-box;transform-origin:center;animation:pulse 1.6s ease-out infinite}
 @keyframes pulse{from{transform:scale(.6);opacity:.55}to{transform:scale(2.1);opacity:0}}
-.mcapy{pointer-events:none}
+.mcapy{pointer-events:none}.mcapy:not(.drv) .mvan{display:none}
+.map-svg{transform-origin:0 0;will-change:transform}
 .osm-s,.t-map,.mclose,.mexp,.scrim{display:none}
 /* tap-to-place: a ghost slot shows where the chosen ticket lands on each compatible row */
 .gslot{position:absolute;top:2px;bottom:2px;z-index:1;border:2.5px dashed var(--ldr-blue-d);border-radius:var(--r-s);background:#77B7FC26;display:flex;align-items:center;justify-content:center;overflow:hidden;pointer-events:none;container-type:inline-size;animation:fadein .25s}
@@ -544,3 +545,10 @@ button.stickers{border:0;font:inherit;color:inherit;text-align:left;cursor:point
 @keyframes ghostin{50%{box-shadow:0 0 0 5px #F5B82E88}}
 .row.hs-row{box-shadow:0 0 0 3px #F5B82E}
 .hs-bar{position:absolute;left:8px;right:8px;bottom:8px;z-index:20;display:flex;align-items:center;gap:var(--sp-2);padding:6px 6px 6px 12px;border-radius:var(--r-m);background:#fff;box-shadow:var(--sh-pop);font-size:var(--fs-s)}.hs-bar span{flex:1}
+/* polish: one pressed look for everything tappable (class set by feel.ts, so quick taps on iOS still show it) */
+.btn.prs:not(:disabled),.choice.prs{transform:translateY(3px);box-shadow:0 1px 0 var(--line-2)}.btn.primary.prs{box-shadow:0 1px 0 var(--ldr-green-d)}
+:is(.cbtn,.kpi,.chip,.act,.speed,.mbtn,.dch,.cta,.iconbtn,.warnbtn,.t-obj,.t-map,.mclose,.mexp,.nudge,.me-row,.wg-x,.stickers,.spot,.tk,.blk,label.tg,.rp-mk,.hs-it,[data-avis],[data-gas],[data-put]).prs:not(:disabled){scale:.95;filter:brightness(.93)}
+.blk.prs,.tk.prs{scale:.97}.ghost.prs,.dragging.prs{scale:none;filter:none}
+.pin.prs>path{filter:brightness(.88)}.pin.prs{opacity:1}
+.calm .prs{scale:none!important}
+@media (max-height:430px){.set{display:grid;grid-template-columns:1fr 1fr}.set>.me-row,.set>p,.set>.tg:last-of-type{grid-column:1/-1}.set .tg{font-size:var(--fs-s)}.set>p{margin:0}}

@@ -43,6 +43,8 @@ export class Sound {
     if (this.ctx) { if (this.ctx.state !== 'running' && this.ctx.state !== 'closed' && !document.hidden) this.ctx.resume().catch(() => {}); return this.ctx; }
     const C = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!C) return null;
+    // Safari 17+: 'ambient' = the game follows the ring/silent switch and mixes with the player's podcast or music
+    try { const as = (navigator as Navigator & { audioSession?: { type: string } }).audioSession; if (as) as.type = 'ambient'; } catch { /* older */ }
     const ctx = (this.ctx = new C());
     // master: clean gain staging + a safety limiter that only touches rare peaks (no glue compressor: the Web Audio
     // compressor adds automatic make-up gain, which lifted the quiet tails and pumped the floor up)
@@ -94,8 +96,10 @@ export class Sound {
     this.env(g, t, a, vol, dur / 3, t + dur + 0.1); s.connect(f).connect(g).connect(bus); s.start(t, this.r() * 1.5); s.stop(t + dur + 0.1);
   }
   // ---------- SFX (soft attacks, rounded timbres)
+  /** Called for every sound cue, even muted (haptics follow the same cues). */
+  onCue: (n: Sfx) => void = () => {};
   play(n: Sfx, combo = 0) {
-    if (!this.sfxOn || !this.ensure()) return; const t = this.ctx!.currentTime + 0.005; const b = this.sfxBus;
+    this.onCue(n); if (!this.sfxOn || !this.ensure()) return; const t = this.ctx!.currentTime + 0.005; const b = this.sfxBus;
     switch (n) {
       case 'select': this.tone(b, 720, t, 0.09, 0.2, 'sine', 0.004, 540); this.burst(b, t, 0.025, 0.025, 1800, 'bandpass', 1); break;
       case 'click': this.tone(b, 620, t, 0.06, 0.13, 'sine', 0.004, 470); break;
