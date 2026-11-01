@@ -1,6 +1,6 @@
 // The player's dispatcher: name, sex (for grammatical agreement only) and capybara look.
 // The name is user input: it is cleaned here and only ever rendered with textContent (see fillNames in main.ts).
-import { FURS, OUTFITS, PLAYER_WEAR, type Acc, type Look } from './art';
+import { FURS, HEADS, OUTFITS, PLAYER_WEAR, type Acc, type Look } from './art';
 
 export type Sex = 'homme' | 'femme';
 export interface Player { name: string; sex: Sex; look: Look }
@@ -9,6 +9,7 @@ export const ACCS: Acc[] = ['aucun', 'lunettes', 'noeud', 'meche', 'lavande'];
 export const ACC_LABEL: Record<Acc, string> = { aucun: 'Rien', lunettes: 'Lunettes', noeud: 'Nœud', meche: 'Mèche', lavande: 'Lavande' };
 export const FUR_LABEL: Record<string, string> = { caramel: 'Caramel', noisette: 'Noisette', miel: 'Miel' };
 export const OUTFIT_LABEL: Record<string, string> = Object.fromEntries(Object.entries(PLAYER_WEAR).map(([k, v]) => [k, v.label]));
+export const HEAD_LABEL: Record<string, string> = { classique: 'Classique', ronde: 'Ronde', long: 'Long museau' };
 export const OUTFIT_SHORT: Record<string, string> = { polo: 'Polo', veste: 'Veste', gilet: 'Gilet HV', combi: 'Combi' };
 /** v0.2 colour keys → outfit styles. */
 const OLD_OUTFIT: Record<string, string> = { marine: 'polo', vert: 'veste', bleu: 'combi' };
@@ -27,7 +28,8 @@ export function cleanPlayer(x: unknown): Player | null {
   return { name, sex: o.sex, look: {
     fur: typeof l.fur === 'string' && Object.hasOwn(FURS, l.fur) ? l.fur : 'caramel',
     acc: ACCS.includes(l.acc as Acc) ? (l.acc as Acc) : 'aucun',
-    outfit: typeof l.outfit === 'string' && Object.hasOwn(OUTFITS, l.outfit) ? l.outfit : typeof l.outfit === 'string' && Object.hasOwn(OLD_OUTFIT, l.outfit) ? OLD_OUTFIT[l.outfit] : 'polo' } };
+    outfit: typeof l.outfit === 'string' && Object.hasOwn(OUTFITS, l.outfit) ? l.outfit : typeof l.outfit === 'string' && Object.hasOwn(OLD_OUTFIT, l.outfit) ? OLD_OUTFIT[l.outfit] : 'polo',
+    head: typeof l.head === 'string' && Object.hasOwn(HEADS, l.head) ? l.head : 'classique' } };
 }
 
 // ---- grammatical agreement (no inclusive writing: one form, chosen from the player's sex)

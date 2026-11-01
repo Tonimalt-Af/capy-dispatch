@@ -37,11 +37,57 @@ const blushMarks = (x: number, y: number, rx = 5.5, ry = 3.4) => `<ellipse cx="$
 /** A · "Onsen zen": front-facing sitting capybara, brick head, sleepy half-closed eyes (the mascot). */
 /** Body silhouette: outfits are filled with this exact path, so they always match the sticker outline. */
 const BODY = 'M17 103 C15 86 27 74 50 74 C73 74 85 86 83 103 C82 113 70 117 50 117 C30 117 18 113 17 103Z';
-/** Boxy capybara head (flat top, straight sides, long blunt snout). */
-const HEAD = 'M25 46 C25 36 34 32.6 50 32.6 C66 32.6 75 36 75 46 L76.6 75 C77.4 88.6 66 95.4 50 95.4 C34 95.4 22.6 88.6 23.4 75 Z';
+/** Head shapes (character option). Each one gives its outline, its face details and the anchors used by
+ *  the accessories (ears, headset cups, eyes for glasses, mic tip, hat offset), so every accessory fits every head. */
+interface HeadShape { top: number; path: string; ears: [number, number, number, number]; cup: [number, number]; eyes: [number, number]; mic: [number, number]; hatDy: number; face: () => string }
+const eyeDots = (lx: number, y: number, rx: number, ry: number, hl: number) => [lx, 100 - lx].map((x) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${C.ink}"/><circle cx="${x + rx * .36}" cy="${y - ry * .34}" r="${hl}" fill="#fff"/><circle cx="${x - rx * .38}" cy="${y + ry * .4}" r="${hl * .46}" fill="#fff" opacity=".85"/>`).join('');
+const nostrils = (y: number, w = 2.6) => `<path d="M42.6 ${y} C44 ${y - 1.6} 46.6 ${y - 1.4} 47.4 ${y + .4} M57.4 ${y} C56 ${y - 1.6} 53.4 ${y - 1.4} 52.6 ${y + .4}" stroke="${C.nose}" stroke-width="${w}" fill="none" stroke-linecap="round"/>`;
+const smile = (y: number, l = 5.6) => `<path d="M50 ${y} v${l} M45.4 ${y + l + .8} q2.3 2.6 4.6 -.2 q2.3 2.8 4.6 .2" stroke="${C.ink}" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+const tufts = (y: number, x = 25.4) => `<path d="M${x} ${y} l-2.6 1.2 M${x + .2} ${y + 4.4} l-3 .6 M${100 - x} ${y} l2.6 1.2 M${100 - x - .2} ${y + 4.4} l3 .6" stroke="${C.furD}" stroke-width="1.2" stroke-linecap="round" opacity=".7"/>`;
+const crown = (top: number, w = 19) => `<path d="M${50 - w} ${top + 4} C${50 - w * .6} ${top + 2} ${50 + w * .6} ${top + 2} ${50 + w} ${top + 4}" stroke="${C.furH}" stroke-width="3" fill="none" stroke-linecap="round" opacity=".6"/><path d="M45.4 ${top + 2} q2 -3.6 4 -.4 q2 -4 4 0" fill="none" stroke="${C.furD}" stroke-width="1.6" stroke-linecap="round"/>`;
+export const HEADS: Record<string, HeadShape> = {
+  /** Classique: boxy, flat top, near-straight sides, long blunt snout. */
+  classique: { top: 32.6, path: 'M25 46 C25 36 34 32.6 50 32.6 C66 32.6 75 36 75 46 L76.6 75 C77.4 88.6 66 95.4 50 95.4 C34 95.4 22.6 88.6 23.4 75 Z',
+    ears: [29.4, 35.4, 4.6, 4], cup: [24.2, 56.5], eyes: [34.8, 48.6], mic: [39.6, 79.6], hatDy: 0,
+    face: () => `<path d="M23.4 74 C22.8 88 34 94.6 50 94.6 C66 94.6 77.2 88 76.6 74 C73 85 64 90.4 50 90.4 C36 90.4 27 85 23.4 74Z" fill="${C.furD}" opacity=".55"/>
+      ${crown(32.6)}${tufts(57)}
+      <path d="M31.4 63.4 C31.4 56.6 40 54.6 50 54.6 C60 54.6 68.6 56.6 68.6 63.4 L69 79 C69 88.4 60.4 92.2 50 92.2 C39.6 92.2 31 88.4 31 79 Z" fill="${C.muz}"/>
+      <path d="M31.2 78 C32 86.4 40 90.2 50 90.2 C60 90.2 68 86.4 68.8 78 C64 84.6 57.6 86.4 50 86.4 C42.4 86.4 36 84.6 31.2 78Z" fill="${C.furD}" opacity=".32"/>
+      <path d="M38 57.8 C42 56.4 58 56.4 62 57.8" stroke="${C.furH}" stroke-width="2" fill="none" stroke-linecap="round" opacity=".85"/>
+      <path d="M38.4 65 C38.8 58.6 61.2 58.6 61.6 65 C56.4 67.6 43.6 67.6 38.4 65Z" fill="${C.furD}" opacity=".75"/><path d="M42 60.6 C46 59.6 54 59.6 58 60.6" stroke="#fff" stroke-opacity=".18" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+      ${nostrils(62.8)}${smile(66.6)}${eyeDots(34.8, 48.6, 3.7, 3.9, 1.4)}
+      <path d="M30.4 43.2 C32.4 42 36.6 42 38.6 43.4 M61.4 43.4 C63.4 42 67.6 42 69.6 43.2" stroke="${C.furD}" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".7"/>
+      ${blushMarks(27.4, 66.4, 4.8, 3.2)}${blushMarks(72.6, 66.4, 4.8, 3.2)}` },
+  /** Ronde: younger look, round full cheeks, short snout, big shiny eyes. */
+  ronde: { top: 35, path: 'M50 35 C68.6 35 78.4 46 79 62 C79.8 80.6 68 93.4 50 93.4 C32 93.4 20.2 80.6 21 62 C21.6 46 31.4 35 50 35Z',
+    ears: [30.2, 39, 4.9, 4.3], cup: [22, 61], eyes: [35.6, 55.4], mic: [40.4, 82], hatDy: 2.6,
+    face: () => `<path d="M21.4 70 C22.6 85.4 34 92.8 50 92.8 C66 92.8 77.4 85.4 78.6 70 C74.6 83.6 64 88.8 50 88.8 C36 88.8 25.4 83.6 21.4 70Z" fill="${C.furD}" opacity=".5"/>
+      ${crown(35, 17)}${tufts(63, 23)}
+      <path d="M35.4 70.6 C35.4 65.2 42 63.8 50 63.8 C58 63.8 64.6 65.2 64.6 70.6 L64.8 78.4 C64.8 85.8 58.4 89.4 50 89.4 C41.6 89.4 35.2 85.8 35.2 78.4 Z" fill="${C.muz}"/>
+      <path d="M35.4 78.6 C36.4 85 42 87.8 50 87.8 C58 87.8 63.6 85 64.6 78.6 C60.6 83.4 55.6 84.8 50 84.8 C44.4 84.8 39.4 83.4 35.4 78.6Z" fill="${C.furD}" opacity=".3"/>
+      <path d="M41 66.4 C44 65.4 56 65.4 59 66.4" stroke="${C.furH}" stroke-width="1.8" fill="none" stroke-linecap="round" opacity=".85"/>
+      <path d="M41 71.6 C41.4 66.6 58.6 66.6 59 71.6 C55 73.6 45 73.6 41 71.6Z" fill="${C.furD}" opacity=".75"/>
+      ${nostrils(69.8, 2.3)}${smile(73.2, 3.6)}${eyeDots(35.6, 55.4, 4.7, 5.1, 1.9)}
+      <path d="M30.4 48.4 C32.6 47 37.6 47 39.8 48.6 M60.2 48.6 C62.4 47 67.4 47 69.6 48.4" stroke="${C.furD}" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".6"/>
+      ${blushMarks(27.2, 70.6, 5.6, 3.6)}${blushMarks(72.8, 70.6, 5.6, 3.6)}` },
+  /** Long museau: taller, rectangular head, big laid-back snout, sleepy half-closed eyes. */
+  long: { top: 30, path: 'M27 41 C27 32.6 36 30 50 30 C64 30 73 32.6 73 41 L74.8 81 C75.4 91.6 65.4 97.4 50 97.4 C34.6 97.4 24.6 91.6 25.2 81 Z',
+    ears: [30.4, 32.4, 4.4, 3.8], cup: [25.4, 53], eyes: [36, 45.4], mic: [38.6, 79], hatDy: -4,
+    face: () => `<path d="M25.2 80 C25.2 91 35 96.8 50 96.8 C65 96.8 74.8 91 74.8 80 C71 89 63 92.6 50 92.6 C37 92.6 29 89 25.2 80Z" fill="${C.furD}" opacity=".55"/>
+      ${crown(30, 17)}${tufts(53, 27.2)}
+      <path d="M30.2 58 C30.2 51.6 39.6 50 50 50 C60.4 50 69.8 51.6 69.8 58 L70.4 83 C70.4 92 61.4 95 50 95 C38.6 95 29.6 92 29.6 83 Z" fill="${C.muz}"/>
+      <path d="M29.8 82 C30.8 90.4 39 93.4 50 93.4 C61 93.4 69.2 90.4 70.2 82 C65.6 88.4 58.4 90 50 90 C41.6 90 34.4 88.4 29.8 82Z" fill="${C.furD}" opacity=".32"/>
+      <path d="M36.6 53.2 C41 51.8 59 51.8 63.4 53.2" stroke="${C.furH}" stroke-width="2.2" fill="none" stroke-linecap="round" opacity=".85"/>
+      <path d="M36.4 61.6 C36.8 54.6 63.2 54.6 63.6 61.6 C58 64.4 42 64.4 36.4 61.6Z" fill="${C.furD}" opacity=".8"/><path d="M41 57 C46 55.8 54 55.8 59 57" stroke="#fff" stroke-opacity=".18" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+      ${nostrils(59.2, 3)}${smile(63.6, 9)}
+      ${[36, 64].map((x) => `<path d="M${x - 4.4} ${45} C${x - 4.4} ${50.4} ${x + 4.4} ${50.4} ${x + 4.4} ${45} Z" fill="${C.ink}"/><path d="M${x - 5.2} 44.8 C${x - 2.4} 43.4 ${x + 2.4} 43.4 ${x + 5.2} 44.8" stroke="${C.furD}" stroke-width="1.8" fill="none" stroke-linecap="round"/><circle cx="${x + 1.6}" cy="46.6" r="1.1" fill="#fff"/>`).join('')}
+      ${blushMarks(28.6, 63.6, 4.4, 3)}${blushMarks(71.4, 63.6, 4.4, 3)}` },
+};
+let H: HeadShape = HEADS.classique;
+const withHead = <T,>(k: string | undefined, fn: () => T): T => { const keep = H; H = HEADS[k ?? ''] ?? HEADS.classique; try { return fn(); } finally { H = keep; } };
 /** Small round ears set high on the top corners (also redrawn over a headset band). */
-const capyEars = (m: Mode) => e(m, 29.4, 35.4, 4.6, 4, C.furD) + e(m, 70.6, 35.4, 4.6, 4, C.furD) +
-  det(m, `<ellipse cx="29.8" cy="36" rx="2.2" ry="1.8" fill="${C.ear}"/><ellipse cx="70.2" cy="36" rx="2.2" ry="1.8" fill="${C.ear}"/>`);
+const capyEars = (m: Mode) => { const [x, y, rx, ry] = H.ears; return e(m, x, y, rx, ry, C.furD) + e(m, 100 - x, y, rx, ry, C.furD) +
+  det(m, `<ellipse cx="${x + .4}" cy="${y + .6}" rx="${rx * .48}" ry="${ry * .45}" fill="${C.ear}"/><ellipse cx="${100 - x - .4}" cy="${y + .6}" rx="${rx * .48}" ry="${ry * .45}" fill="${C.ear}"/>`); };
 function capyFront(m: Mode, wear?: () => string) {
   return [
     p(m, BODY, C.furD),
@@ -51,24 +97,8 @@ function capyFront(m: Mode, wear?: () => string) {
     e(m, 33, 113, 8, 4.2, C.deep), e(m, 67, 113, 8, 4.2, C.deep),
     det(m, `<path d="M30 112.5v2.5M34 112.5v2.5M64 112.5v2.5M68 112.5v2.5" stroke="#4E2B16" stroke-width="1" stroke-linecap="round" opacity=".6"/>`),
     capyEars(m),
-    // boxy capybara head: flat top, near-straight sides widening a little toward the long blunt snout
-    p(m, HEAD, C.fur),
-    det(m, `
-      <path d="M23.4 74 C22.8 88 34 94.6 50 94.6 C66 94.6 77.2 88 76.6 74 C73 85 64 90.4 50 90.4 C36 90.4 27 85 23.4 74Z" fill="${C.furD}" opacity=".55"/>
-      <path d="M31 36.6 C38 34.6 62 34.6 69 36.6" stroke="${C.furH}" stroke-width="3" fill="none" stroke-linecap="round" opacity=".6"/>
-      <path d="M45.4 34.6 q2 -3.6 4 -.4 q2 -4 4 0" fill="none" stroke="${C.furD}" stroke-width="1.6" stroke-linecap="round"/>
-      <path d="M25.4 57 l-2.6 1.2 M25.6 61.4 l-3 .6 M74.6 57 l2.6 1.2 M74.4 61.4 l3 .6" stroke="${C.furD}" stroke-width="1.2" stroke-linecap="round" opacity=".7"/>
-      <path d="M31.4 63.4 C31.4 56.6 40 54.6 50 54.6 C60 54.6 68.6 56.6 68.6 63.4 L69 79 C69 88.4 60.4 92.2 50 92.2 C39.6 92.2 31 88.4 31 79 Z" fill="${C.muz}"/>
-      <path d="M31.2 78 C32 86.4 40 90.2 50 90.2 C60 90.2 68 86.4 68.8 78 C64 84.6 57.6 86.4 50 86.4 C42.4 86.4 36 84.6 31.2 78Z" fill="${C.furD}" opacity=".32"/>
-      <path d="M38 57.8 C42 56.4 58 56.4 62 57.8" stroke="${C.furH}" stroke-width="2" fill="none" stroke-linecap="round" opacity=".85"/>
-      <path d="M38.4 65 C38.8 58.6 61.2 58.6 61.6 65 C56.4 67.6 43.6 67.6 38.4 65Z" fill="${C.furD}" opacity=".75"/><path d="M42 60.6 C46 59.6 54 59.6 58 60.6" stroke="#fff" stroke-opacity=".18" stroke-width="1.4" fill="none" stroke-linecap="round"/>
-      <path d="M42.6 62.8 C44 61.2 46.6 61.4 47.4 63.2 M57.4 62.8 C56 61.2 53.4 61.4 52.6 63.2" stroke="${C.nose}" stroke-width="2.6" fill="none" stroke-linecap="round"/>
-      <path d="M50 66.6 v5.6 M45.4 73 q2.3 2.6 4.6 -.2 q2.3 2.8 4.6 .2" stroke="${C.ink}" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-      <ellipse cx="34.8" cy="48.6" rx="3.7" ry="3.9" fill="${C.ink}"/>
-      <ellipse cx="65.2" cy="48.6" rx="3.7" ry="3.9" fill="${C.ink}"/>
-      <circle cx="36.1" cy="47.3" r="1.4" fill="#fff"/><circle cx="66.5" cy="47.3" r="1.4" fill="#fff"/><circle cx="33.4" cy="50.2" r=".65" fill="#fff" opacity=".85"/><circle cx="63.8" cy="50.2" r=".65" fill="#fff" opacity=".85"/>
-      <path d="M30.4 43.2 C32.4 42 36.6 42 38.6 43.4 M61.4 43.4 C63.4 42 67.6 42 69.6 43.2" stroke="${C.furD}" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".7"/>
-      ${blushMarks(27.4, 66.4, 4.8, 3.2)}${blushMarks(72.6, 66.4, 4.8, 3.2)}`),
+    p(m, H.path, C.fur),
+    det(m, H.face()),
   ].join('');
 }
 
@@ -169,8 +199,8 @@ function dindonBody(m: Mode) {
 
 // ---------- work gear (drawn in the same three passes: shadow, white outline, colour)
 function helmet(m: Mode, col = '#FFFFFF', logo = true) {
-  return p(m, 'M29 43 C28 24 72 24 71 43 Z', col) + e(m, 50, 43, 27, 4.6, col) +
-    det(m, `<path d="M33 41 C33 30 41 26 50 26 C59 26 67 30 67 41" fill="none" stroke="#000" stroke-opacity=".08" stroke-width="3"/><path d="M50 26 V41" stroke="#000" stroke-opacity=".1" stroke-width="3"/><ellipse cx="40" cy="31" rx="5" ry="2.6" fill="#fff" opacity=".7" transform="rotate(-25 40 31)"/>${logo ? `<path d="M50 30.5 C47.6 34 46.6 35.6 46.6 37 A3.4 3.4 0 0 0 53.4 37 C53.4 35.6 52.4 34 50 30.5Z" fill="${LDR.blue}"/><circle cx="50" cy="37.2" r="1.3" fill="${LDR.green}"/>` : ''}`);
+  return `<g transform="translate(0 ${H.hatDy})">` + p(m, 'M29 43 C28 24 72 24 71 43 Z', col) + e(m, 50, 43, 27, 4.6, col) +
+    det(m, `<path d="M33 41 C33 30 41 26 50 26 C59 26 67 30 67 41" fill="none" stroke="#000" stroke-opacity=".08" stroke-width="3"/><path d="M50 26 V41" stroke="#000" stroke-opacity=".1" stroke-width="3"/><ellipse cx="40" cy="31" rx="5" ry="2.6" fill="#fff" opacity=".7" transform="rotate(-25 40 31)"/>${logo ? `<path d="M50 30.5 C47.6 34 46.6 35.6 46.6 37 A3.4 3.4 0 0 0 53.4 37 C53.4 35.6 52.4 34 50 30.5Z" fill="${LDR.blue}"/><circle cx="50" cy="37.2" r="1.3" fill="${LDR.green}"/>` : ''}`) + '</g>';
 }
 // Outfits are drawn under the head, filled with the body path itself (no floating shapes), with shading that
 // follows the round belly; the neckline is the chin line. Mirrored arm shapes give armholes or sleeves.
@@ -241,6 +271,13 @@ export const PLAYER_WEAR: Record<string, { label: string; col: string; wear: () 
   gilet: { label: 'Gilet haute visibilité', col: '#E4F23C', wear: giletHV },
   combi: { label: 'Combinaison', col: '#2D72C9', wear: combi },
 };
+/** Head thumbnail (character screen): the bare head in the chosen fur, as a small sticker. */
+export function headThumb(k: string, fur = 'caramel') {
+  return withFur(FURS[fur] ?? FUR_CARAMEL, () => withHead(k, () => {
+    const l = (m: Mode) => capyEars(m) + p(m, H.path, C.fur) + det(m, H.face());
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="14 24 72 78" aria-hidden="true"><g transform="translate(1.4 2)">${l('s')}</g>${l('o')}${l('c')}</svg>`;
+  }));
+}
 /** Torso thumbnail of an outfit (option picker on the character screen). */
 export function outfitThumb(k: string) {
   const w = PLAYER_WEAR[k] ?? PLAYER_WEAR.polo;
@@ -250,25 +287,31 @@ export function outfitThumb(k: string) {
 const shirtWear = () => poloWear('#F4F1EA', false);
 const tie = (m: Mode) => p(m, 'M46 95 L54 95 L52 99 L55 110 L50 114 L45 110 L48 99 Z', '#3E5C9A');
 const bow = (m: Mode) => p(m, 'M50 92 L39 86 C36 90 36 96 39 99 Z', '#E8344E') + p(m, 'M50 92 L61 86 C64 90 64 96 61 99 Z', '#E8344E') + c(m, 50, 92.5, 3.6, '#B71F35');
-function glasses(m: Mode) { return det(m, `<circle cx="34.8" cy="48.8" r="6.6" fill="#fff" fill-opacity=".12" stroke="${P.ink}" stroke-width="2"/><circle cx="65.2" cy="48.8" r="6.6" fill="#fff" fill-opacity=".12" stroke="${P.ink}" stroke-width="2"/><path d="M41.4 48 Q50 45.6 58.6 48" stroke="${P.ink}" stroke-width="2" fill="none"/>`); }
+function glasses(m: Mode) { const [x, y] = H.eyes; return det(m, `<circle cx="${x}" cy="${y + .2}" r="6.6" fill="#fff" fill-opacity=".12" stroke="${P.ink}" stroke-width="2"/><circle cx="${100 - x}" cy="${y + .2}" r="6.6" fill="#fff" fill-opacity=".12" stroke="${P.ink}" stroke-width="2"/><path d="M${x + 6.6} ${y - .6} Q50 ${y - 3} ${93.4 - x} ${y - .6}" stroke="${P.ink}" stroke-width="2" fill="none"/>`); }
 const badge = (m: Mode, col: string, letter: string) => c(m, 64, 104, 6.4, col) + det(m, `<text x="64" y="107.6" text-anchor="middle" font-family="Fredoka, sans-serif" font-weight="700" font-size="9.5" fill="#fff">${letter}</text>`);
 
 export type Who = CapyId | 'chef' | 'kevin' | 'chat' | 'ours' | 'capydindon' | 'capy' | 'player';
 const CAPY_COL: Record<CapyId, string> = { josette: '#E86A92', momo: '#F39A2B', lulu: '#2FA4A9' };
 /** Base-cap with a front visor (Momo, interventions at the customer's: no hard hat indoors). */
 function cap(m: Mode, col: string) {
-  return p(m, 'M29 45 C28 27 72 27 71 45 Z', col) + e(m, 50, 45.5, 23, 4.2, col) + p(m, 'M33 46 C40 52 60 52 67 46 C60 48.6 40 48.6 33 46Z', col) +
+  return `<g transform="translate(0 ${H.hatDy})">` + p(m, 'M29 45 C28 27 72 27 71 45 Z', col) + e(m, 50, 45.5, 23, 4.2, col) + p(m, 'M33 46 C40 52 60 52 67 46 C60 48.6 40 48.6 33 46Z', col) +
     det(m, `<path d="M33 46 C40 52 60 52 67 46 C60 48.6 40 48.6 33 46Z" fill="#000" opacity=".22"/><path d="M50 28.6 V44" stroke="#000" stroke-opacity=".12" stroke-width="2.4"/><ellipse cx="40" cy="33" rx="4.6" ry="2.2" fill="#fff" opacity=".35" transform="rotate(-25 40 33)"/><circle cx="50" cy="28.4" r="1.8" fill="#000" opacity=".2"/>
-      <path d="M56.5 33.5 C55 35.8 54.2 37 54.2 38 A2.3 2.3 0 0 0 58.8 38 C58.8 37 58 35.8 56.5 33.5Z" fill="${LDR.blue}"/><circle cx="56.5" cy="38.2" r=".9" fill="${LDR.green}"/>`);
+      <path d="M56.5 33.5 C55 35.8 54.2 37 54.2 38 A2.3 2.3 0 0 0 58.8 38 C58.8 37 58 35.8 56.5 33.5Z" fill="${LDR.blue}"/><circle cx="56.5" cy="38.2" r=".9" fill="${LDR.green}"/>`) + '</g>';
 }
 function wrench(m: Mode) {
   return p(m, 'M78 84 L85 77 C83 74 84 70 87.6 68.6 L88.4 72.6 L91.6 73.4 L93.4 70.6 C95.6 73.6 94.6 78 91 79.4 L84 86.4Z', '#9AA9B8') +
     det(m, `<path d="M79.6 84.4 L86 78" stroke="#fff" stroke-width="1.2" opacity=".7" stroke-linecap="round"/>`) + e(m, 79.4, 86.6, 5.4, 4.6, C.furD);
 }
-function mic(m: Mode, col: string) { return det(m, `<path d="M24.6 62 C26 72.6 32 78.6 39.6 79.6" stroke="${P.ink}" stroke-width="1.9" fill="none" stroke-linecap="round"/><circle cx="40.6" cy="79.6" r="2.6" fill="${col}" stroke="#fff" stroke-width="1"/>`); }
+function mic(m: Mode, col: string) { const [cx, cy] = H.cup; const [x, y] = H.mic; return det(m, `<path d="M${cx + .4} ${cy + 5.5} C${cx + 1.8} ${y - 7} ${x - 7.6} ${y - 1} ${x} ${y}" stroke="${P.ink}" stroke-width="1.9" fill="none" stroke-linecap="round"/><circle cx="${x + 1}" cy="${y}" r="2.6" fill="${col}" stroke="#fff" stroke-width="1"/>`); }
 // Player accessories (appearance options on the character screen)
 export type Acc = 'aucun' | 'lunettes' | 'noeud' | 'meche' | 'lavande';
 function accessory(m: Mode, a: Acc) {
+  const g = (dx: number, dy: number, x: string) => (x ? `<g transform="translate(${+dx.toFixed(2)} ${+dy.toFixed(2)})">${x}</g>` : '');
+  const ex = H.ears[0] - 29.4, ey = H.ears[1] - 35.4;
+  if (a === 'noeud') return g(ex, ey, accRaw(m, a)); if (a === 'lavande') return g(-ex, ey, accRaw(m, a)); if (a === 'meche') return g(0, H.top - 32.6, accRaw(m, a));
+  return accRaw(m, a);
+}
+function accRaw(m: Mode, a: Acc) {
   switch (a) {
     case 'lunettes': return glasses(m);
     case 'noeud': return p(m, 'M33 37 L23 31 C20.6 35 21 40 24 42.6 Z', '#FF77B0') + p(m, 'M33 37 L41 29.4 C44.4 32 45 37 42.6 40.6 Z', '#FF77B0') + c(m, 33, 37, 3.4, '#E84D8A');
@@ -277,10 +320,10 @@ function accessory(m: Mode, a: Acc) {
     default: return '';
   }
 }
-export interface Look { fur: string; acc: Acc; outfit: string }
+export interface Look { fur: string; acc: Acc; outfit: string; head?: string }
 /** Outfit keys and their main colour (validation, swatches). Old v0.2 keys are migrated in player.ts. */
 export const OUTFITS: Record<string, string> = Object.fromEntries(Object.keys(PLAYER_WEAR).map((k) => [k, PLAYER_WEAR[k].col]));
-export const DEFAULT_LOOK: Look = { fur: 'caramel', acc: 'aucun', outfit: 'polo' };
+export const DEFAULT_LOOK: Look = { fur: 'caramel', acc: 'aucun', outfit: 'polo', head: 'classique' };
 let LOOK: Look = DEFAULT_LOOK;
 /** The player's dispatcher capy: polo in a brand colour, headset with microphone, one accessory. */
 export function setPlayerLook(l: Look) { LOOK = l; }
@@ -291,11 +334,11 @@ function playerLayer(m: Mode, l: Look) {
 function layer(who: Who, m: Mode) {
   switch (who) {
     case 'josette': return capyFront(m, vestWear('#E9F542')) + badge(m, CAPY_COL.josette, 'J') + headsetOn(m, '#E86A92', true) + helmet(m);
-    case 'momo': return withFur(FURS.noisette, () => capyFront(m, poloWear(LDR.navy)) + badge(m, CAPY_COL.momo, 'M') + cap(m, LDR.blue));
-    case 'lulu': return withFur(FURS.miel, () => capyFront(m, vestWear('#FF9A2E')) + badge(m, CAPY_COL.lulu, 'L') + helmet(m, '#FFD23F') + wrench(m));
-    case 'player': return withFur(FURS[LOOK.fur] ?? FUR_CARAMEL, () => playerLayer(m, LOOK));
-    case 'chef': return capyFront(m, shirtWear()) + tie(m) + glasses(m);
-    case 'kevin': return capyFront(m, poloWear('#E3EEFB', false)) + headsetOn(m, '#5B8DEF') + mic(m, '#5B8DEF');
+    case 'momo': return withFur(FURS.noisette, () => withHead('ronde', () => capyFront(m, poloWear(LDR.navy)) + badge(m, CAPY_COL.momo, 'M') + cap(m, LDR.blue)));
+    case 'lulu': return withFur(FURS.miel, () => withHead('long', () => capyFront(m, vestWear('#FF9A2E')) + badge(m, CAPY_COL.lulu, 'L') + helmet(m, '#FFD23F') + wrench(m)));
+    case 'player': return withFur(FURS[LOOK.fur] ?? FUR_CARAMEL, () => withHead(LOOK.head, () => playerLayer(m, LOOK)));
+    case 'chef': return withHead('long', () => capyFront(m, shirtWear()) + tie(m) + glasses(m));
+    case 'kevin': return withHead('ronde', () => capyFront(m, poloWear('#E3EEFB', false)) + headsetOn(m, '#5B8DEF') + mic(m, '#5B8DEF'));
     case 'chat': return catBody(m) + bow(m);
     case 'ours': return bearBody(m) + helmet(m, GDF.red, false) + det(m, `<rect x="40" y="33" width="20" height="5" rx="2.5" fill="#fff"/>`);
     case 'capydindon': return dindonBody(m);
@@ -304,15 +347,15 @@ function layer(who: Who, m: Mode) {
 }
 /** Headset: the band hugs the top of the head and passes behind the ears (ears and tuft are redrawn over it);
  *  under a hard hat only the ends of the band and the ear cups show (helmet-mounted, drawn before the helmet). */
-const BAND = 'M24 56 C22.2 41 27.4 30.6 50 29.8 C72.6 30.6 77.8 41 76 56';
 function headsetOn(m: Mode, col = '#E86A92', hat = false) {
-  const w = 3.6;
+  const w = 3.6; const [cx, cy] = H.cup; const t = H.top;
+  const BAND = `M${cx - .2} ${cy - .5} C${cx - 2} ${cy - 15.5} ${cx + 3.2} ${t - 2} 50 ${t - 2.8} C${96.8 - cx} ${t - 2} ${102 - cx} ${cy - 15.5} ${100.2 - cx} ${cy - .5}`;
   const band = m === 'c'
     ? `<path d="${BAND}" stroke="${col}" stroke-width="${w}" fill="none" stroke-linecap="round"/><path d="${BAND}" stroke="#fff" stroke-opacity=".35" stroke-width="1" fill="none" stroke-linecap="round" stroke-dasharray="0 9 30 200"/>`
     : `<path d="${BAND}" stroke="${m === 'o' ? '#fff' : 'rgba(90,55,25,.28)'}" stroke-width="${w + OUT}" fill="none" stroke-linecap="round"/>`;
-  const ears = hat ? '' : det(m, `${capyEars('c')}<path d="M45.4 34.6 q2 -3.6 4 -.4 q2 -4 4 0" fill="none" stroke="${C.furD}" stroke-width="1.6" stroke-linecap="round"/>`);
-  const cups = e(m, 24.2, 56.5, 4.8, 6.2, col) + e(m, 75.8, 56.5, 4.8, 6.2, col) +
-    det(m, `<ellipse cx="25.2" cy="56.5" rx="2.2" ry="3.8" fill="#000" opacity=".16"/><ellipse cx="74.8" cy="56.5" rx="2.2" ry="3.8" fill="#000" opacity=".16"/><ellipse cx="22.8" cy="54" rx="1.2" ry="2" fill="#fff" opacity=".55"/><ellipse cx="74.4" cy="54" rx="1.2" ry="2" fill="#fff" opacity=".55"/>`);
+  const ears = hat ? '' : det(m, `${capyEars('c')}<path d="M45.4 ${t + 2} q2 -3.6 4 -.4 q2 -4 4 0" fill="none" stroke="${C.furD}" stroke-width="1.6" stroke-linecap="round"/>`);
+  const cups = e(m, cx, cy, 4.8, 6.2, col) + e(m, 100 - cx, cy, 4.8, 6.2, col) +
+    det(m, `<ellipse cx="${cx + 1}" cy="${cy}" rx="2.2" ry="3.8" fill="#000" opacity=".16"/><ellipse cx="${99 - cx}" cy="${cy}" rx="2.2" ry="3.8" fill="#000" opacity=".16"/><ellipse cx="${cx - 1.4}" cy="${cy - 2.5}" rx="1.2" ry="2" fill="#fff" opacity=".55"/><ellipse cx="${99.8 - cx}" cy="${cy - 2.5}" rx="1.2" ry="2" fill="#fff" opacity=".55"/>`);
   return band + ears + cups;
 }
 /** Player capy for a given look (character screen preview), without touching the saved look. */
@@ -420,3 +463,10 @@ export const PONT_STICKER = `<g stroke="#fff" stroke-width="5" stroke-linejoin="
   <path d="M-34 8 V-2 H34 V8 H26 A10 10 0 0 0 6 8 H2 A10 10 0 0 0 -18 8 H-22 A6 6 0 0 0 -34 8Z" fill="#EAD3A6"/>
   <path d="M-6 -2 V-12 H4 V-2" fill="#EAD3A6"/><path d="M-6 -12 L-1 -17 L4 -12" fill="#D9774E" stroke-width="3"/>
   <path d="M-34 -2 H34" stroke="#C9A66E" stroke-width="2" paint-order="normal"/></g>`;
+/** Art sheets only (scripts): a capy with a given head wearing the hard hat over the headset, like Josette. */
+export function hardHatSvg(head: string, fur = 'caramel') {
+  return withFur(FURS[fur] ?? FUR_CARAMEL, () => withHead(head, () => {
+    const l = (m: Mode) => capyFront(m, vestWear('#E9F542')) + headsetOn(m, '#E86A92', true) + helmet(m);
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-6 14 112 106" aria-hidden="true"><g transform="translate(2.2 3.2)">${l('s')}</g>${l('o')}${l('c')}</svg>`;
+  }));
+}

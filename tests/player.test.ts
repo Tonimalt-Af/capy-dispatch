@@ -17,8 +17,9 @@ it('cleanName keeps real names (accents, apostrophes, hyphens) and strips markup
 });
 it('cleanPlayer rejects bad sexes/names and falls back to the default look', () => {
   expect(cleanPlayer(null)).toBe(null); expect(cleanPlayer({ name: 'Léa', sex: 'autre' })).toBe(null); expect(cleanPlayer({ name: '<>', sex: 'femme' })).toBe(null);
-  expect(cleanPlayer({ name: 'Léa', sex: 'femme', look: { fur: 'zebre', acc: '<b>', outfit: 'rouge' } })).toEqual({ name: 'Léa', sex: 'femme', look: { fur: 'caramel', acc: 'aucun', outfit: 'polo' } });
-  expect(cleanPlayer({ name: 'Paul', sex: 'homme', look: { fur: 'miel', acc: 'lunettes', outfit: 'gilet' } })!.look).toEqual({ fur: 'miel', acc: 'lunettes', outfit: 'gilet' });
+  expect(cleanPlayer({ name: 'Léa', sex: 'femme', look: { fur: 'zebre', acc: '<b>', outfit: 'rouge' } })).toEqual({ name: 'Léa', sex: 'femme', look: { fur: 'caramel', acc: 'aucun', outfit: 'polo', head: 'classique' } });
+  expect(cleanPlayer({ name: 'Paul', sex: 'homme', look: { fur: 'miel', acc: 'lunettes', outfit: 'gilet', head: 'long' } })!.look).toEqual({ fur: 'miel', acc: 'lunettes', outfit: 'gilet', head: 'long' });
+  expect(cleanPlayer({ name: 'Léa', sex: 'femme', look: { head: 'carrée<script>' } })!.look.head).toBe('classique');
   // v0.2 colour keys are migrated to outfit styles
   expect(['marine', 'vert', 'bleu'].map((o) => cleanPlayer({ name: 'Léa', sex: 'femme', look: { outfit: o } })!.look.outfit)).toEqual(['polo', 'veste', 'combi']);
 });
@@ -26,7 +27,7 @@ it('migration: a v0.1 save (no player) keeps its game and asks for the character
   const old = defaults() as Partial<ReturnType<typeof defaults>>; delete old.player; old.best = { stars: 12, yield: 0.8, runs: 1 };
   mem[KEY] = JSON.stringify(old); const s = load(); expect(s.player).toBe(null); expect(s.best.runs).toBe(1);
   s.player = { name: 'Camille', sex: 'femme', look: { fur: 'noisette', acc: 'lavande', outfit: 'veste' } }; save(s);
-  expect(load().player).toEqual(s.player); expect(sanitize({ player: { name: 'x'.repeat(99), sex: 'homme' } }).player!.name.length).toBe(NAME_MAX);
+  expect(load().player).toEqual({ ...s.player, look: { ...s.player.look, head: 'classique' } }); expect(sanitize({ player: { name: 'x'.repeat(99), sex: 'homme' } }).player!.name.length).toBe(NAME_MAX);
 });
 it('grammatical agreement: one form, chosen from the sex', () => {
   expect(agree("{Bienvenu|Bienvenue} à l'agence", 'homme')).toBe("Bienvenu à l'agence"); expect(agree("{Bienvenu|Bienvenue} à l'agence", 'femme')).toBe("Bienvenue à l'agence");
