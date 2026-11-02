@@ -11,7 +11,7 @@ import { readBook, merge, bookView, BOOK_KEY, SEASONS, type Sticker } from './ca
 import { MapView, type Pin, type Route } from './mapview';
 import { who, icon, ICONS, logoLDR, glyph, vanSvg, playerSvg, outfitThumb, headThumb, HEADS, setPlayerLook, FURS, OUTFITS, DEFAULT_LOOK, type Who, type Look } from './art';
 import { cleanName, validName, setSex, agree, gx, NAME_MAX, ACCS, ACC_LABEL, FUR_LABEL, OUTFIT_LABEL, OUTFIT_SHORT, HEAD_LABEL, type Sex } from './player';
-import { facade, wrongText, foundText, miniScore, meterSvg } from './facade';
+import { facade, wrongText, foundText, miniScore, meterSvg, spotLabel } from './facade';
 import { Sound } from './audio';
 import { haptic, installPress, setHaptics } from './feel';
 import * as H from './hindsight';
@@ -762,25 +762,44 @@ function whoDrops(p: G.Pending, c: ReturnType<typeof G.cardOf>, ci: number) {
   $('#dc-plan').onclick = () => { const nt = G.choose(g!, ci); after(nt, false); };
 }
 function miniGame(id: string, capy: CapyId) {
-  const t = g!.tickets[id]; const f = facade(t.num * 131 + t.site); let wrong = 0, hint = false, done = false; const missed = new Set<number>();
-  const draw = () => {
-    openOv(`<div class="mini-l"><div class="facade">${f.svg.replace('</svg>', (done ? meterSvg(f.spots[f.meter]) : '') + '</svg>')}${f.spots.map((s) => `<button class="spot${hint && !f.hintSpots.includes(s.id) ? ' dim' : ''}${missed.has(s.id) ? ' miss' : ''}" ${missed.has(s.id) ? 'disabled ' : ''}data-s="${s.id}" style="left:${(s.x / 400) * 100}%;top:${(s.y / 240) * 100}%;width:${((s.r * 2.2) / 400) * 100}%" aria-label="Chercher ici"></button>`).join('')}</div></div>
-      <div class="mini-r"><p class="kicker">${CAPY[capy].name} · ${esc(addr(t))}</p><h2>Trouver le compteur</h2>
-        <div class="say" id="say">${done ? '' : 'Où se cache le compteur ? Touche la façade. Pas de chrono.'}</div>
-        <div class="mini-k"><span>Ratés</span><b>${wrong}</b>${hint ? '<em>plan regardé</em>' : ''}</div>
-        <p class="rule">Trouve-le en deux essais et ${CAPY[capy].name} ne perd pas de temps. (Regarder le plan compte pour un essai.)</p>
-        <div class="col">${done ? '' : `<button class="btn" id="mg-hint" ${hint ? 'disabled' : ''}>${icon('search')}<span>Regarder le plan</span></button><button class="btn" id="mg-auto">Laisser faire ${CAPY[capy].name} <small>+1 h</small></button>`}</div></div>
-`, 'wide mini');
-    document.querySelectorAll<HTMLButtonElement>('.spot').forEach((b) => b.addEventListener('click', () => {
-      if (done) return; const s = Number(b.dataset.s);
-      if (s === f.meter) { done = true; snd.play('win'); const extra = miniScore(wrong, hint); draw(); party(document.querySelector('.facade')); $('#say').innerHTML = `<b>Trouvé ${foundText(f.spots[s].kind)} !</b> ${extra ? 'Ça a pris un peu de temps : +1 h.' : 'Pile à l’heure, bravo !'}`; setTimeout(() => finish(extra, `a trouvé le compteur ${foundText(f.spots[s].kind)}`), 1500); }
-      else { wrong++; missed.add(s); snd.play('invalid'); b.classList.add('miss'); b.disabled = true; $('#say').textContent = wrongText(f, s, t.num); const k = $('.mini-k b'); if (k) k.textContent = String(wrong); }
-    }));
-    $('#mg-hint')?.addEventListener('click', () => { hint = true; snd.play('hint'); draw(); $('#say').textContent = f.hint; });
-    $('#mg-auto')?.addEventListener('click', () => finish(1, 'a cherché le compteur tout seul (+1 h)'));
+  const t = g!.tickets[id]; const f = facade(t.num * 131 + t.site); let wrong = 0, hint = false, done = false, closed = false; let last: 'start' | 'miss' | 'hint' = 'start'; const missed = new Set<number>();
+  const name = CAPY[capy].name;
+  const spent = () => wrong + (hint ? 1 : 0);
+  /** Live margin: one free mistake, and the SIG plan counts as that mistake. Same rule as miniScore. */
+  const margin = () => {
+    const s = spent(); const extra = miniScore(wrong, hint);
+    if (done) return extra ? { cls: 'late', b: '+1 h', t: 'L’intervention gagne une heure.' } : { cls: 'ok', b: 'À l’heure', t: 'Aucune heure de perdue.' };
+    if (s > 1) return { cls: 'late', b: '+1 h', t: 'Trop d’essais : l’intervention gagne une heure.' };
+    if (s === 1) return { cls: 'warn', b: 'À l’heure', t: hint && !wrong ? 'Le plan est utilisé : plus droit à l’erreur.' : 'Plus droit à l’erreur.' };
+    return { cls: 'ok', b: 'À l’heure', t: 'Une erreur est offerte. Le plan compte pour une.' };
   };
-  const finish = (extra: 0 | 1, how: string) => { G.miniResult(g!, extra, how); save(); closeOv(); render(); if (today().pending.length) showPending(); else play(); };
-  draw();
+  const paint = () => {
+    const m = margin(); const say = $('#say'); say.className = `say${done ? ' ok' : last === 'hint' ? ' hint' : last === 'miss' ? ' bad' : ''}`;
+    const line = $('#say-t');
+    if (done) { const extra = miniScore(wrong, hint); line.innerHTML = `<b>Trouvé ${foundText(f.spots[f.meter].kind)} !</b> ${extra ? 'Ça a pris un peu de temps : +1 h.' : 'Pile à l’heure, bravo !'}`; }
+    else line.textContent = last === 'hint' ? f.hint : last === 'miss' ? wrongText(f, [...missed].at(-1)!, t.num) : 'Touche un objet de la façade. Pas de chrono.';
+    const bud = $('#budget'); bud.className = `budget ${m.cls}`; $('#bud-b').textContent = m.b; $('#bud-s').textContent = m.t;
+    document.querySelectorAll<SVGElement>('.facade .prop').forEach((el) => { const i = Number(el.dataset.p); el.classList.toggle('out', missed.has(i) || (hint && !f.hintSpots.includes(i))); });
+    const hb = $<HTMLButtonElement>('#mg-hint'); if (hb) { hb.disabled = hint || done; const lab = hb.querySelector('.mg-lab'); if (lab) lab.textContent = hint ? 'Plan regardé' : 'Regarder le plan'; }
+    $('#mg-acts')?.toggleAttribute('hidden', done);
+  };
+  openOv(`<div class="mini-l"><div class="facade">${f.svg}${f.spots.map((s) => `<button class="spot" data-s="${s.id}" style="left:${(s.x / 400) * 100}%;top:${(s.y / 240) * 100}%;width:${((s.r * 2.2) / 400) * 100}%" aria-label="Chercher ${spotLabel[s.kind]}"></button>`).join('')}</div></div>
+    <div class="mini-r"><p class="kicker">${name} cherche · ${esc(addr(t))}</p><h2>Où est le compteur ?</h2>
+      <div class="say" id="say" aria-live="polite"><div class="say-cap" aria-hidden="true">${who(capy)}</div><p id="say-t">Touche un objet de la façade. Pas de chrono.</p></div>
+      <div class="budget ok" id="budget"><b id="bud-b">À l’heure</b><span id="bud-s">Une erreur est offerte. Le plan compte pour une.</span></div>
+      <div class="col mini-acts" id="mg-acts"><button class="btn" id="mg-hint">${icon('search')}<span class="mg-lab">Regarder le plan</span></button><button class="btn mini-skip" id="mg-auto"><span>Laisser faire ${name}</span><small class="cost">+1 h</small></button></div></div>
+`, 'wide mini');
+  const finish = (extra: 0 | 1, how: string) => { if (closed) return; closed = true; G.miniResult(g!, extra, how); save(); closeOv(); render(); if (today().pending.length) showPending(); else play(); };
+  document.querySelectorAll<HTMLButtonElement>('.spot').forEach((b) => b.addEventListener('click', () => {
+    if (done) return; const s = Number(b.dataset.s);
+    if (s === f.meter) {
+      done = true; snd.play('win'); const extra = miniScore(wrong, hint); document.querySelector('.facade-svg')?.insertAdjacentHTML('beforeend', meterSvg(f.spots[s])); document.querySelector('.facade')?.classList.add('done');
+      document.querySelectorAll<HTMLButtonElement>('.spot').forEach((x) => { x.disabled = true; }); paint(); party(document.querySelector('.facade'));
+      setTimeout(() => finish(extra, `a trouvé le compteur ${foundText(f.spots[s].kind)}`), 2400);
+    } else { wrong++; missed.add(s); last = 'miss'; snd.play('invalid'); b.classList.add('miss'); b.disabled = true; paint(); }
+  }));
+  $('#mg-hint').addEventListener('click', () => { if (hint || done) return; hint = true; last = 'hint'; snd.play('hint'); document.querySelectorAll<HTMLButtonElement>('.spot').forEach((b) => { const i = Number(b.dataset.s); if (!f.hintSpots.includes(i)) { b.classList.add('dim'); b.disabled = true; } else if (!missed.has(i)) b.classList.add('hot'); }); paint(); });
+  $('#mg-auto').addEventListener('click', () => finish(1, 'a cherché le compteur tout seul (+1 h)'));
 }
 
 // ---------------------------------------------------------------- map
@@ -959,7 +978,10 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) addEventListener('load
 });
 addEventListener('resize', () => { if (view() === 'game' && g?.today) render(); });
 // test hook (read-only snapshot + controls used by the Playwright suite)
-(window as unknown as { __capy: object }).__capy = { state: () => g, G, render: () => render(), mini: (id: string, c: CapyId) => miniGame(id, c), defaults, speed: (s: 1 | 2) => { speed = s; },
+(window as unknown as { __capy: object }).__capy = { state: () => g, G, render: () => render(), mini: (id: string, c: CapyId) => miniGame(id, c),
+  /** Test hook: where this ticket's meter hides, so the e2e can tap a wrong spot on purpose. */
+  facadeOf: (id: string) => { const t = g!.tickets[id]; const f = facade(t.num * 131 + t.site); return { meter: f.meter, hint: f.hint }; },
+  defaults, speed: (s: 1 | 2) => { speed = s; },
   ui: { creator: () => creator(home, false), briefing, closeScreen, replayDay, hindsight: () => hs, bilan, detail, showPending, showWarnings, menu, settings, objectives, enterGame, home, stop, blockMenu: (id: string) => { const el = document.querySelector<HTMLElement>(`.blk[data-b="${id}"]`); if (el) blockMenu(id, el); } } };
 
 if (!S.player) creator(home, true); else { home(); if (g && !g.over && g.today && location.hash === '#jouer') enterGame(); }

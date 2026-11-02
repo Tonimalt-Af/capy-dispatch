@@ -1,5 +1,5 @@
 import { it, expect } from 'vitest';
-import { facade, wrongText, foundText } from '../src/facade';
+import { facade, wrongText, foundText, spotLabel } from '../src/facade';
 
 it('procedural façades: deterministic, several spots, the meter is never the door, the SIG hint keeps it', () => {
   for (let s = 1; s < 120; s++) {
@@ -12,3 +12,13 @@ it('procedural façades: deterministic, several spots, the meter is never the do
   }
 });
 it('the façades vary', () => { expect(new Set(Array.from({ length: 30 }, (_, i) => facade(i + 1).svg)).size).toBeGreaterThan(25); });
+
+it('the picture can change, the hiding places stay put', () => {
+  const lay = (s: number) => { const f = facade(s); return { meter: f.meter, spots: f.spots.map((p) => [p.kind, p.x, p.y]) }; };
+  expect(lay(1)).toEqual({ meter: 4, spots: [['porte', 200, 162], ['regard', 330, 222], ['niche', 250, 152], ['poubelles', 150, 178], ['soupirail', 70, 186]] });
+  expect(lay(2026)).toEqual({ meter: 2, spots: [['porte', 200, 162], ['regard', 330, 222], ['niche', 250, 152], ['velo', 150, 178], ['jardiniere', 40, 178]] });
+  const f = facade(7);
+  expect(f.svg).toContain('linearGradient'); expect(f.svg).toContain('class="prop"');
+  for (const sp of f.spots) expect(f.svg).toContain(`data-p="${sp.id}"`);
+  expect(spotLabel[f.spots[f.meter].kind].length).toBeGreaterThan(3);
+});
