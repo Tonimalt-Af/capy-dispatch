@@ -263,15 +263,12 @@ function dailyScreen(k = dSel) {
   $('#d-film')?.addEventListener('click', () => { if (!g?.daily) camp = g; g = dst.cur!.game; enterGame(); setTimeout(() => replayDay(true), 300); });
 }
 function credits() {
-  openOv(`<h2>Crédits &amp; licences</h2><div class="cred">
-    <p><b>Capy Dispatch</b> (titre de travail) · un jeu de Maxime Durand.</p>
-    <p><b>Illustrations d'accueil et de partage</b> : générées par IA pour ce jeu, d'après nos propres capybaras.</p>
-    <p><b>Carte</b> : données © les contributeurs d'OpenStreetMap, disponibles sous licence <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">ODbL</a>. Le style de la carte est le nôtre.</p>
-    <p><b>Dessins</b> : capybaras et autocollants dessinés à la main en SVG pour ce jeu. <b>Musique et bruitages</b> : synthétisés dans le navigateur, originaux.</p>
-    <p><b>Police</b> : Fredoka (SIL Open Font License).</p>
-    <p><b>Parodie</b> : Lyonnaise des Robinets, Générale des Flots, SORE et la Régie sont des entreprises imaginaires. Jeu non officiel, sans lien avec un opérateur réel. Les abonnés et le préfet sont fictifs.</p>
-    <p class="muted">Le métier est inspiré de vraies fiches métiers des opérateurs d'eau : deux métiers distincts, le PRC (compteurs et branchements) et le réseau (grosses conduites et vannes), plus le débit de nuit, l'avis de coupure 48 h, l'appel à l'exploitant gaz avant de creuser…</p>
-  </div><div class="btns"><button class="btn primary" id="cred-ok">OK</button></div>`);
+  openOv(`<div class="cred">
+    <h2>Crédits</h2>
+    <p class="cred-name"><span>Capy</span> Dispatch</p>
+    <p class="cred-lead">Jeu gratuit, parodie faite par des fans.<br>Sans lien avec un opérateur réel.</p>
+    <p class="fine">© les contributeurs d’<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>, ODbL.<br>Police Fredoka, SIL Open Font License.</p>
+  </div><div class="btns"><button class="btn primary" id="cred-ok">OK</button></div>`, 'credov');
   $('#cred-ok').onclick = () => { closeOv(); if (view() === 'game') resumeAfterOverlay(); };
 }
 
@@ -352,7 +349,7 @@ function explain(kind: 'y' | 'm3' | 'sat', back?: () => void) {
 }
 function menu() {
   openOv(`<h2>Pause</h2><p class="muted">${dayName(today().day)}</p><div class="col">
-    <button class="btn primary" id="m-back">${glyph('play')}<span>Reprendre</span></button><button class="btn" id="m-set">${glyph('gear')}<span>Réglages</span></button><button class="btn" id="m-cred">Crédits &amp; licences</button><button class="btn" id="m-home">${glyph('home')}<span>Accueil</span></button></div>`, 'small');
+    <button class="btn primary" id="m-back">${glyph('play')}<span>Reprendre</span></button><button class="btn" id="m-set">${glyph('gear')}<span>Réglages</span></button><button class="btn" id="m-cred">Crédits</button><button class="btn" id="m-home">${glyph('home')}<span>Accueil</span></button></div>`, 'small');
   $('#m-back').onclick = () => { closeOv(); resumeAfterOverlay(); }; $('#m-set').onclick = settings; $('#m-cred').onclick = credits; $('#m-home').onclick = home;
 }
 function objectives() {
