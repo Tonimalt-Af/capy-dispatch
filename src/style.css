@@ -490,8 +490,9 @@ details{font-size:var(--fs-s)}summary{cursor:pointer;font-weight:600;padding:var
 .map-svg.far .mlabel:not(.q):not(.big){display:none}
 .chip.qx{background:#E4F0D6;color:#3F5A2C}
 
-/* game feel (section 14): stamp on a finished block, the capy's bubble, the star flying to the yield gauge, a van on the map while driving */
-.fx{position:fixed;z-index:60;pointer-events:none;transform:translate(-50%,-50%)}
+/* game feel (section 14): stamp on a finished block, the capy's bubble, the star flying to the yield gauge.
+   Only the floating effects appended to body. The same .fx class is the inline chip on a choice (« +1 h », « +4 ») : those must stay in the card. */
+body>.fx{position:fixed;z-index:60;pointer-events:none;transform:translate(-50%,-50%)}
 .fx.stamp{font:700 var(--fs-m)/1 Fredoka,sans-serif;color:#1E8A4C;border:3px solid #1E8A4C;border-radius:8px;padding:4px 8px;background:#ffffffd9;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;animation:stamp 1.5s ease-out forwards}
 @keyframes stamp{0%{transform:translate(-50%,-50%) rotate(-12deg) scale(2.2);opacity:0}15%{transform:translate(-50%,-50%) rotate(-12deg) scale(1);opacity:1}75%{opacity:1}100%{transform:translate(-50%,-50%) rotate(-12deg) scale(1);opacity:0}}
 .fx.say{transform:translate(-10%,-150%);background:#fff;color:var(--ink);font-size:var(--fs-s);font-weight:700;padding:5px 9px;border-radius:12px;box-shadow:0 2px 6px #0003;white-space:nowrap;animation:say 1.7s ease-out forwards}
@@ -501,7 +502,8 @@ details{font-size:var(--fs-s)}summary{cursor:pointer;font-weight:600;padding:var
 .mcapy .mvan{animation:bob .5s ease-in-out infinite}
 .fx.confetti{width:0;height:0}.fx.confetti i{position:absolute;width:8px;height:12px;border-radius:2px;animation:conf 1.2s ease-out forwards}
 @keyframes conf{from{transform:translate(0,0) rotate(0);opacity:1}to{transform:translate(var(--dx),var(--dy)) rotate(var(--r));opacity:0}}
-.calm .fx,body:has(#ov.show) .fx:not(.confetti){display:none}
+html.calm>body>.fx,body:has(#ov.show)>.fx:not(.confetti){display:none}
+button:focus-visible,[role=button]:focus-visible,a:focus-visible,[role=radio]:focus-visible,[role=tab]:focus-visible{outline:3px solid var(--ldr-blue-d);outline-offset:2px}
 
 /* special days (section 14): one-sentence briefing + two effect chips, weather tints and dressing on the map */
 .daycard .dfx{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:3px}.daycard .dfx i{font-style:normal;display:inline-flex;align-items:center;gap:4px;font-weight:600;font-size:var(--fs-xs,12px)}.daycard .dfx svg{width:18px;height:18px}

@@ -40,6 +40,11 @@ describe('planning preview', () => {
     const s = G.preview(g, cap.id).find((x) => x.id === t.id)!;
     expect(s.endMax - s.end).toBe(2); expect(G.maxExtra(t)).toBe(2);
   });
+  it('an urgent job with no leak (frozen meter) is not described as water still flowing', () => {
+    const g = fresh(); const t = addTicket(g, 'gel_cpt'); const w = G.warnings(g).filter((x) => x.id === t.id);
+    expect(w).toHaveLength(1); expect(w[0].level).toBe('orange'); expect(w[0].text).toContain("n'a plus d'eau"); expect(w[0].text).not.toMatch(/undefined|0 m³|coule/);
+    const leak = addTicket(g, 'fuite_pc'); expect(JOBS.fuite_pc.urgent).toBeFalsy(); expect(G.warnings(g).some((x) => x.id === leak.id)).toBe(false);
+  });
   it('a RDV planned too late is flagged red, an early arrival waits for the window', () => {
     const g = fresh(); const cap = 'momo';
     const a = addTicket(g, 'prc', { rdv: [0, 0] }); const b = addTicket(g, 'prc', { rdv: [5, 6] }); g.pile.push(a.id, b.id);

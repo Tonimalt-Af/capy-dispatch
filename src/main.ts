@@ -105,7 +105,7 @@ document.body.innerHTML = `<div id="app"><div class="view" id="home"></div><div 
 
 let toastT = 0;
 function toast(msg: string, ms = 2200, bad = false) { const t = $('#toast'); t.textContent = nb(msg); t.classList.toggle('bad', bad); t.classList.add('show'); clearTimeout(toastT); toastT = window.setTimeout(() => t.classList.remove('show'), ms); }
-function openOv(html: string, cls = '') { $('#toast').classList.remove('show'); const c = $('#card'); c.className = `card ${cls}`; c.innerHTML = html; fillNames(c); $('#ov').classList.add('show'); c.scrollTop = 0; }
+function openOv(html: string, cls = '') { $('#toast').classList.remove('show'); const c = $('#card'); c.className = `card ${cls}`; c.innerHTML = html; c.setAttribute('role', 'dialog'); c.setAttribute('aria-modal', 'true'); const h = c.querySelector('h1, h2'); if (h) { h.id = 'ov-title'; c.setAttribute('aria-labelledby', 'ov-title'); } else c.removeAttribute('aria-labelledby'); if (!c.hasAttribute('tabindex')) c.tabIndex = -1; fillNames(c); $('#ov').classList.add('show'); c.scrollTop = 0; c.focus({ preventScroll: true }); }
 function closeOv() { $('#ov').classList.remove('show'); }
 const ovOpen = () => $('#ov').classList.contains('show');
 
@@ -309,7 +309,7 @@ function topbar() {
       <button class="kpi k-y${bump.y}" id="t-y" aria-label="Rendement de réseau ${pct(y)}, but ${Math.round(YIELD_TARGET * 100)} % : qu'est-ce que c'est ?"><span class="lbl">Rendement de réseau</span><span class="kv"><b>${pct(y)}</b><span class="gauge"><i style="width:${f(y)}%"></i><em style="left:${f(YIELD_TARGET)}%"></em></span><span class="goal">but ${Math.round(YIELD_TARGET * 100)}</span></span></button>
       <button class="kpi k-m3${bump.m3}" id="t-m3" aria-label="Eau perdue aujourd'hui : ${Math.round(d.m3)} m³"><span class="lbl">Eau perdue</span><span class="kv">${icon('drop', 'ic xs')}<b>${Math.round(d.m3)} m³</b></span></button>
       <button class="kpi k-sat${bump.sat}" id="t-sat" aria-label="Abonnés : ${Math.round(g!.sat)} sur 100"><span class="lbl">Abonnés</span><span class="kv">${icon('heart', 'ic xs')}<b>${Math.round(g!.sat)}</b></span></button></div>
-    <button class="t-map" id="t-map" aria-controls="mapbox" aria-expanded="${mapOpen}">${glyph('map')}<span>Carte</span></button>`;
+    <button class="t-map" id="t-map" aria-label="Carte" aria-controls="mapbox" aria-expanded="${mapOpen}">${glyph('map')}<span>Carte</span></button>`;
   fillNames($('#game .top'));
   $('#t-menu').onclick = () => { pauseRun(); menu(); };
   $('#t-obj').onclick = () => { pauseRun(); objectives(); };
@@ -479,7 +479,7 @@ function card(id: string) {
   const age = g!.day - t.day; const rdv = t.rdv ? rdvText(t.rdv) : '';
   const sub = J.name.replace(/\s*\(.*\)$/, '').replace(/[«»]/g, '').trim(); const subShow = sub.toLowerCase() !== J.short.toLowerCase();
   const gain = J.fix ? G.fixGain(g!, J.fix) : 0;
-  const badge = J.leak ? `<span class="chip red" title="Urgent : ${J.leak} m³ perdus par heure tant que ce n’est pas réparé">Urgent · ${J.leak}\u202Fm³/h</span>` : gain >= 0.05 ? `<span class="chip gain" title="Rendement de réseau gagné une fois réparé">${pt1(gain)}</span>` : '';
+  const badge = J.urgent ? `<span class="chip red" title="${J.leak ? `${J.leak} m³ perdus par heure tant que ce n’est pas réparé` : 'À commencer vite : l’abonné n’a plus d’eau'}">Urgent${J.leak ? ` · ${J.leak}\u202Fm³/h` : ''}</span>` : J.leak ? `<span class="chip red" title="${J.leak} m³ perdus par heure tant que ce n’est pas réparé">${J.leak}\u202Fm³/h</span>` : gain >= 0.05 ? `<span class="chip gain" title="Rendement de réseau gagné une fois réparé">${pt1(gain)}</span>` : '';
   const rw = t.risks.filter((r) => r !== 'absent').map((r) => `${RISKS[r].name} (+1 h ?)`).concat(t.risks.includes('absent') ? ['Peut-être absent'] : []).concat(J.minigame ? ['Compteur à trouver (+1 h ?)'] : []);
   return `<div class="tk${J.urgent ? ' urg' : ''}${sel === id ? ' sel' : ''}${ok ? '' : ' wait'}" data-t="${id}" style="--c:${SK_COL[J.skill]}" role="button" tabindex="0" aria-label="${J.short}${J.urgent ? ', urgent' : ''}">
     <div class="tk-h">${icon(J.icon)}<b>${J.short}</b>${t.vip ? `<span class="chip vip">${VIPS[t.vip].tag}</span>` : ''}<span class="dur" title="Durée (1 créneau = 1 h)">${range(t)} h</span></div>
@@ -618,7 +618,7 @@ function detail(id: string) {
     <p>${J.desc}</p>${t.vip ? `<p class="vipr">${icon('star', 'ic s')} <b>${VIPS[t.vip].tag}</b> · ${VIPS[t.vip].rule}</p>` : ''}
     <div class="det-g"><div><h3>Qui peut y aller ?</h3>${TEAM.map((c) => capyFit(t, c)).join('')}</div>
     <div><h3>À savoir</h3>${t.risks.length || J.minigame || t.rdv || J.urgent ? '' : '<p class="muted">Rien de spécial : une intervention tranquille.</p>'}
-    ${t.rdv ? `<p>${icon('clock', 'ic s')} <b>RDV</b> : arrivée entre ${slotLabel(t.rdv[0])} et ${slotLabel(t.rdv[1])}${t.rdv[0] === t.rdv[1] ? '' : ''}</p>` : ''}${J.urgent ? `<p class="red">${icon('drop', 'ic s')} <b>Urgent</b> : à commencer dans les ${URGENT_TARGET} h après l'appel. Elle perd ${J.leak} m³ par heure.</p>` : ''}
+    ${t.rdv ? `<p>${icon('clock', 'ic s')} <b>RDV</b> : arrivée entre ${slotLabel(t.rdv[0])} et ${slotLabel(t.rdv[1])}${t.rdv[0] === t.rdv[1] ? '' : ''}</p>` : ''}${J.urgent ? `<p class="red">${icon('drop', 'ic s')} <b>Urgent</b> : à commencer dans les ${URGENT_TARGET} h après l’appel. ${J.leak ? `${J.leak} m³ perdus par heure tant que ce n’est pas réparé.` : 'L’abonné n’a plus d’eau.'}</p>` : J.leak ? `<p>${icon('drop', 'ic s')} <b>${J.leak} m³ par heure</b> tant que ce n’est pas réparé.</p>` : ''}
     ${t.risks.map((r) => `<p>${icon(r === 'absent' ? 'clock' : RISKS[r].icon, 'ic s')} <b>${r === 'absent' ? 'Abonné peut-être absent' : RISKS[r].name}</b> · ${RISKS[r].tip} <i>(si ça arrive, tu choisiras quoi faire)</i></p>`).join('')}${J.minigame ? `<p>${icon('search', 'ic s')} <b>Compteur à trouver</b> · trouvé vite, pas de retard ; sinon +1 h</p>` : ''}</div></div>
     ${J.dig ? `<button class="btn ${t.gas ? 'ok' : 'danger'}" id="d-gas">${icon(t.gas ? 'phone' : 'phoneX')}<span>${t.gas ? 'Gaz appelé ✓' : 'Appeler le gaz avant de creuser'}</span></button>` : ''}
     ${J.coupure && t.avail === null ? `<button class="btn" id="d-avis">${icon('mail')}<span>Prévenir les voisins (avis 48 h)</span></button>` : ''}
@@ -938,7 +938,15 @@ addEventListener('pointerup', async () => { if (triedLand || !matchMedia('(point
 const portrait = matchMedia('(orientation:portrait) and (pointer:coarse)');
 portrait.addEventListener?.('change', () => { if (portrait.matches) pauseRun(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) pauseRun(); });
-addEventListener('keydown', (e) => { if (e.key !== 'Escape') return; if (ovOpen() && $('#d-ok')) { closeOv(); resumeAfterOverlay(); } else if (!ovOpen() && mapOpen) setMap(false); });
+addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) { const t = e.target as HTMLElement | null; if (t?.getAttribute('role') === 'button' && !t.closest('button, a, input, textarea')) { e.preventDefault(); t.click(); return; } }
+  if (e.key !== 'Escape') return;
+  const menu = document.querySelector('.bmenu'); if (menu) { menu.remove(); return; }
+  if (!ovOpen()) { if (mapOpen) setMap(false); return; }
+  // a decision, the mini-game, the briefing and the end of the day stay: closing them would drop the choice
+  if (document.querySelector('#card .choice, #card.mini, #b-go, #c-next, #bi-home')) return;
+  document.querySelector<HTMLElement>('#x-back, #c-no, #sea-no, #w-fix, #d-ok, #m-back, #s-ok, #cred-ok, #nb-ok, #o-ok, #x-ok')?.click();
+});
 if (import.meta.env.PROD && 'serviceWorker' in navigator) addEventListener('load', () => {
   let reloading = false; const hadCtl = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadCtl && !reloading) { reloading = true; location.reload(); } });
