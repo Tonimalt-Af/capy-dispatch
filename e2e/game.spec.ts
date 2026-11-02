@@ -1,5 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
-import { withPlayer, errors, settle } from './helpers';
+import { withPlayer, errors, settle, smallTargets, overlaps } from './helpers';
+
+const tinyText = (page: Page) => page.evaluate(() => [...document.querySelectorAll('body *')].filter((e) => e.childNodes.length && [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent!.trim()) && !e.closest('svg') && (e as HTMLElement).offsetParent !== null && parseFloat(getComputedStyle(e).fontSize) < 12).map((e) => `${e.tagName}.${e.getAttribute('class')} ${getComputedStyle(e).fontSize} «${e.textContent!.trim().slice(0, 24)}»`));
 
 test.beforeEach(async ({ page }) => { await withPlayer(page); });
 async function start(page: Page) { await page.goto('./'); await page.click('#h-new'); await expect(page.locator('#b-go')).toBeVisible(); await page.click('#b-go'); }
@@ -153,6 +155,44 @@ test('permanent notebook: own key, survives a new fortnight, three pages', async
   await page.click('#h-nb'); await expect(page.locator('.nb-page .cn.got')).toHaveCount(1); await page.click('[data-pg="2"]');
   await expect(page.locator('.cn-sea')).toHaveCount(4); await expect(page.locator('.cn.saison.got')).toContainText('Après l’orage');
   expect(e).toEqual([]);
+});
+
+test('mini-jeu compteur: consigne claire, cibles 44 px, raté, plan, trouvé', async ({ page }) => {
+  const sizes = test.info().project.name === 'desktop' ? [[1440, 900]] : [[844, 390], [667, 325]];
+  for (const [w, h] of sizes) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto('./');
+    await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('capy-dispatch-v1') || '{}'); localStorage.setItem('capy-dispatch-v1', JSON.stringify({ player: s.player })); });
+    await page.reload(); await page.evaluate(() => document.fonts.ready);
+    await page.click('#h-new'); await page.click('#b-go');
+    const info = await page.evaluate(() => {
+      const api = (window as unknown as { __capy: { state: () => { tickets: Record<string, unknown> }; mini: (id: string, c: string) => void; facadeOf: (id: string) => { meter: number } } }).__capy;
+      const id = Object.keys(api.state().tickets)[0]; api.mini(id, 'momo');
+      return api.facadeOf(id);
+    });
+    await expect(page.locator('.facade-svg')).toBeVisible();
+    await expect(page.locator('.mini-r h2')).toContainText(/compteur/i);
+    await expect(page.locator('#say-t')).toContainText('façade');
+    await expect(page.locator('#bud-s')).toContainText('erreur');
+    await expect(page.locator('.say-cap svg')).toHaveCount(1);
+    expect(await smallTargets(page), `${w}×${h} cibles`).toEqual([]);
+    expect(await tinyText(page), `${w}×${h} texte`).toEqual([]);
+    expect(await overlaps(page, ['#card']), `${w}×${h} carte`).toEqual([]);
+    expect(await overlaps(page, ['.facade', '.mini-r']), `${w}×${h} colonnes`).toEqual([]);
+    const bad = info.meter === 0 ? 1 : 0;
+    await page.locator(`.spot[data-s="${bad}"]`).click();
+    await expect(page.locator('#say')).toHaveClass(/bad/);
+    await expect(page.locator(`.spot[data-s="${bad}"]`)).toBeDisabled();
+    await page.click('#mg-hint');
+    await expect(page.locator('#say-t')).toContainText('SIG');
+    await expect(page.locator('#mg-hint')).toBeDisabled();
+    expect(await page.locator('.spot.dim').count()).toBeGreaterThan(0);
+    expect(await page.locator('.spot.hot').count()).toBeGreaterThan(0);
+    await page.locator(`.spot[data-s="${info.meter}"]`).click();
+    await expect(page.locator('#say-t')).toContainText('Trouvé');
+    await expect(page.locator('.found')).toHaveCount(1);
+    await expect(page.locator('#mg-acts')).toBeHidden();
+  }
 });
 
 test('Tournée du jour: one ranked attempt, spoiler-free share text, 7 days, the campaign untouched', async ({ page }) => {
