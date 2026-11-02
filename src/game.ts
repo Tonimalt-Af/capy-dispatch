@@ -196,7 +196,7 @@ export function warnings(g: Game, rule: SafetyRule = SAFETY_RULE): Warn[] {
     else if (s.endMax > SLOTS) w.push({ level: 'orange', kind: 'maybe', id: s.id, text: `${c.name} risque de finir après ${DAY_END} si un imprévu tombe (${at})` });
   }
   const urgent = g.pile.filter((id) => JOBS[g.tickets[id].job].urgent && avail(g, id) && !g.today!.done.includes(id) && !Object.values(g.today!.plan).flat().includes(id) && !Object.values(g.today!.capys).some((c) => c.job === id));
-  for (const id of urgent) { const t = g.tickets[id]; const J = JOBS[t.job]; w.push({ level: 'orange', kind: 'urgent', id, text: `${J.short} ${rue(t.site)} : personne n'y va encore, l'eau coule (${J.leak ?? 0} m³ par heure)` }); }
+  for (const id of urgent) { const t = g.tickets[id]; const J = JOBS[t.job]; const why = J.leak ? `l'eau coule (${J.leak} m³ par heure)` : "l'abonné n'a plus d'eau"; w.push({ level: 'orange', kind: 'urgent', id, text: `${J.short} ${rue(t.site)} : personne n'y va encore, ${why}` }); }
   return w;
 }
 const slotH = slotLabel; // SLOTS = end of the day (17 h 30)
